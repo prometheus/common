@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package text
+package textproto
 
 import (
 	"bufio"
@@ -25,7 +25,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/prometheus/client_golang/model"
+	"github.com/prometheus/common/model"
 )
 
 // A stateFn is a function that represents a state in a state machine. By
