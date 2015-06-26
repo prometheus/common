@@ -47,8 +47,8 @@ func (e encoder) Encode(v *dto.MetricFamily) error {
 	return e(v)
 }
 
-// New returns a new encoder based on content type negotiation.
-func New(w io.Writer, h http.Header) (e Encoder, ct string) {
+// NewEncoder returns a new encoder based on content type negotiation.
+func NewEncoder(w io.Writer, h http.Header) (e Encoder, ct string) {
 	switch ct = formatType(h.Get("Accept")); ct {
 	case FmtProtoDelim:
 		e = encoder(func(v *dto.MetricFamily) error {
