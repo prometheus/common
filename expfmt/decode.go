@@ -33,13 +33,6 @@ type Decoder interface {
 	Decode(*dto.MetricFamily) error
 }
 
-type decoder func(*dto.MetricFamily) error
-
-// Decode implements the Decoder interface.
-func (d decoder) Decode(v *dto.MetricFamily) error {
-	return d(v)
-}
-
 type DecodeOptions struct {
 	// Timestamp is added to each value from the stream that has no explicit timestamp set.
 	Timestamp model.Timestamp
@@ -60,10 +53,7 @@ func NewDecoder(r io.Reader, h http.Header) (Decoder, error) {
 		if params["encoding"] != "delimited" {
 			return nil, fmt.Errorf("unsupported encoding %s", params["encoding"])
 		}
-		return decoder(func(v *dto.MetricFamily) error {
-			_, err := pbutil.ReadDelimited(r, v)
-			return err
-		}), nil
+		return &protoDecoder{r: r}, nil
 
 	case "text/plain":
 		if ver := params["version"]; ver == "0.0.4" || ver == "" {
@@ -74,6 +64,16 @@ func NewDecoder(r io.Reader, h http.Header) (Decoder, error) {
 	default:
 		return nil, fmt.Errorf("unsupported media type %q, expected %q", mediatype, "application/vnd.google.protobuf")
 	}
+}
+
+type protoDecoder struct {
+	r io.Reader
+}
+
+// Decode implements the Decoder interface.
+func (d *protoDecoder) Decode(v *dto.MetricFamily) error {
+	_, err := pbutil.ReadDelimited(d.r, v)
+	return err
 }
 
 // textDecoder implements the Decoder interface for the text protcol.
