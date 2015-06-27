@@ -11,7 +11,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// A package for exposing Prometheus metrics.
 package expfmt
 
 import (
@@ -26,16 +25,6 @@ import (
 	"github.com/prometheus/common/expfmt/text"
 )
 
-const (
-	ProtocolVersion = "0.0.4"
-
-	// The Content-Type values for the different wire protocols.
-	FmtText         = `text/plain; version=` + ProtocolVersion
-	FmtProtoDelim   = `application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited`
-	FmtProtoText    = `application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=text`
-	FmtProtoCompact = `application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=compact-text`
-)
-
 // Encoder types encode metric families into an underlying wire protocol.
 type Encoder interface {
 	Encode(*dto.MetricFamily) error
@@ -47,46 +36,12 @@ func (e encoder) Encode(v *dto.MetricFamily) error {
 	return e(v)
 }
 
-// NewEncoder returns a new encoder based on content type negotiation.
-func NewEncoder(w io.Writer, h http.Header) (e Encoder, ct string) {
-	switch ct = formatType(h.Get("Accept")); ct {
-	case FmtProtoDelim:
-		e = encoder(func(v *dto.MetricFamily) error {
-			_, err := pbutil.WriteDelimited(w, v)
-			return err
-		})
-	case FmtProtoCompact:
-		e = encoder(func(v *dto.MetricFamily) error {
-			_, err := fmt.Fprintln(w, v.String())
-			return err
-		})
-	case FmtProtoText:
-		e = encoder(func(v *dto.MetricFamily) error {
-			_, err := fmt.Fprintln(w, proto.MarshalTextString(v))
-			return err
-		})
-	default:
-		// By default we return the plain text format.
-		e = encoder(func(v *dto.MetricFamily) error {
-			_, err := text.MetricFamilyToText(w, v)
-			return err
-		})
-	}
-	return e, ct
-}
-
-const (
-	protoType    = "application"
-	protoSubType = "vnd.google.protobuf"
-	protoProto   = "io.prometheus.client.MetricFamily"
-)
-
-// formatType returns the Content-Type based on the given Accept header.
+// Negotiate returns the Content-Type based on the given Accept header.
 // If no appropriate accepted type is found, FmtText is returned.
-func formatType(as string) string {
-	for _, ac := range goautoneg.ParseAccept(as) {
+func Negotiate(h http.Header) Format {
+	for _, ac := range goautoneg.ParseAccept(h.Get(hdrAccept)) {
 		// Check for protocol buffer
-		if ac.Type == protoType && ac.SubType == protoSubType && ac.Params["proto"] == protoProto {
+		if ac.Type == ProtoType && ac.SubType == ProtoSubType && ac.Params["proto"] == ProtoProtocol {
 			switch ac.Params["encoding"] {
 			case "delimited":
 				return FmtProtoDelim
@@ -98,9 +53,36 @@ func formatType(as string) string {
 		}
 		// Check for text format.
 		ver := ac.Params["version"]
-		if ac.Type == "text" && ac.SubType == "plain" && (ver == "0.0.4" || ver == "") {
+		if ac.Type == "text" && ac.SubType == "plain" && (ver == TextVersion || ver == "") {
 			return FmtText
 		}
 	}
 	return FmtText
+}
+
+// NewEncoder returns a new encoder based on content type negotiation.
+func NewEncoder(w io.Writer, format Format) Encoder {
+	switch format {
+	case FmtProtoDelim:
+		return encoder(func(v *dto.MetricFamily) error {
+			_, err := pbutil.WriteDelimited(w, v)
+			return err
+		})
+	case FmtProtoCompact:
+		return encoder(func(v *dto.MetricFamily) error {
+			_, err := fmt.Fprintln(w, v.String())
+			return err
+		})
+	case FmtProtoText:
+		return encoder(func(v *dto.MetricFamily) error {
+			_, err := fmt.Fprintln(w, proto.MarshalTextString(v))
+			return err
+		})
+	case FmtText:
+		return encoder(func(v *dto.MetricFamily) error {
+			_, err := text.MetricFamilyToText(w, v)
+			return err
+		})
+	}
+	panic("expfmt.NewEncoder: unknown format")
 }

@@ -40,32 +40,40 @@ type DecodeOptions struct {
 
 // NewDecor returns a new decoder based on the HTTP header.
 func NewDecoder(r io.Reader, h http.Header) (Decoder, error) {
-	mediatype, params, err := mime.ParseMediaType(h.Get("Content-Type"))
+	ct := h.Get(hdrContentType)
+
+	mediatype, params, err := mime.ParseMediaType(ct)
 	if err != nil {
-		return nil, fmt.Errorf("invalid Content-Type header %q: %s", h.Get("Content-Type"), err)
+		return nil, fmt.Errorf("invalid Content-Type header %q: %s", ct, err)
 	}
 
+	const (
+		protoType = ProtoType + "/" + ProtoSubType
+		textType  = "text/plain"
+	)
+
 	switch mediatype {
-	case "application/vnd.google.protobuf":
-		if params["proto"] != protoProto {
-			return nil, fmt.Errorf("unrecognized protocol message %s", params["proto"])
+	case protoType:
+		if p := params["proto"]; p != ProtoProtocol {
+			return nil, fmt.Errorf("unrecognized protocol message %s", p)
 		}
-		if params["encoding"] != "delimited" {
-			return nil, fmt.Errorf("unsupported encoding %s", params["encoding"])
+		if e := params["encoding"]; e != "delimited" {
+			return nil, fmt.Errorf("unsupported encoding %s", e)
 		}
 		return &protoDecoder{r: r}, nil
 
-	case "text/plain":
-		if ver := params["version"]; ver == "0.0.4" || ver == "" {
-			return &textDecoder{r: r}, nil
+	case textType:
+		if v, ok := params["version"]; ok && v != "0.0.4" {
+			return nil, fmt.Errorf("unrecognized protocol version %s", v)
 		}
-		return nil, fmt.Errorf("unrecognized protocol version %s", params["version"])
+		return &textDecoder{r: r}, nil
 
 	default:
-		return nil, fmt.Errorf("unsupported media type %q, expected %q", mediatype, "application/vnd.google.protobuf")
+		return nil, fmt.Errorf("unsupported media type %q, expected %q or %q", mediatype, protoType, textType)
 	}
 }
 
+// protoDecoder implements the Decoder interface for protocol buffers.
 type protoDecoder struct {
 	r io.Reader
 }
