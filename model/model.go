@@ -11,5 +11,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package model contains core representation of Prometheus client primitives.
+// Package model contains common data structures that are shared across
+// Prometheus componenets and libraries.
 package model
