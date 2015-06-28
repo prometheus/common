@@ -32,6 +32,18 @@ func (v SampleValue) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf(`"%s"`, v)), nil
 }
 
+func (v *SampleValue) UnmarshalJSON(b []byte) error {
+	if len(b) < 2 || b[0] != '"' || b[len(b)-1] != '"' {
+		return fmt.Errorf("sample value must be a quoted string")
+	}
+	f, err := strconv.ParseFloat(b[1:len(b)-1], 64)
+	if err != nil {
+		return err
+	}
+	*v = SampleValue(f)
+	return nil
+}
+
 func (v SampleValue) String() string {
 	return strconv.FormatFloat(float64(v), 'f', -1, 64)
 }

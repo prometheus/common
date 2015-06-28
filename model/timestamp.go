@@ -93,6 +93,15 @@ func (t Timestamp) MarshalJSON() ([]byte, error) {
 	return []byte(t.String()), nil
 }
 
+func (t *Timestamp) UnmarshalJSON(b []byte) error {
+	ts, err := strconv.ParseFloat(string(b), 64)
+	if err != nil {
+		return err
+	}
+	*t = TimestampFromUnixNano(int64(ts * float64(native_time.Second)))
+	return nil
+}
+
 // Now returns the current time as a Timestamp.
 func Now() Timestamp {
 	return TimestampFromTime(native_time.Now())
