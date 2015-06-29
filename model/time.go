@@ -14,23 +14,22 @@
 package model
 
 import (
+	"fmt"
 	"math"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
-
-// Time is the number of milliseconds since the epoch
-// (1970-01-01 00:00 UTC) excluding leap seconds.
-type Time int64
 
 const (
 	// MinimumTick is the minimum supported time resolution. This has to be
 	// at least time.Second in order for the code below to work.
-	MinimumTick = time.Millisecond
+	minimumTick = time.Millisecond
 	// second is the Time duration equivalent to one second.
-	second = int64(time.Second / MinimumTick)
+	second = int64(time.Second / minimumTick)
 	// The number of nanoseconds per minimum tick.
-	nanosPerTick = int64(MinimumTick / time.Nanosecond)
+	nanosPerTick = int64(minimumTick / time.Nanosecond)
 
 	// Earliest is the earliest Time representable. Handy for
 	// initializing a high watermark.
@@ -39,6 +38,27 @@ const (
 	// a low watermark.
 	Latest = Time(math.MaxInt64)
 )
+
+// Time is the number of milliseconds since the epoch
+// (1970-01-01 00:00 UTC) excluding leap seconds.
+type Time int64
+
+// Now returns the current time as a Time.
+func Now() Time {
+	return TimeFromUnixNano(time.Now().UnixNano())
+}
+
+// TimeFromUnix returns the Time equivalent to the Unix Time t
+// provided in seconds.
+func TimeFromUnix(t int64) Time {
+	return Time(t * second)
+}
+
+// TimeFromUnixNano returns the Time equivalent to the Unix Time
+// t provided in nanoseconds.
+func TimeFromUnixNano(t int64) Time {
+	return Time(t / nanosPerTick)
+}
 
 // Equal reports whether two Times represent the same instant.
 func (t Time) Equal(o Time) bool {
@@ -57,12 +77,12 @@ func (t Time) After(o Time) bool {
 
 // Add returns the Time t + d.
 func (t Time) Add(d time.Duration) Time {
-	return t + Time(d/MinimumTick)
+	return t + Time(d/minimumTick)
 }
 
 // Sub returns the Duration t - o.
 func (t Time) Sub(o Time) time.Duration {
-	return time.Duration(t-o) * MinimumTick
+	return time.Duration(t-o) * minimumTick
 }
 
 // Time returns the time.Time representation of t.
@@ -82,9 +102,14 @@ func (t Time) UnixNano() int64 {
 	return int64(t) * nanosPerTick
 }
 
+// The number of digits after the dot.
+var dotPrecision = int(math.Log10(float64(second)))
+
 // String returns a string representation of the Time.
 func (t Time) String() string {
-	return strconv.FormatFloat(float64(t)/float64(second), 'f', -1, 64)
+	s := strconv.FormatInt(int64(t), 10)
+	i := len(s) - dotPrecision
+	return s[:i] + "." + s[i:]
 }
 
 // MarshalJSON implements the json.Marshaler interface.
@@ -92,33 +117,109 @@ func (t Time) MarshalJSON() ([]byte, error) {
 	return []byte(t.String()), nil
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
 func (t *Time) UnmarshalJSON(b []byte) error {
-	ts, err := strconv.ParseFloat(string(b), 64)
-	if err != nil {
-		return err
+	p := strings.Split(string(b), ".")
+	switch len(p) {
+	case 1:
+		v, err := strconv.ParseInt(string(p[0]), 10, 64)
+		if err != nil {
+			return err
+		}
+		*t = Time(v * second)
+
+	case 2:
+		v, err := strconv.ParseInt(string(p[0]), 10, 64)
+		if err != nil {
+			return err
+		}
+		v *= second
+
+		prec := dotPrecision - len(p[1])
+		if prec < 0 {
+			p[1] = p[1][:dotPrecision]
+		} else if prec > 0 {
+			p[1] = p[1] + strings.Repeat("0", prec)
+		}
+
+		va, err := strconv.ParseInt(p[1], 10, 32)
+		if err != nil {
+			return err
+		}
+
+		*t = Time(v + va)
+
+	default:
+		return fmt.Errorf("invalid time %q", string(b))
 	}
-	*t = TimeFromUnixNano(int64(ts * float64(time.Second)))
 	return nil
 }
 
-// Now returns the current time as a Time.
-func Now() Time {
-	return TimeFromTime(time.Now())
+// Duration wraps time.Duration.
+type Duration time.Duration
+
+// StringToDuration parses a string into a time.Duration, assuming that a year
+// a day always has 24h.
+func ParseDuration(durationStr string) (Duration, error) {
+	matches := durationRE.FindStringSubmatch(durationStr)
+	if len(matches) != 3 {
+		return 0, fmt.Errorf("not a valid duration string: %q", durationStr)
+	}
+	durSeconds, _ := strconv.Atoi(matches[1])
+	dur := time.Duration(durSeconds) * time.Second
+	unit := matches[2]
+	switch unit {
+	case "d":
+		dur *= 60 * 60 * 24
+	case "h":
+		dur *= 60 * 60
+	case "m":
+		dur *= 60
+	case "s":
+		dur *= 1
+	default:
+		return 0, fmt.Errorf("invalid time unit in duration string: %q", unit)
+	}
+	return Duration(dur), nil
 }
 
-// TimeFromTime returns the Time equivalent to the time.Time t.
-func TimeFromTime(t time.Time) Time {
-	return TimeFromUnixNano(t.UnixNano())
+var durationRE = regexp.MustCompile("^([0-9]+)([ywdhms]+)$")
+
+func (d Duration) String() string {
+	seconds := int64(time.Duration(d) / time.Second)
+	factors := map[string]int64{
+		"d": 60 * 60 * 24,
+		"h": 60 * 60,
+		"m": 60,
+		"s": 1,
+	}
+	unit := "s"
+	switch int64(0) {
+	case seconds % factors["d"]:
+		unit = "d"
+	case seconds % factors["h"]:
+		unit = "h"
+	case seconds % factors["m"]:
+		unit = "m"
+	}
+	return fmt.Sprintf("%v%v", seconds/factors[unit], unit)
 }
 
-// TimeFromUnix returns the Time equivalent to the Unix Time t
-// provided in seconds.
-func TimeFromUnix(t int64) Time {
-	return Time(t * second)
+// MarshalYAML implements the yaml.Marshaler interface.
+func (d Duration) MarshalYAML() (interface{}, error) {
+	return d.String(), nil
 }
 
-// TimeFromUnixNano returns the Time equivalent to the Unix Time
-// t provided in nanoseconds.
-func TimeFromUnixNano(t int64) Time {
-	return Time(t / nanosPerTick)
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (d *Duration) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	if err := unmarshal(&s); err != nil {
+		return err
+	}
+	dur, err := ParseDuration(s)
+	if err != nil {
+		return err
+	}
+	*d = dur
+	return nil
 }
