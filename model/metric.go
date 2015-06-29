@@ -20,85 +20,73 @@ import (
 	"strings"
 )
 
-var separator = []byte{0}
-
 // A Metric is similar to a LabelSet, but the key difference is that a Metric is
 // a singleton and refers to one and only one stream of samples.
-type Metric map[LabelName]LabelValue
+type Metric struct {
+	LabelSet
 
-// Equal compares the metrics.
-func (m Metric) Equal(o Metric) bool {
-	if len(m) != len(o) {
-		return false
-	}
-	for ln, lv := range m {
-		olv, ok := o[ln]
-		if !ok {
-			return false
-		}
-		if olv != lv {
-			return false
-		}
-	}
-	return true
+	Copied bool
 }
 
-// Before compares the metrics, using the following criteria:
-//
-// If m has fewer labels than o, it is before o. If it has more, it is not.
-//
-// If the number of labels is the same, the superset of all label names is
-// sorted alphanumerically. The first differing label pair found in that order
-// determines the outcome: If the label does not exist at all in m, then m is
-// before o, and vice versa. Otherwise the label value is compared
-// alphanumerically.
-//
-// If m and o are equal, the method returns false.
-func (m Metric) Before(o Metric) bool {
-	if len(m) < len(o) {
-		return true
+func NewMetric(ls LabelSet) Metric {
+	return Metric{
+		LabelSet: ls,
+		Copied:   false,
 	}
-	if len(m) > len(o) {
-		return false
-	}
+}
 
-	lns := make(LabelNames, 0, len(m)+len(o))
-	for ln := range m {
-		lns = append(lns, ln)
+func (m *Metric) Len() int {
+	return len(m.LabelSet)
+}
+
+func (m *Metric) Get(ln LabelName) LabelValue {
+	return m.LabelSet[ln]
+}
+
+func (m *Metric) Has(ln LabelName) (LabelValue, bool) {
+	v, ok := m.LabelSet[ln]
+	return v, ok
+}
+
+func (m *Metric) Set(ln LabelName, lv LabelValue) {
+	if !m.Copied {
+		m.Copy()
 	}
-	for ln := range o {
-		lns = append(lns, ln)
+	m.LabelSet[ln] = lv
+}
+
+func (m *Metric) Del(ln LabelName) {
+	if !m.Copied {
+		m.Copy()
 	}
-	// It's probably not worth it to de-dup lns.
-	sort.Sort(lns)
-	for _, ln := range lns {
-		mlv, ok := m[ln]
-		if !ok {
-			return true
-		}
-		olv, ok := o[ln]
-		if !ok {
-			return false
-		}
-		if mlv < olv {
-			return true
-		}
-		if mlv > olv {
-			return false
-		}
-	}
-	return false
+	delete(m.LabelSet, ln)
+}
+
+func (m *Metric) Copy() {
+	fmt.Println("call copy")
+	m.LabelSet = m.LabelSet.Clone()
+	m.Copied = true
+}
+
+// Equal compares the metrics.
+func (m *Metric) Equal(o Metric) bool {
+	return m.LabelSet.Equal(o.LabelSet)
+}
+
+// Before compares the metrics' underlying label sets.
+func (m *Metric) Before(o Metric) bool {
+	return m.LabelSet.Before(o.LabelSet)
 }
 
 // String implements Stringer.
-func (m Metric) String() string {
-	metricName, hasName := m[MetricNameLabel]
-	numLabels := len(m) - 1
+func (m *Metric) String() string {
+	metricName, hasName := m.LabelSet[MetricNameLabel]
+	numLabels := len(m.LabelSet) - 1
 	if !hasName {
-		numLabels = len(m)
+		numLabels++
 	}
 	labelStrings := make([]string, 0, numLabels)
-	for label, value := range m {
+	for label, value := range m.LabelSet {
 		if label != MetricNameLabel {
 			labelStrings = append(labelStrings, fmt.Sprintf("%s=%q", label, value))
 		}
@@ -116,77 +104,27 @@ func (m Metric) String() string {
 	}
 }
 
+// MarshalJSON implements json.Marshaler.
+func (m Metric) MarshalJSON() ([]byte, error) {
+	return json.Marshal(m.LabelSet)
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (m *Metric) UnmarshalJSON(b []byte) error {
+	if m.LabelSet != nil {
+		m.Copy()
+	}
+	m.Copied = true
+	return json.Unmarshal(b, &m.LabelSet)
+}
+
 // Fingerprint returns a Metric's Fingerprint.
 func (m Metric) Fingerprint() Fingerprint {
-	return metricToFingerprint(m)
+	return m.LabelSet.Fingerprint()
 }
 
 // FastFingerprint returns a Metric's Fingerprint calculated by a faster hashing
 // algorithm, which is, however, more susceptible to hash collisions.
 func (m Metric) FastFingerprint() Fingerprint {
-	return metricToFastFingerprint(m)
-}
-
-// Clone returns a copy of the Metric.
-func (m Metric) Clone() Metric {
-	clone := Metric{}
-	for k, v := range m {
-		clone[k] = v
-	}
-	return clone
-}
-
-// MergeFromLabelSet merges a label set into this Metric, prefixing a collision
-// prefix to the label names merged from the label set where required.
-func (m Metric) MergeFromLabelSet(labels LabelSet, collisionPrefix LabelName) {
-	for k, v := range labels {
-		if collisionPrefix != "" {
-			for {
-				if _, exists := m[k]; !exists {
-					break
-				}
-				k = collisionPrefix + k
-			}
-		}
-
-		m[k] = v
-	}
-}
-
-// COWMetric wraps a Metric to enable copy-on-write access patterns.
-type COWMetric struct {
-	Copied bool
-	Metric Metric
-}
-
-// Set sets a label name in the wrapped Metric to a given value and copies the
-// Metric initially, if it is not already a copy.
-func (m *COWMetric) Set(ln LabelName, lv LabelValue) {
-	m.doCOW()
-	m.Metric[ln] = lv
-}
-
-// Delete deletes a given label name from the wrapped Metric and copies the
-// Metric initially, if it is not already a copy.
-func (m *COWMetric) Delete(ln LabelName) {
-	m.doCOW()
-	delete(m.Metric, ln)
-}
-
-// doCOW copies the underlying Metric if it is not already a copy.
-func (m *COWMetric) doCOW() {
-	if !m.Copied {
-		m.Metric = m.Metric.Clone()
-		m.Copied = true
-	}
-}
-
-// String implements fmt.Stringer.
-func (m COWMetric) String() string {
-	return m.Metric.String()
-}
-
-// MarshalJSON implements json.Marshaler.
-func (m COWMetric) MarshalJSON() ([]byte, error) {
-	return json.Marshal(m.Metric)
+	return m.LabelSet.FastFingerprint()
 }

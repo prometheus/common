@@ -80,15 +80,15 @@ func LabelsToSignature(labels map[string]string) uint64 {
 	return hb.h.Sum64()
 }
 
-// metricToFingerprint works exactly as LabelsToSignature but takes a Metric as
+// labelSetToFingerprint works exactly as LabelsToSignature but takes a LabelSet as
 // parameter (rather than a label map) and returns a Fingerprint.
-func metricToFingerprint(m Metric) Fingerprint {
-	if len(m) == 0 {
+func labelSetToFingerprint(ls LabelSet) Fingerprint {
+	if len(ls) == 0 {
 		return Fingerprint(emptyLabelSignature)
 	}
 
-	labelNames := make(LabelNames, 0, len(m))
-	for labelName := range m {
+	labelNames := make(LabelNames, 0, len(ls))
+	for labelName := range ls {
 		labelNames = append(labelNames, labelName)
 	}
 	sort.Sort(labelNames)
@@ -99,7 +99,7 @@ func metricToFingerprint(m Metric) Fingerprint {
 	for _, labelName := range labelNames {
 		hb.b.WriteString(string(labelName))
 		hb.b.WriteByte(SeparatorByte)
-		hb.b.WriteString(string(m[labelName]))
+		hb.b.WriteString(string(ls[labelName]))
 		hb.b.WriteByte(SeparatorByte)
 		hb.h.Write(hb.b.Bytes())
 		hb.b.Reset()
@@ -107,11 +107,11 @@ func metricToFingerprint(m Metric) Fingerprint {
 	return Fingerprint(hb.h.Sum64())
 }
 
-// metricToFastFingerprint works similar to metricToFingerprint but uses a
+// labelSetToFastFingerprint works similar to labelSetToFingerprint but uses a
 // faster and less allocation-heavy hash function, which is more susceptible to
 // create hash collisions. Therefore, collision detection should be applied.
-func metricToFastFingerprint(m Metric) Fingerprint {
-	if len(m) == 0 {
+func labelSetToFastFingerprint(ls LabelSet) Fingerprint {
+	if len(ls) == 0 {
 		return Fingerprint(emptyLabelSignature)
 	}
 
@@ -119,7 +119,7 @@ func metricToFastFingerprint(m Metric) Fingerprint {
 	hb := getHashAndBuf()
 	defer putHashAndBuf(hb)
 
-	for labelName, labelValue := range m {
+	for labelName, labelValue := range ls {
 		hb.b.WriteString(string(labelName))
 		hb.b.WriteByte(SeparatorByte)
 		hb.b.WriteString(string(labelValue))
@@ -136,7 +136,7 @@ func metricToFastFingerprint(m Metric) Fingerprint {
 // specified LabelNames into the signature calculation. The labels passed in
 // will be sorted by this function.
 func SignatureForLabels(m Metric, labels LabelNames) uint64 {
-	if len(m) == 0 || len(labels) == 0 {
+	if len(m.LabelSet) == 0 || len(labels) == 0 {
 		return emptyLabelSignature
 	}
 
@@ -148,7 +148,7 @@ func SignatureForLabels(m Metric, labels LabelNames) uint64 {
 	for _, label := range labels {
 		hb.b.WriteString(string(label))
 		hb.b.WriteByte(SeparatorByte)
-		hb.b.WriteString(string(m[label]))
+		hb.b.WriteString(string(m.LabelSet[label]))
 		hb.b.WriteByte(SeparatorByte)
 		hb.h.Write(hb.b.Bytes())
 		hb.b.Reset()
@@ -160,12 +160,12 @@ func SignatureForLabels(m Metric, labels LabelNames) uint64 {
 // parameter (rather than a label map) and excludes the labels with any of the
 // specified LabelNames from the signature calculation.
 func SignatureWithoutLabels(m Metric, labels map[LabelName]struct{}) uint64 {
-	if len(m) == 0 {
+	if len(m.LabelSet) == 0 {
 		return emptyLabelSignature
 	}
 
-	labelNames := make(LabelNames, 0, len(m))
-	for labelName := range m {
+	labelNames := make(LabelNames, 0, m.Len())
+	for labelName := range m.LabelSet {
 		if _, exclude := labels[labelName]; !exclude {
 			labelNames = append(labelNames, labelName)
 		}
@@ -181,7 +181,7 @@ func SignatureWithoutLabels(m Metric, labels map[LabelName]struct{}) uint64 {
 	for _, labelName := range labelNames {
 		hb.b.WriteString(string(labelName))
 		hb.b.WriteByte(SeparatorByte)
-		hb.b.WriteString(string(m[labelName]))
+		hb.b.WriteString(string(m.LabelSet[labelName]))
 		hb.b.WriteByte(SeparatorByte)
 		hb.h.Write(hb.b.Bytes())
 		hb.b.Reset()

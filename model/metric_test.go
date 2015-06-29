@@ -17,17 +17,17 @@ import "testing"
 
 func testMetric(t testing.TB) {
 	var scenarios = []struct {
-		input           Metric
+		input           LabelSet
 		fingerprint     Fingerprint
 		fastFingerprint Fingerprint
 	}{
 		{
-			input:           Metric{},
+			input:           LabelSet{},
 			fingerprint:     14695981039346656037,
 			fastFingerprint: 14695981039346656037,
 		},
 		{
-			input: Metric{
+			input: LabelSet{
 				"first_name":   "electro",
 				"occupation":   "robot",
 				"manufacturer": "westinghouse",
@@ -36,14 +36,14 @@ func testMetric(t testing.TB) {
 			fastFingerprint: 11310079640881077873,
 		},
 		{
-			input: Metric{
+			input: LabelSet{
 				"x": "y",
 			},
 			fingerprint:     8241431561484471700,
 			fastFingerprint: 13948396922932177635,
 		},
 		{
-			input: Metric{
+			input: LabelSet{
 				"a": "bb",
 				"b": "c",
 			},
@@ -51,7 +51,7 @@ func testMetric(t testing.TB) {
 			fastFingerprint: 3198632812309449502,
 		},
 		{
-			input: Metric{
+			input: LabelSet{
 				"a":  "b",
 				"bb": "c",
 			},
@@ -61,11 +61,13 @@ func testMetric(t testing.TB) {
 	}
 
 	for i, scenario := range scenarios {
-		if scenario.fingerprint != scenario.input.Fingerprint() {
-			t.Errorf("%d. expected %d, got %d", i, scenario.fingerprint, scenario.input.Fingerprint())
+		input := NewMetric(scenario.input)
+
+		if scenario.fingerprint != input.Fingerprint() {
+			t.Errorf("%d. expected %d, got %d", i, scenario.fingerprint, input.Fingerprint())
 		}
-		if scenario.fastFingerprint != scenario.input.FastFingerprint() {
-			t.Errorf("%d. expected %d, got %d", i, scenario.fastFingerprint, scenario.input.FastFingerprint())
+		if scenario.fastFingerprint != input.FastFingerprint() {
+			t.Errorf("%d. expected %d, got %d", i, scenario.fastFingerprint, input.FastFingerprint())
 		}
 	}
 }
@@ -80,29 +82,29 @@ func BenchmarkMetric(b *testing.B) {
 	}
 }
 
-func TestCOWMetric(t *testing.T) {
-	testMetric := Metric{
+func TestMetricModify(t *testing.T) {
+	testMetric := LabelSet{
 		"to_delete": "test1",
 		"to_change": "test2",
 	}
 
 	scenarios := []struct {
-		fn  func(*COWMetric)
-		out Metric
+		fn  func(*Metric)
+		out LabelSet
 	}{
 		{
-			fn: func(cm *COWMetric) {
-				cm.Delete("to_delete")
+			fn: func(cm *Metric) {
+				cm.Del("to_delete")
 			},
-			out: Metric{
+			out: LabelSet{
 				"to_change": "test2",
 			},
 		},
 		{
-			fn: func(cm *COWMetric) {
+			fn: func(cm *Metric) {
 				cm.Set("to_change", "changed")
 			},
-			out: Metric{
+			out: LabelSet{
 				"to_delete": "test1",
 				"to_change": "changed",
 			},
@@ -111,11 +113,9 @@ func TestCOWMetric(t *testing.T) {
 
 	for i, s := range scenarios {
 		orig := testMetric.Clone()
-		cm := &COWMetric{
-			Metric: orig,
-		}
+		cm := NewMetric(orig)
 
-		s.fn(cm)
+		s.fn(&cm)
 
 		// Test that the original metric was not modified.
 		if !orig.Equal(testMetric) {
@@ -123,8 +123,8 @@ func TestCOWMetric(t *testing.T) {
 		}
 
 		// Test that the new metric has the right changes.
-		if !cm.Metric.Equal(s.out) {
-			t.Fatalf("%d. copied metric doesn't contain expected changes; expected %v, got %v", i, s.out, cm.Metric)
+		if !cm.LabelSet.Equal(s.out) {
+			t.Fatalf("%d. copied metric doesn't contain expected changes; expected %v, got %v", i, s.out, cm.LabelSet)
 		}
 	}
 }

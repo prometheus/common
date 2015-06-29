@@ -57,7 +57,6 @@ func TimeFromUnix(t int64) Time {
 // TimeFromUnixNano returns the Time equivalent to the Unix Time
 // t provided in nanoseconds.
 func TimeFromUnixNano(t int64) Time {
-	fmt.Println(t / nanosPerTick)
 	return Time(t / nanosPerTick)
 }
 
@@ -156,7 +155,9 @@ func (t *Time) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// Duration wraps time.Duration.
+// Duration wraps time.Duration. It is used to parse the custom duration format
+// from YAML.
+// This type should not propagate beyond the scope of input/output processing.
 type Duration time.Duration
 
 // StringToDuration parses a string into a time.Duration, assuming that a year

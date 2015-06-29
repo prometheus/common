@@ -64,7 +64,7 @@ func (e ValueType) String() string {
 
 // SampleStream is a stream of Values belonging to an attached COWMetric.
 type SampleStream struct {
-	Metric COWMetric    `json:"metric"`
+	Metric Metric       `json:"metric"`
 	Values []SamplePair `json:"values"`
 }
 
@@ -127,13 +127,13 @@ type Value interface {
 func (matrix Matrix) String() string {
 	metricStrings := make([]string, 0, len(matrix))
 	for _, sampleStream := range matrix {
-		metricName, hasName := sampleStream.Metric.Metric[MetricNameLabel]
-		numLabels := len(sampleStream.Metric.Metric)
+		metricName, hasName := sampleStream.Metric.Has(MetricNameLabel)
+		numLabels := sampleStream.Metric.Len()
 		if hasName {
 			numLabels--
 		}
 		labelStrings := make([]string, 0, numLabels)
-		for label, value := range sampleStream.Metric.Metric {
+		for label, value := range sampleStream.Metric.LabelSet {
 			if label != MetricNameLabel {
 				labelStrings = append(labelStrings, fmt.Sprintf("%s=%q", label, value))
 			}

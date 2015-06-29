@@ -27,6 +27,77 @@ import (
 // match.
 type LabelSet map[LabelName]LabelValue
 
+func (ls LabelSet) Equal(o LabelSet) bool {
+	if len(ls) != len(o) {
+		return false
+	}
+	for ln, lv := range ls {
+		olv, ok := o[ln]
+		if !ok {
+			return false
+		}
+		if olv != lv {
+			return false
+		}
+	}
+	return true
+}
+
+// Before compares the metrics, using the following criteria:
+//
+// If m has fewer labels than o, it is before o. If it has more, it is not.
+//
+// If the number of labels is the same, the superset of all label names is
+// sorted alphanumerically. The first differing label pair found in that order
+// determines the outcome: If the label does not exist at all in m, then m is
+// before o, and vice versa. Otherwise the label value is compared
+// alphanumerically.
+//
+// If m and o are equal, the method returns false.
+func (ls LabelSet) Before(o LabelSet) bool {
+	if len(ls) < len(o) {
+		return true
+	}
+	if len(ls) > len(o) {
+		return false
+	}
+
+	lns := make(LabelNames, 0, len(ls)+len(o))
+	for ln := range ls {
+		lns = append(lns, ln)
+	}
+	for ln := range o {
+		lns = append(lns, ln)
+	}
+	// It's probably not worth it to de-dup lns.
+	sort.Sort(lns)
+	for _, ln := range lns {
+		mlv, ok := ls[ln]
+		if !ok {
+			return true
+		}
+		olv, ok := o[ln]
+		if !ok {
+			return false
+		}
+		if mlv < olv {
+			return true
+		}
+		if mlv > olv {
+			return false
+		}
+	}
+	return false
+}
+
+func (ls LabelSet) Clone() LabelSet {
+	lsn := make(LabelSet, len(ls))
+	for ln, lv := range ls {
+		lsn[ln] = lv
+	}
+	return lsn
+}
+
 // Merge is a helper function to non-destructively merge two label sets.
 func (l LabelSet) Merge(other LabelSet) LabelSet {
 	result := make(LabelSet, len(l))
@@ -57,11 +128,15 @@ func (l LabelSet) String() string {
 	}
 }
 
-// MergeFromMetric merges Metric into this LabelSet.
-func (l LabelSet) MergeFromMetric(m Metric) {
-	for k, v := range m {
-		l[k] = v
-	}
+// Fingerprint returns the LabelSet's fingerprint.
+func (ls LabelSet) Fingerprint() Fingerprint {
+	return labelSetToFingerprint(ls)
+}
+
+// FastFingerprint returns the LabelSet's Fingerprint calculated by a faster hashing
+// algorithm, which is, however, more susceptible to hash collisions.
+func (ls LabelSet) FastFingerprint() Fingerprint {
+	return labelSetToFastFingerprint(ls)
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.

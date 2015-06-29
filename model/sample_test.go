@@ -21,78 +21,78 @@ import (
 func TestSamplesSort(t *testing.T) {
 	input := Samples{
 		&Sample{
-			Metric: Metric{
+			Metric: NewMetric(LabelSet{
 				MetricNameLabel: "A",
-			},
+			}),
 			Timestamp: 1,
 		},
 		&Sample{
-			Metric: Metric{
+			Metric: NewMetric(LabelSet{
 				MetricNameLabel: "A",
-			},
+			}),
 			Timestamp: 2,
 		},
 		&Sample{
-			Metric: Metric{
+			Metric: NewMetric(LabelSet{
 				MetricNameLabel: "C",
-			},
+			}),
 			Timestamp: 1,
 		},
 		&Sample{
-			Metric: Metric{
+			Metric: NewMetric(LabelSet{
 				MetricNameLabel: "C",
-			},
+			}),
 			Timestamp: 2,
 		},
 		&Sample{
-			Metric: Metric{
+			Metric: NewMetric(LabelSet{
 				MetricNameLabel: "B",
-			},
+			}),
 			Timestamp: 1,
 		},
 		&Sample{
-			Metric: Metric{
+			Metric: NewMetric(LabelSet{
 				MetricNameLabel: "B",
-			},
+			}),
 			Timestamp: 2,
 		},
 	}
 
 	expected := Samples{
 		&Sample{
-			Metric: Metric{
+			Metric: NewMetric(LabelSet{
 				MetricNameLabel: "A",
-			},
+			}),
 			Timestamp: 1,
 		},
 		&Sample{
-			Metric: Metric{
+			Metric: NewMetric(LabelSet{
 				MetricNameLabel: "A",
-			},
+			}),
 			Timestamp: 2,
 		},
 		&Sample{
-			Metric: Metric{
+			Metric: NewMetric(LabelSet{
 				MetricNameLabel: "B",
-			},
+			}),
 			Timestamp: 1,
 		},
 		&Sample{
-			Metric: Metric{
+			Metric: NewMetric(LabelSet{
 				MetricNameLabel: "B",
-			},
+			}),
 			Timestamp: 2,
 		},
 		&Sample{
-			Metric: Metric{
+			Metric: NewMetric(LabelSet{
 				MetricNameLabel: "C",
-			},
+			}),
 			Timestamp: 1,
 		},
 		&Sample{
-			Metric: Metric{
+			Metric: NewMetric(LabelSet{
 				MetricNameLabel: "C",
-			},
+			}),
 			Timestamp: 2,
 		},
 	}
