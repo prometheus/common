@@ -36,7 +36,7 @@ func (v *SampleValue) UnmarshalJSON(b []byte) error {
 	if len(b) < 2 || b[0] != '"' || b[len(b)-1] != '"' {
 		return fmt.Errorf("sample value must be a quoted string")
 	}
-	f, err := strconv.ParseFloat(b[1:len(b)-1], 64)
+	f, err := strconv.ParseFloat(string(b[1:len(b)-1]), 64)
 	if err != nil {
 		return err
 	}

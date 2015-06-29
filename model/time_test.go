@@ -15,13 +15,13 @@ package model
 
 import (
 	"testing"
-	native_time "time"
+	"time"
 )
 
 func TestComparators(t *testing.T) {
-	t1a := TimestampFromUnix(0)
-	t1b := TimestampFromUnix(0)
-	t2 := TimestampFromUnix(2*second - 1)
+	t1a := TimeFromUnix(0)
+	t1b := TimeFromUnix(0)
+	t2 := TimeFromUnix(2*second - 1)
 
 	if !t1a.Equal(t1b) {
 		t.Fatalf("Expected %s to be equal to %s", t1a, t1b)
@@ -45,21 +45,21 @@ func TestComparators(t *testing.T) {
 	}
 }
 
-func TestTimestampConversions(t *testing.T) {
+func TestTimeConversions(t *testing.T) {
 	unixSecs := int64(1136239445)
 	unixNsecs := int64(123456789)
 	unixNano := unixSecs*1000000000 + unixNsecs
 
-	t1 := native_time.Unix(unixSecs, unixNsecs-unixNsecs%nanosPerTick)
-	t2 := native_time.Unix(unixSecs, unixNsecs)
+	t1 := time.Unix(unixSecs, unixNsecs-unixNsecs%nanosPerTick)
+	t2 := time.Unix(unixSecs, unixNsecs)
 
-	ts := TimestampFromUnixNano(unixNano)
+	ts := TimeFromUnixNano(unixNano)
 	if !ts.Time().Equal(t1) {
 		t.Fatalf("Expected %s, got %s", t1, ts.Time())
 	}
 
 	// Test available precision.
-	ts = TimestampFromTime(t2)
+	ts = TimeFromTime(t2)
 	if !ts.Time().Equal(t1) {
 		t.Fatalf("Expected %s, got %s", t1, ts.Time())
 	}
@@ -70,10 +70,10 @@ func TestTimestampConversions(t *testing.T) {
 }
 
 func TestDuration(t *testing.T) {
-	duration := native_time.Second + native_time.Minute + native_time.Hour
-	goTime := native_time.Unix(1136239445, 0)
+	duration := time.Second + time.Minute + time.Hour
+	goTime := time.Unix(1136239445, 0)
 
-	ts := TimestampFromTime(goTime)
+	ts := TimeFromTime(goTime)
 	if !goTime.Add(duration).Equal(ts.Add(duration).Time()) {
 		t.Fatalf("Expected %s to be equal to %s", goTime.Add(duration), ts.Add(duration))
 	}

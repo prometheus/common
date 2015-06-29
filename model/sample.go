@@ -17,7 +17,7 @@ package model
 type Sample struct {
 	Metric    Metric
 	Value     SampleValue
-	Timestamp Timestamp
+	Timestamp Time
 }
 
 // Equal compares first the metrics, then the timestamp, then the value.

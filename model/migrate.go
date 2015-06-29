@@ -9,6 +9,52 @@ import (
 	"time"
 )
 
+// LabelPair pairs a name with a value.
+type LabelPair struct {
+	Name  LabelName
+	Value LabelValue
+}
+
+// Equal returns true iff both the Name and the Value of this LabelPair and o
+// are equal.
+func (l *LabelPair) Equal(o *LabelPair) bool {
+	switch {
+	case l.Name != o.Name:
+		return false
+	case l.Value != o.Value:
+		return false
+	default:
+		return true
+	}
+}
+
+// LabelPairs is a sortable slice of LabelPair pointers. It implements
+// sort.Interface.
+type LabelPairs []*LabelPair
+
+func (l LabelPairs) Len() int {
+	return len(l)
+}
+
+func (l LabelPairs) Less(i, j int) bool {
+	switch {
+	case l[i].Name > l[j].Name:
+		return false
+	case l[i].Name < l[j].Name:
+		return true
+	case l[i].Value > l[j].Value:
+		return false
+	case l[i].Value < l[j].Value:
+		return true
+	default:
+		return false
+	}
+}
+
+func (l LabelPairs) Swap(i, j int) {
+	l[i], l[j] = l[j], l[i]
+}
+
 // TODO(fabxc): these types are to be migrated over from Prometheus.
 
 type ValueType int
@@ -61,7 +107,7 @@ func (e ValueType) String() string {
 	case ValString:
 		return "string"
 	}
-	panic("model.ValueType.String: unhandled value type")
+	panic("ValueType.String: unhandled value type")
 }
 
 // SampleStream is a stream of Values belonging to an attached COWMetric.
@@ -80,7 +126,7 @@ type SampleStream struct {
 // Scalar is a scalar value evaluated at the set timestamp.
 type Scalar struct {
 	Value     SampleValue `json:"value"`
-	Timestamp Timestamp   `json:"timestamp"`
+	Timestamp Time        `json:"timestamp"`
 }
 
 func (s *Scalar) String() string {
@@ -89,8 +135,8 @@ func (s *Scalar) String() string {
 
 // String is a string value evaluated at the set timestamp.
 type String struct {
-	Value     string    `json:"value"`
-	Timestamp Timestamp `json:"timestamp"`
+	Value     string `json:"value"`
+	Timestamp Time   `json:"timestamp"`
 }
 
 func (s *String) String() string {
@@ -174,7 +220,7 @@ func (*String) Type() ValueType { return ValString }
 
 // SamplePair pairs a SampleValue with a Timestamp.
 type SamplePair struct {
-	Timestamp Timestamp
+	Timestamp Time
 	Value     SampleValue
 }
 
@@ -199,7 +245,7 @@ func (s *SamplePair) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return err
 	}
-	s.Timestamp = TimestampFromUnixNano(int64(t * float64(time.Second)))
+	s.Timestamp = TimeFromUnixNano(int64(t * float64(time.Second)))
 
 	return nil
 }
@@ -223,6 +269,6 @@ type Values []SamplePair
 
 // Interval describes the inclusive interval between two Timestamps.
 type Interval struct {
-	OldestInclusive Timestamp
-	NewestInclusive Timestamp
+	OldestInclusive Time
+	NewestInclusive Time
 }
