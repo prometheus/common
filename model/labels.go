@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -28,6 +29,9 @@ const (
 	// MetricNameLabel is the label name indicating the metric name of a
 	// timeseries.
 	MetricNameLabel LabelName = "__name__"
+
+	// AlertNameLAbel is the name of the label that contains the an alert's name.
+	AlertNameLabel = "alertname"
 
 	// AddressLabel is the name of the label that holds the address of
 	// a scrape target.
@@ -116,4 +120,55 @@ func (l LabelNames) String() string {
 		labelStrings = append(labelStrings, string(label))
 	}
 	return strings.Join(labelStrings, ", ")
+}
+
+// A LabelValue is an associated value for a LabelName.
+type LabelValue string
+
+// LabelValues is a sortable LabelValue slice. It implements sort.Interface.
+type LabelValues []LabelValue
+
+func (l LabelValues) Len() int {
+	return len(l)
+}
+
+func (l LabelValues) Less(i, j int) bool {
+	return sort.StringsAreSorted([]string{string(l[i]), string(l[j])})
+}
+
+func (l LabelValues) Swap(i, j int) {
+	l[i], l[j] = l[j], l[i]
+}
+
+// LabelPair pairs a name with a value.
+type LabelPair struct {
+	Name  LabelName
+	Value LabelValue
+}
+
+// LabelPairs is a sortable slice of LabelPair pointers. It implements
+// sort.Interface.
+type LabelPairs []*LabelPair
+
+func (l LabelPairs) Len() int {
+	return len(l)
+}
+
+func (l LabelPairs) Less(i, j int) bool {
+	switch {
+	case l[i].Name > l[j].Name:
+		return false
+	case l[i].Name < l[j].Name:
+		return true
+	case l[i].Value > l[j].Value:
+		return false
+	case l[i].Value < l[j].Value:
+		return true
+	default:
+		return false
+	}
+}
+
+func (l LabelPairs) Swap(i, j int) {
+	l[i], l[j] = l[j], l[i]
 }

@@ -18,6 +18,42 @@ import (
 	"testing"
 )
 
+func testLabelNames(t testing.TB) {
+	var scenarios = []struct {
+		in  LabelNames
+		out LabelNames
+	}{
+		{
+			in:  LabelNames{"ZZZ", "zzz"},
+			out: LabelNames{"ZZZ", "zzz"},
+		},
+		{
+			in:  LabelNames{"aaa", "AAA"},
+			out: LabelNames{"AAA", "aaa"},
+		},
+	}
+
+	for i, scenario := range scenarios {
+		sort.Sort(scenario.in)
+
+		for j, expected := range scenario.out {
+			if expected != scenario.in[j] {
+				t.Errorf("%d.%d expected %s, got %s", i, j, expected, scenario.in[j])
+			}
+		}
+	}
+}
+
+func TestLabelNames(t *testing.T) {
+	testLabelNames(t)
+}
+
+func BenchmarkLabelNames(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		testLabelNames(b)
+	}
+}
+
 func testLabelValues(t testing.TB) {
 	var scenarios = []struct {
 		in  LabelValues

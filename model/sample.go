@@ -13,6 +13,43 @@
 
 package model
 
+import (
+	"encoding/json"
+	"fmt"
+	"strconv"
+)
+
+// A SampleValue is a representation of a value for a given sample at a given
+// time.
+type SampleValue float64
+
+// Equal does a straight v==o.
+func (v SampleValue) Equal(o SampleValue) bool {
+	return v == o
+}
+
+// MarshalJSON implements json.Marshaler.
+func (v SampleValue) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf(`"%s"`, v)), nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (v *SampleValue) UnmarshalJSON(b []byte) error {
+	if len(b) < 2 || b[0] != '"' || b[len(b)-1] != '"' {
+		return fmt.Errorf("sample value must be a quoted string")
+	}
+	f, err := strconv.ParseFloat(string(b[1:len(b)-1]), 64)
+	if err != nil {
+		return err
+	}
+	*v = SampleValue(f)
+	return nil
+}
+
+func (v SampleValue) String() string {
+	return strconv.FormatFloat(float64(v), 'f', -1, 64)
+}
+
 // Sample is a sample value with a timestamp and a metric.
 type Sample struct {
 	Metric    Metric
@@ -76,4 +113,48 @@ func (s Samples) Equal(o Samples) bool {
 		}
 	}
 	return true
+}
+
+// SamplePair pairs a SampleValue with a Timestamp.
+type SamplePair struct {
+	Timestamp Time
+	Value     SampleValue
+}
+
+// MarshalJSON implements json.Marshaler.
+func (s SamplePair) MarshalJSON() ([]byte, error) {
+	t, err := json.Marshal(s.Timestamp)
+	if err != nil {
+		return nil, err
+	}
+	v, err := json.Marshal(s.Value)
+	if err != nil {
+		return nil, err
+	}
+	return []byte(fmt.Sprintf("[%s, %s]", t, v)), nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (s *SamplePair) UnmarshalJSON(b []byte) error {
+	if len(b) < 2 || b[0] != '"' || b[len(b)-1] != '"' {
+		return fmt.Errorf("sample pair must be array")
+	}
+
+	b = b[1 : len(b)-1]
+
+	return json.Unmarshal(b, []json.Unmarshaler{&s.Timestamp, &s.Value})
+}
+
+// Equal returns true if this SamplePair and o have equal Values and equal
+// Timestamps.
+func (s *SamplePair) Equal(o *SamplePair) bool {
+	if s == o {
+		return true
+	}
+
+	return s.Value.Equal(o.Value) && s.Timestamp.Equal(o.Timestamp)
+}
+
+func (s *SamplePair) String() string {
+	return fmt.Sprintf("SamplePair at %s of %s", s.Timestamp, s.Value)
 }

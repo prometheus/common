@@ -57,6 +57,7 @@ func TimeFromUnix(t int64) Time {
 // TimeFromUnixNano returns the Time equivalent to the Unix Time
 // t provided in nanoseconds.
 func TimeFromUnixNano(t int64) Time {
+	fmt.Println(t / nanosPerTick)
 	return Time(t / nanosPerTick)
 }
 

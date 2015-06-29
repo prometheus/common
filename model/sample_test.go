@@ -103,7 +103,7 @@ func TestSamplesSort(t *testing.T) {
 		actualFp := actual.Metric.Fingerprint()
 		expectedFp := expected[i].Metric.Fingerprint()
 
-		if !actualFp.Equal(expectedFp) {
+		if actualFp != expectedFp {
 			t.Fatalf("%d. Incorrect fingerprint. Got %s; want %s", i, actualFp.String(), expectedFp.String())
 		}
 

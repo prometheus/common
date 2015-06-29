@@ -22,28 +22,17 @@ import (
 // For our purposes, FNV-1A 64-bit is used.
 type Fingerprint uint64
 
-func (f Fingerprint) String() string {
-	return fmt.Sprintf("%016x", uint64(f))
-}
-
-// Less implements sort.Interface.
-func (f Fingerprint) Less(o Fingerprint) bool {
-	return f < o
-}
-
-// Equal implements sort.Interface.
-func (f Fingerprint) Equal(o Fingerprint) bool {
-	return f == o
-}
-
-// LoadFromString transforms a string representation into a Fingerprint.
-func (f *Fingerprint) LoadFromString(s string) error {
+// ParseFingerprint parses the input string into a fingerprint.
+func ParseFingerprint(s string) (Fingerprint, error) {
 	num, err := strconv.ParseUint(s, 16, 64)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	*f = Fingerprint(num)
-	return nil
+	return Fingerprint(num), nil
+}
+
+func (f Fingerprint) String() string {
+	return fmt.Sprintf("%016x", uint64(f))
 }
 
 // Fingerprints represents a collection of Fingerprint subject to a given

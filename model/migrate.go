@@ -4,56 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
-	"time"
 )
-
-// LabelPair pairs a name with a value.
-type LabelPair struct {
-	Name  LabelName
-	Value LabelValue
-}
-
-// Equal returns true iff both the Name and the Value of this LabelPair and o
-// are equal.
-func (l *LabelPair) Equal(o *LabelPair) bool {
-	switch {
-	case l.Name != o.Name:
-		return false
-	case l.Value != o.Value:
-		return false
-	default:
-		return true
-	}
-}
-
-// LabelPairs is a sortable slice of LabelPair pointers. It implements
-// sort.Interface.
-type LabelPairs []*LabelPair
-
-func (l LabelPairs) Len() int {
-	return len(l)
-}
-
-func (l LabelPairs) Less(i, j int) bool {
-	switch {
-	case l[i].Name > l[j].Name:
-		return false
-	case l[i].Name < l[j].Name:
-		return true
-	case l[i].Value > l[j].Value:
-		return false
-	case l[i].Value < l[j].Value:
-		return true
-	default:
-		return false
-	}
-}
-
-func (l LabelPairs) Swap(i, j int) {
-	l[i], l[j] = l[j], l[i]
-}
 
 // TODO(fabxc): these types are to be migrated over from Prometheus.
 
@@ -112,8 +64,8 @@ func (e ValueType) String() string {
 
 // SampleStream is a stream of Values belonging to an attached COWMetric.
 type SampleStream struct {
-	Metric COWMetric `json:"metric"`
-	Values Values    `json:"values"`
+	Metric COWMetric    `json:"metric"`
+	Values []SamplePair `json:"values"`
 }
 
 // // Sample is a single sample belonging to a COWMetric.
@@ -217,55 +169,6 @@ func (Matrix) Type() ValueType  { return ValMatrix }
 func (Vector) Type() ValueType  { return ValVector }
 func (*Scalar) Type() ValueType { return ValScalar }
 func (*String) Type() ValueType { return ValString }
-
-// SamplePair pairs a SampleValue with a Timestamp.
-type SamplePair struct {
-	Timestamp Time
-	Value     SampleValue
-}
-
-// MarshalJSON implements json.Marshaler.
-func (s SamplePair) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("[%s, \"%s\"]", s.Timestamp.String(), strconv.FormatFloat(float64(s.Value), 'f', -1, 64))), nil
-}
-
-func (s *SamplePair) UnmarshalJSON(b []byte) error {
-	fmt.Println(string(b))
-	b = b[1 : len(b)-1]
-
-	p := strings.Split(string(b), ",")
-
-	v, err := strconv.ParseFloat(p[1][1:len(p[1])-1], 64)
-	if err != nil {
-		return err
-	}
-	s.Value = SampleValue(v)
-
-	t, err := strconv.ParseFloat(p[0], 64)
-	if err != nil {
-		return err
-	}
-	s.Timestamp = TimeFromUnixNano(int64(t * float64(time.Second)))
-
-	return nil
-}
-
-// Equal returns true if this SamplePair and o have equal Values and equal
-// Timestamps.
-func (s *SamplePair) Equal(o *SamplePair) bool {
-	if s == o {
-		return true
-	}
-
-	return s.Value.Equal(o.Value) && s.Timestamp.Equal(o.Timestamp)
-}
-
-func (s *SamplePair) String() string {
-	return fmt.Sprintf("SamplePair at %s of %s", s.Timestamp, s.Value)
-}
-
-// Values is a slice of SamplePairs.
-type Values []SamplePair
 
 // Interval describes the inclusive interval between two Timestamps.
 type Interval struct {

@@ -48,7 +48,7 @@ func TestComparators(t *testing.T) {
 func TestTimeConversions(t *testing.T) {
 	unixSecs := int64(1136239445)
 	unixNsecs := int64(123456789)
-	unixNano := unixSecs*1000000000 + unixNsecs
+	unixNano := unixSecs*1e9 + unixNsecs
 
 	t1 := time.Unix(unixSecs, unixNsecs-unixNsecs%nanosPerTick)
 	t2 := time.Unix(unixSecs, unixNsecs)
@@ -59,7 +59,7 @@ func TestTimeConversions(t *testing.T) {
 	}
 
 	// Test available precision.
-	ts = TimeFromTime(t2)
+	ts = TimeFromUnixNano(t2.UnixNano())
 	if !ts.Time().Equal(t1) {
 		t.Fatalf("Expected %s, got %s", t1, ts.Time())
 	}
@@ -73,7 +73,7 @@ func TestDuration(t *testing.T) {
 	duration := time.Second + time.Minute + time.Hour
 	goTime := time.Unix(1136239445, 0)
 
-	ts := TimeFromTime(goTime)
+	ts := TimeFromUnix(goTime.Unix())
 	if !goTime.Add(duration).Equal(ts.Add(duration).Time()) {
 		t.Fatalf("Expected %s to be equal to %s", goTime.Add(duration), ts.Add(duration))
 	}
