@@ -116,7 +116,7 @@ type SampleDecoder struct {
 	Opts *DecodeOptions
 }
 
-func (sd *SampleDecoder) Decode(s *model.Samples) error {
+func (sd *SampleDecoder) Decode(s *model.Vector) error {
 	if err := sd.Dec.Decode(&sd.f); err != nil {
 		return err
 	}
@@ -125,15 +125,15 @@ func (sd *SampleDecoder) Decode(s *model.Samples) error {
 }
 
 // Extract samples builds a slice of samples from the provided metric families.
-func ExtractSamples(o *DecodeOptions, fams ...*dto.MetricFamily) model.Samples {
-	var all model.Samples
+func ExtractSamples(o *DecodeOptions, fams ...*dto.MetricFamily) model.Vector {
+	var all model.Vector
 	for _, f := range fams {
 		all = append(all, extractSamples(f, o)...)
 	}
 	return all
 }
 
-func extractSamples(f *dto.MetricFamily, o *DecodeOptions) model.Samples {
+func extractSamples(f *dto.MetricFamily, o *DecodeOptions) model.Vector {
 	switch *f.Type {
 	case dto.MetricType_COUNTER:
 		return extractCounter(o, f)
@@ -149,8 +149,8 @@ func extractSamples(f *dto.MetricFamily, o *DecodeOptions) model.Samples {
 	panic("expfmt.extractSamples: unknown metric family type")
 }
 
-func extractCounter(o *DecodeOptions, f *dto.MetricFamily) model.Samples {
-	samples := make(model.Samples, 0, len(f.Metric))
+func extractCounter(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
+	samples := make(model.Vector, 0, len(f.Metric))
 
 	for _, m := range f.Metric {
 		if m.Counter == nil {
@@ -180,8 +180,8 @@ func extractCounter(o *DecodeOptions, f *dto.MetricFamily) model.Samples {
 	return samples
 }
 
-func extractGauge(o *DecodeOptions, f *dto.MetricFamily) model.Samples {
-	samples := make(model.Samples, 0, len(f.Metric))
+func extractGauge(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
+	samples := make(model.Vector, 0, len(f.Metric))
 
 	for _, m := range f.Metric {
 		if m.Gauge == nil {
@@ -211,8 +211,8 @@ func extractGauge(o *DecodeOptions, f *dto.MetricFamily) model.Samples {
 	return samples
 }
 
-func extractUntyped(o *DecodeOptions, f *dto.MetricFamily) model.Samples {
-	samples := make(model.Samples, 0, len(f.Metric))
+func extractUntyped(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
+	samples := make(model.Vector, 0, len(f.Metric))
 
 	for _, m := range f.Metric {
 		if m.Untyped == nil {
@@ -242,8 +242,8 @@ func extractUntyped(o *DecodeOptions, f *dto.MetricFamily) model.Samples {
 	return samples
 }
 
-func extractSummary(o *DecodeOptions, f *dto.MetricFamily) model.Samples {
-	samples := make(model.Samples, 0, len(f.Metric))
+func extractSummary(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
+	samples := make(model.Vector, 0, len(f.Metric))
 
 	for _, m := range f.Metric {
 		if m.Summary == nil {
@@ -303,8 +303,8 @@ func extractSummary(o *DecodeOptions, f *dto.MetricFamily) model.Samples {
 	return samples
 }
 
-func extractHistogram(o *DecodeOptions, f *dto.MetricFamily) model.Samples {
-	samples := make(model.Samples, 0, len(f.Metric))
+func extractHistogram(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
+	samples := make(model.Vector, 0, len(f.Metric))
 
 	for _, m := range f.Metric {
 		if m.Histogram == nil {

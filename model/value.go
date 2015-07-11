@@ -261,8 +261,7 @@ func (vec Vector) Equal(o Vector) bool {
 	return true
 }
 
-// Matrix is a slice of SampleStreams that implements sort.Interface and
-// has a String method.
+// Matrix is a list of time series.
 type Matrix []*SampleStream
 
 func (m Matrix) Len() int           { return len(m) }

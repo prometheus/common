@@ -37,7 +37,7 @@ mf1{label="value1"} -3.14 123456
 mf1{label="value2"} 42
 mf2 4
 `
-		out = model.Samples{
+		out = model.Vector{
 			&model.Sample{
 				Metric: model.NewMetric(model.LabelSet{
 					model.MetricNameLabel: "mf1",
@@ -77,9 +77,9 @@ mf2 4
 			Timestamp: ts,
 		},
 	}
-	var all model.Samples
+	var all model.Vector
 	for {
-		var smpls model.Samples
+		var smpls model.Vector
 		err := dec.Decode(&smpls)
 		if err == io.EOF {
 			break
@@ -102,14 +102,14 @@ func TestProtoDecoder(t *testing.T) {
 
 	scenarios := []struct {
 		in       string
-		expected model.Samples
+		expected model.Vector
 	}{
 		{
 			in: "",
 		},
 		{
 			in: "\x8f\x01\n\rrequest_count\x12\x12Number of requests\x18\x00\"0\n#\n\x0fsome_label_name\x12\x10some_label_value\x1a\t\t\x00\x00\x00\x00\x00\x00E\xc0\"6\n)\n\x12another_label_name\x12\x13another_label_value\x1a\t\t\x00\x00\x00\x00\x00\x00U@",
-			expected: model.Samples{
+			expected: model.Vector{
 				&model.Sample{
 					Metric: model.NewMetric(model.LabelSet{
 						model.MetricNameLabel: "request_count",
@@ -130,7 +130,7 @@ func TestProtoDecoder(t *testing.T) {
 		},
 		{
 			in: "\xb9\x01\n\rrequest_count\x12\x12Number of requests\x18\x02\"O\n#\n\x0fsome_label_name\x12\x10some_label_value\"(\x1a\x12\t\xaeG\xe1z\x14\xae\xef?\x11\x00\x00\x00\x00\x00\x00E\xc0\x1a\x12\t+\x87\x16\xd9\xce\xf7\xef?\x11\x00\x00\x00\x00\x00\x00U\xc0\"A\n)\n\x12another_label_name\x12\x13another_label_value\"\x14\x1a\x12\t\x00\x00\x00\x00\x00\x00\xe0?\x11\x00\x00\x00\x00\x00\x00$@",
-			expected: model.Samples{
+			expected: model.Vector{
 				&model.Sample{
 					Metric: model.NewMetric(model.LabelSet{
 						model.MetricNameLabel: "request_count",
@@ -162,7 +162,7 @@ func TestProtoDecoder(t *testing.T) {
 		},
 		{
 			in: "\x8d\x01\n\x1drequest_duration_microseconds\x12\x15The response latency.\x18\x04\"S:Q\b\x85\x15\x11\xcd\xcc\xccL\x8f\xcb:A\x1a\v\b{\x11\x00\x00\x00\x00\x00\x00Y@\x1a\f\b\x9c\x03\x11\x00\x00\x00\x00\x00\x00^@\x1a\f\b\xd0\x04\x11\x00\x00\x00\x00\x00\x00b@\x1a\f\b\xf4\v\x11\x9a\x99\x99\x99\x99\x99e@\x1a\f\b\x85\x15\x11\x00\x00\x00\x00\x00\x00\xf0\u007f",
-			expected: model.Samples{
+			expected: model.Vector{
 				&model.Sample{
 					Metric: model.NewMetric(model.LabelSet{
 						model.MetricNameLabel: "request_duration_microseconds_bucket",
@@ -229,9 +229,9 @@ func TestProtoDecoder(t *testing.T) {
 			},
 		}
 
-		var all model.Samples
+		var all model.Vector
 		for {
-			var smpls model.Samples
+			var smpls model.Vector
 			err := dec.Decode(&smpls)
 			if err == io.EOF {
 				break
