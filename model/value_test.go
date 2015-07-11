@@ -18,8 +18,8 @@ import (
 	"testing"
 )
 
-func TestSamplesSort(t *testing.T) {
-	input := Samples{
+func TestVectorSort(t *testing.T) {
+	input := Vector{
 		&Sample{
 			Metric: NewMetric(LabelSet{
 				MetricNameLabel: "A",
@@ -58,7 +58,7 @@ func TestSamplesSort(t *testing.T) {
 		},
 	}
 
-	expected := Samples{
+	expected := Vector{
 		&Sample{
 			Metric: NewMetric(LabelSet{
 				MetricNameLabel: "A",

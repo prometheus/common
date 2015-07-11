@@ -43,6 +43,11 @@ const (
 // (1970-01-01 00:00 UTC) excluding leap seconds.
 type Time int64
 
+// Interval describes and interval between two timestamps.
+type Interval struct {
+	Start, End Time
+}
+
 // Now returns the current time as a Time.
 func Now() Time {
 	return TimeFromUnixNano(time.Now().UnixNano())
