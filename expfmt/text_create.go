@@ -11,14 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package text contains helper functions to parse and create text-based
-// exchange formats. The package currently supports (only) version 0.0.4 of the
-// exchange format. Should other versions be supported in the future, some
-// versioning scheme has to be applied. Possibilities include separate packages
-// or separate functions. The best way depends on the nature of future changes,
-// which is the reason why no versioning scheme has been applied prematurely
-// here.
-package text
+package expfmt
 
 import (
 	"bytes"
