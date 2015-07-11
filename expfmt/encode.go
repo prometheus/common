@@ -21,8 +21,8 @@ import (
 	"bitbucket.org/ww/goautoneg"
 	"github.com/golang/protobuf/proto"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
+
 	dto "github.com/prometheus/client_model/go"
-	"github.com/prometheus/common/expfmt/text"
 )
 
 // Encoder types encode metric families into an underlying wire protocol.
@@ -80,7 +80,7 @@ func NewEncoder(w io.Writer, format Format) Encoder {
 		})
 	case FmtText:
 		return encoder(func(v *dto.MetricFamily) error {
-			_, err := text.MetricFamilyToText(w, v)
+			_, err := MetricFamilyToText(w, v)
 			return err
 		})
 	}

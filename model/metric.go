@@ -20,19 +20,27 @@ import (
 	"strings"
 )
 
-// A Metric is similar to a LabelSet, but the key difference is that a Metric is
-// a singleton and refers to one and only one stream of samples.
+// A Metric is fixed set of labels that describes a stream of samples,
+// i.e. a single time series. It is safe for modification when passed
+// into another function after calling Clone().
+// The underlying LabelSet is accesible but must not be directly modified.
 type Metric struct {
 	LabelSet
 
 	Copied bool
 }
 
+// NewMetric returns a new metric based on the given label set.
+// The underlying label set
 func NewMetric(ls LabelSet) Metric {
 	return Metric{
 		LabelSet: ls,
-		Copied:   false,
+		Copied:   true,
 	}
+}
+
+func (m *Metric) Name() string {
+	return string(m.LabelSet[MetricNameLabel])
 }
 
 func (m *Metric) Len() int {
@@ -63,7 +71,6 @@ func (m *Metric) Del(ln LabelName) {
 }
 
 func (m *Metric) Copy() {
-	fmt.Println("call copy")
 	m.LabelSet = m.LabelSet.Clone()
 	m.Copied = true
 }

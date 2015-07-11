@@ -46,9 +46,9 @@ func (e ParseError) Error() string {
 	return fmt.Sprintf("text format parsing error in line %d: %s", e.Line, e.Msg)
 }
 
-// Parser is used to parse the simple and flat text-based exchange format. Its
+// TextParser is used to parse the simple and flat text-based exchange format. Its
 // nil value is ready to use.
-type Parser struct {
+type TextParser struct {
 	metricFamiliesByName map[string]*dto.MetricFamily
 	buf                  *bufio.Reader // Where the parsed input is read through.
 	err                  error         // Most recent error.
@@ -97,7 +97,7 @@ type Parser struct {
 //
 // This method must not be called concurrently. If you want to parse different
 // input concurrently, instantiate a separate Parser for each goroutine.
-func (p *Parser) TextToMetricFamilies(in io.Reader) (map[string]*dto.MetricFamily, error) {
+func (p *TextParser) TextToMetricFamilies(in io.Reader) (map[string]*dto.MetricFamily, error) {
 	p.reset(in)
 	for nextState := p.startOfLine; nextState != nil; nextState = nextState() {
 		// Magic happens here...
@@ -111,7 +111,7 @@ func (p *Parser) TextToMetricFamilies(in io.Reader) (map[string]*dto.MetricFamil
 	return p.metricFamiliesByName, p.err
 }
 
-func (p *Parser) reset(in io.Reader) {
+func (p *TextParser) reset(in io.Reader) {
 	p.metricFamiliesByName = map[string]*dto.MetricFamily{}
 	if p.buf == nil {
 		p.buf = bufio.NewReader(in)
@@ -132,7 +132,7 @@ func (p *Parser) reset(in io.Reader) {
 
 // startOfLine represents the state where the next byte read from p.buf is the
 // start of a line (or whitespace leading up to it).
-func (p *Parser) startOfLine() stateFn {
+func (p *TextParser) startOfLine() stateFn {
 	p.lineCount++
 	if p.skipBlankTab(); p.err != nil {
 		// End of input reached. This is the only case where
@@ -151,7 +151,7 @@ func (p *Parser) startOfLine() stateFn {
 
 // startComment represents the state where the next byte read from p.buf is the
 // start of a comment (or whitespace leading up to it).
-func (p *Parser) startComment() stateFn {
+func (p *TextParser) startComment() stateFn {
 	if p.skipBlankTab(); p.err != nil {
 		return nil // Unexpected end of input.
 	}
@@ -212,7 +212,7 @@ func (p *Parser) startComment() stateFn {
 
 // readingMetricName represents the state where the last byte read (now in
 // p.currentByte) is the first byte of a metric name.
-func (p *Parser) readingMetricName() stateFn {
+func (p *TextParser) readingMetricName() stateFn {
 	if p.readTokenAsMetricName(); p.err != nil {
 		return nil
 	}
@@ -239,7 +239,7 @@ func (p *Parser) readingMetricName() stateFn {
 // readingLabels represents the state where the last byte read (now in
 // p.currentByte) is either the first byte of the label set (i.e. a '{'), or the
 // first byte of the value (otherwise).
-func (p *Parser) readingLabels() stateFn {
+func (p *TextParser) readingLabels() stateFn {
 	// Summaries/histograms are special. We have to reset the
 	// currentLabels map, currentQuantile and currentBucket before starting to
 	// read labels.
@@ -257,7 +257,7 @@ func (p *Parser) readingLabels() stateFn {
 
 // startLabelName represents the state where the next byte read from p.buf is
 // the start of a label name (or whitespace leading up to it).
-func (p *Parser) startLabelName() stateFn {
+func (p *TextParser) startLabelName() stateFn {
 	if p.skipBlankTab(); p.err != nil {
 		return nil // Unexpected end of input.
 	}
@@ -297,7 +297,7 @@ func (p *Parser) startLabelName() stateFn {
 
 // startLabelValue represents the state where the next byte read from p.buf is
 // the start of a (quoted) label value (or whitespace leading up to it).
-func (p *Parser) startLabelValue() stateFn {
+func (p *TextParser) startLabelValue() stateFn {
 	if p.skipBlankTab(); p.err != nil {
 		return nil // Unexpected end of input.
 	}
@@ -355,7 +355,7 @@ func (p *Parser) startLabelValue() stateFn {
 
 // readingValue represents the state where the last byte read (now in
 // p.currentByte) is the first byte of the sample value (i.e. a float).
-func (p *Parser) readingValue() stateFn {
+func (p *TextParser) readingValue() stateFn {
 	// When we are here, we have read all the labels, so for the
 	// special case of a summary/histogram, we can finally find out
 	// if the metric already exists.
@@ -443,7 +443,7 @@ func (p *Parser) readingValue() stateFn {
 
 // startTimestamp represents the state where the next byte read from p.buf is
 // the start of the timestamp (or whitespace leading up to it).
-func (p *Parser) startTimestamp() stateFn {
+func (p *TextParser) startTimestamp() stateFn {
 	if p.skipBlankTab(); p.err != nil {
 		return nil // Unexpected end of input.
 	}
@@ -469,7 +469,7 @@ func (p *Parser) startTimestamp() stateFn {
 
 // readingHelp represents the state where the last byte read (now in
 // p.currentByte) is the first byte of the docstring after 'HELP'.
-func (p *Parser) readingHelp() stateFn {
+func (p *TextParser) readingHelp() stateFn {
 	if p.currentMF.Help != nil {
 		p.parseError(fmt.Sprintf("second HELP line for metric name %q", p.currentMF.GetName()))
 		return nil
@@ -484,7 +484,7 @@ func (p *Parser) readingHelp() stateFn {
 
 // readingType represents the state where the last byte read (now in
 // p.currentByte) is the first byte of the type hint after 'HELP'.
-func (p *Parser) readingType() stateFn {
+func (p *TextParser) readingType() stateFn {
 	if p.currentMF.Type != nil {
 		p.parseError(fmt.Sprintf("second TYPE line for metric name %q, or TYPE reported after samples", p.currentMF.GetName()))
 		return nil
@@ -504,7 +504,7 @@ func (p *Parser) readingType() stateFn {
 
 // parseError sets p.err to a ParseError at the current line with the given
 // message.
-func (p *Parser) parseError(msg string) {
+func (p *TextParser) parseError(msg string) {
 	p.err = ParseError{
 		Line: p.lineCount,
 		Msg:  msg,
@@ -513,7 +513,7 @@ func (p *Parser) parseError(msg string) {
 
 // skipBlankTab reads (and discards) bytes from p.buf until it encounters a byte
 // that is neither ' ' nor '\t'. That byte is left in p.currentByte.
-func (p *Parser) skipBlankTab() {
+func (p *TextParser) skipBlankTab() {
 	for {
 		if p.currentByte, p.err = p.buf.ReadByte(); p.err != nil || !isBlankOrTab(p.currentByte) {
 			return
@@ -523,7 +523,7 @@ func (p *Parser) skipBlankTab() {
 
 // skipBlankTabIfCurrentBlankTab works exactly as skipBlankTab but doesn't do
 // anything if p.currentByte is neither ' ' nor '\t'.
-func (p *Parser) skipBlankTabIfCurrentBlankTab() {
+func (p *TextParser) skipBlankTabIfCurrentBlankTab() {
 	if isBlankOrTab(p.currentByte) {
 		p.skipBlankTab()
 	}
@@ -533,7 +533,7 @@ func (p *Parser) skipBlankTabIfCurrentBlankTab() {
 // first byte considered is the byte already read (now in p.currentByte).  The
 // first whitespace byte encountered is still copied into p.currentByte, but not
 // into p.currentToken.
-func (p *Parser) readTokenUntilWhitespace() {
+func (p *TextParser) readTokenUntilWhitespace() {
 	p.currentToken.Reset()
 	for p.err == nil && !isBlankOrTab(p.currentByte) && p.currentByte != '\n' {
 		p.currentToken.WriteByte(p.currentByte)
@@ -547,7 +547,7 @@ func (p *Parser) readTokenUntilWhitespace() {
 // p.currentToken. If recognizeEscapeSequence is true, two escape sequences are
 // recognized: '\\' tranlates into '\', and '\n' into a line-feed character. All
 // other escape sequences are invalid and cause an error.
-func (p *Parser) readTokenUntilNewline(recognizeEscapeSequence bool) {
+func (p *TextParser) readTokenUntilNewline(recognizeEscapeSequence bool) {
 	p.currentToken.Reset()
 	escaped := false
 	for p.err == nil {
@@ -580,7 +580,7 @@ func (p *Parser) readTokenUntilNewline(recognizeEscapeSequence bool) {
 // The first byte considered is the byte already read (now in p.currentByte).
 // The first byte not part of a metric name is still copied into p.currentByte,
 // but not into p.currentToken.
-func (p *Parser) readTokenAsMetricName() {
+func (p *TextParser) readTokenAsMetricName() {
 	p.currentToken.Reset()
 	if !isValidMetricNameStart(p.currentByte) {
 		return
@@ -598,7 +598,7 @@ func (p *Parser) readTokenAsMetricName() {
 // The first byte considered is the byte already read (now in p.currentByte).
 // The first byte not part of a label name is still copied into p.currentByte,
 // but not into p.currentToken.
-func (p *Parser) readTokenAsLabelName() {
+func (p *TextParser) readTokenAsLabelName() {
 	p.currentToken.Reset()
 	if !isValidLabelNameStart(p.currentByte) {
 		return
@@ -617,7 +617,7 @@ func (p *Parser) readTokenAsLabelName() {
 // last read byte in p.currentByte, this method ignores p.currentByte and starts
 // with reading a new byte from p.buf. The first byte not part of a label value
 // is still copied into p.currentByte, but not into p.currentToken.
-func (p *Parser) readTokenAsLabelValue() {
+func (p *TextParser) readTokenAsLabelValue() {
 	p.currentToken.Reset()
 	escaped := false
 	for {
@@ -651,7 +651,7 @@ func (p *Parser) readTokenAsLabelValue() {
 	}
 }
 
-func (p *Parser) setOrCreateCurrentMF() {
+func (p *TextParser) setOrCreateCurrentMF() {
 	p.currentIsSummaryCount = false
 	p.currentIsSummarySum = false
 	p.currentIsHistogramCount = false

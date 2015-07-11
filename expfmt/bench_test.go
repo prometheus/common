@@ -21,12 +21,11 @@ import (
 	"testing"
 
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
-	"github.com/prometheus/common/expfmt/text"
 
 	dto "github.com/prometheus/client_model/go"
 )
 
-var parser text.Parser
+var parser TextParser
 
 // Benchmarks to show how much penalty text format parsing actually inflicts.
 //
