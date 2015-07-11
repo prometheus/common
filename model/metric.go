@@ -31,62 +31,73 @@ type Metric struct {
 }
 
 // NewMetric returns a new metric based on the given label set.
-// The underlying label set
+// The underlying label set might be modified unless Clone() is
+// called beforehand.
 func NewMetric(ls LabelSet) Metric {
 	return Metric{
 		LabelSet: ls,
-		Copied:   true,
+		Copied:   false,
 	}
 }
 
-func (m *Metric) Name() string {
+func (m Metric) Name() string {
 	return string(m.LabelSet[MetricNameLabel])
 }
 
-func (m *Metric) Len() int {
+func (m Metric) Len() int {
 	return len(m.LabelSet)
 }
 
-func (m *Metric) Get(ln LabelName) LabelValue {
+func (m Metric) Get(ln LabelName) LabelValue {
 	return m.LabelSet[ln]
 }
 
-func (m *Metric) Has(ln LabelName) (LabelValue, bool) {
+func (m Metric) Has(ln LabelName) (LabelValue, bool) {
 	v, ok := m.LabelSet[ln]
 	return v, ok
 }
 
 func (m *Metric) Set(ln LabelName, lv LabelValue) {
 	if !m.Copied {
-		m.Copy()
+		m.copy()
 	}
 	m.LabelSet[ln] = lv
 }
 
 func (m *Metric) Del(ln LabelName) {
 	if !m.Copied {
-		m.Copy()
+		m.copy()
 	}
 	delete(m.LabelSet, ln)
 }
 
-func (m *Metric) Copy() {
+func (m *Metric) copy() {
 	m.LabelSet = m.LabelSet.Clone()
 	m.Copied = true
 }
 
+// Clone returns a copy of the metric pointing to the same underlying
+// label set. If either the original or returned metric a modified, they
+// create a new copy of the label set.
+// Clone must be called whenever a metric is passed down a function that
+// may call Del() or Set() and the caller still needs the metric.
+func (m *Metric) Clone() Metric {
+	m.Copied = false
+	return *m
+}
+
 // Equal compares the metrics.
-func (m *Metric) Equal(o Metric) bool {
+func (m Metric) Equal(o Metric) bool {
 	return m.LabelSet.Equal(o.LabelSet)
 }
 
 // Before compares the metrics' underlying label sets.
-func (m *Metric) Before(o Metric) bool {
+func (m Metric) Before(o Metric) bool {
 	return m.LabelSet.Before(o.LabelSet)
 }
 
 // String implements Stringer.
-func (m *Metric) String() string {
+func (m Metric) String() string {
 	metricName, hasName := m.LabelSet[MetricNameLabel]
 	numLabels := len(m.LabelSet) - 1
 	if !hasName {
@@ -118,10 +129,9 @@ func (m Metric) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON implements json.Unmarshaler.
 func (m *Metric) UnmarshalJSON(b []byte) error {
-	if m.LabelSet != nil {
-		m.Copy()
+	if m.LabelSet != nil && !m.Copied {
+		m.copy()
 	}
-	m.Copied = true
 	return json.Unmarshal(b, &m.LabelSet)
 }
 

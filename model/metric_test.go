@@ -112,7 +112,7 @@ func TestMetricModify(t *testing.T) {
 	}
 
 	for i, s := range scenarios {
-		orig := testMetric.Clone()
+		orig := testMetric
 		cm := NewMetric(orig)
 
 		s.fn(&cm)
