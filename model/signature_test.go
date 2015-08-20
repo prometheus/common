@@ -93,39 +93,39 @@ func TestMetricToFastFingerprint(t *testing.T) {
 
 func TestSignatureForLabels(t *testing.T) {
 	var scenarios = []struct {
-		in     LabelSet
+		in     Metric
 		labels LabelNames
 		out    uint64
 	}{
 		{
-			in:     LabelSet{},
+			in:     Metric{},
 			labels: nil,
 			out:    14695981039346656037,
 		},
 		{
-			in:     LabelSet{"name": "garland, briggs", "fear": "love is not enough"},
+			in:     Metric{"name": "garland, briggs", "fear": "love is not enough"},
 			labels: LabelNames{"fear", "name"},
 			out:    5799056148416392346,
 		},
 		{
-			in:     LabelSet{"name": "garland, briggs", "fear": "love is not enough", "foo": "bar"},
+			in:     Metric{"name": "garland, briggs", "fear": "love is not enough", "foo": "bar"},
 			labels: LabelNames{"fear", "name"},
 			out:    5799056148416392346,
 		},
 		{
-			in:     LabelSet{"name": "garland, briggs", "fear": "love is not enough"},
+			in:     Metric{"name": "garland, briggs", "fear": "love is not enough"},
 			labels: LabelNames{},
 			out:    14695981039346656037,
 		},
 		{
-			in:     LabelSet{"name": "garland, briggs", "fear": "love is not enough"},
+			in:     Metric{"name": "garland, briggs", "fear": "love is not enough"},
 			labels: nil,
 			out:    14695981039346656037,
 		},
 	}
 
 	for i, scenario := range scenarios {
-		actual := SignatureForLabels(NewMetric(scenario.in), scenario.labels...)
+		actual := SignatureForLabels(scenario.in, scenario.labels...)
 
 		if actual != scenario.out {
 			t.Errorf("%d. expected %d, got %d", i, scenario.out, actual)
@@ -135,39 +135,39 @@ func TestSignatureForLabels(t *testing.T) {
 
 func TestSignatureWithoutLabels(t *testing.T) {
 	var scenarios = []struct {
-		in     LabelSet
+		in     Metric
 		labels map[LabelName]struct{}
 		out    uint64
 	}{
 		{
-			in:     LabelSet{},
+			in:     Metric{},
 			labels: nil,
 			out:    14695981039346656037,
 		},
 		{
-			in:     LabelSet{"name": "garland, briggs", "fear": "love is not enough"},
+			in:     Metric{"name": "garland, briggs", "fear": "love is not enough"},
 			labels: map[LabelName]struct{}{"fear": struct{}{}, "name": struct{}{}},
 			out:    14695981039346656037,
 		},
 		{
-			in:     LabelSet{"name": "garland, briggs", "fear": "love is not enough", "foo": "bar"},
+			in:     Metric{"name": "garland, briggs", "fear": "love is not enough", "foo": "bar"},
 			labels: map[LabelName]struct{}{"foo": struct{}{}},
 			out:    5799056148416392346,
 		},
 		{
-			in:     LabelSet{"name": "garland, briggs", "fear": "love is not enough"},
+			in:     Metric{"name": "garland, briggs", "fear": "love is not enough"},
 			labels: map[LabelName]struct{}{},
 			out:    5799056148416392346,
 		},
 		{
-			in:     LabelSet{"name": "garland, briggs", "fear": "love is not enough"},
+			in:     Metric{"name": "garland, briggs", "fear": "love is not enough"},
 			labels: nil,
 			out:    5799056148416392346,
 		},
 	}
 
 	for i, scenario := range scenarios {
-		actual := SignatureWithoutLabels(NewMetric(scenario.in), scenario.labels)
+		actual := SignatureWithoutLabels(scenario.in, scenario.labels)
 
 		if actual != scenario.out {
 			t.Errorf("%d. expected %d, got %d", i, scenario.out, actual)

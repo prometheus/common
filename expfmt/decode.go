@@ -164,7 +164,7 @@ func extractCounter(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 		lset[model.MetricNameLabel] = model.LabelValue(f.GetName())
 
 		smpl := &model.Sample{
-			Metric: model.NewMetric(lset),
+			Metric: model.Metric(lset),
 			Value:  model.SampleValue(m.Counter.GetValue()),
 		}
 
@@ -195,7 +195,7 @@ func extractGauge(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 		lset[model.MetricNameLabel] = model.LabelValue(f.GetName())
 
 		smpl := &model.Sample{
-			Metric: model.NewMetric(lset),
+			Metric: model.Metric(lset),
 			Value:  model.SampleValue(m.Gauge.GetValue()),
 		}
 
@@ -226,7 +226,7 @@ func extractUntyped(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 		lset[model.MetricNameLabel] = model.LabelValue(f.GetName())
 
 		smpl := &model.Sample{
-			Metric: model.NewMetric(lset),
+			Metric: model.Metric(lset),
 			Value:  model.SampleValue(m.Untyped.GetValue()),
 		}
 
@@ -265,7 +265,7 @@ func extractSummary(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 			lset[model.MetricNameLabel] = model.LabelValue(f.GetName())
 
 			samples = append(samples, &model.Sample{
-				Metric:    model.NewMetric(lset),
+				Metric:    model.Metric(lset),
 				Value:     model.SampleValue(q.GetValue()),
 				Timestamp: timestamp,
 			})
@@ -279,7 +279,7 @@ func extractSummary(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 			lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_sum")
 
 			samples = append(samples, &model.Sample{
-				Metric:    model.NewMetric(lset),
+				Metric:    model.Metric(lset),
 				Value:     model.SampleValue(m.Summary.GetSampleSum()),
 				Timestamp: timestamp,
 			})
@@ -293,7 +293,7 @@ func extractSummary(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 			lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_count")
 
 			samples = append(samples, &model.Sample{
-				Metric:    model.NewMetric(lset),
+				Metric:    model.Metric(lset),
 				Value:     model.SampleValue(m.Summary.GetSampleCount()),
 				Timestamp: timestamp,
 			})
@@ -331,7 +331,7 @@ func extractHistogram(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 			}
 
 			samples = append(samples, &model.Sample{
-				Metric:    model.NewMetric(lset),
+				Metric:    model.Metric(lset),
 				Value:     model.SampleValue(q.GetCumulativeCount()),
 				Timestamp: timestamp,
 			})
@@ -345,7 +345,7 @@ func extractHistogram(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 			lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_sum")
 
 			samples = append(samples, &model.Sample{
-				Metric:    model.NewMetric(lset),
+				Metric:    model.Metric(lset),
 				Value:     model.SampleValue(m.Histogram.GetSampleSum()),
 				Timestamp: timestamp,
 			})
@@ -359,7 +359,7 @@ func extractHistogram(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 			lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_count")
 
 			count := &model.Sample{
-				Metric:    model.NewMetric(lset),
+				Metric:    model.Metric(lset),
 				Value:     model.SampleValue(m.Histogram.GetSampleCount()),
 				Timestamp: timestamp,
 			}
@@ -375,7 +375,7 @@ func extractHistogram(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 				lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_bucket")
 
 				samples = append(samples, &model.Sample{
-					Metric:    model.NewMetric(lset),
+					Metric:    model.Metric(lset),
 					Value:     count.Value,
 					Timestamp: timestamp,
 				})

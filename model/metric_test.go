@@ -61,7 +61,7 @@ func testMetric(t testing.TB) {
 	}
 
 	for i, scenario := range scenarios {
-		input := NewMetric(scenario.input)
+		input := Metric(scenario.input)
 
 		if scenario.fingerprint != input.Fingerprint() {
 			t.Errorf("%d. expected %d, got %d", i, scenario.fingerprint, input.Fingerprint())
@@ -82,29 +82,29 @@ func BenchmarkMetric(b *testing.B) {
 	}
 }
 
-func TestMetricModify(t *testing.T) {
-	testMetric := LabelSet{
+func TestCOWMetric(t *testing.T) {
+	testMetric := Metric{
 		"to_delete": "test1",
 		"to_change": "test2",
 	}
 
 	scenarios := []struct {
-		fn  func(*Metric)
-		out LabelSet
+		fn  func(*COWMetric)
+		out Metric
 	}{
 		{
-			fn: func(cm *Metric) {
+			fn: func(cm *COWMetric) {
 				cm.Del("to_delete")
 			},
-			out: LabelSet{
+			out: Metric{
 				"to_change": "test2",
 			},
 		},
 		{
-			fn: func(cm *Metric) {
+			fn: func(cm *COWMetric) {
 				cm.Set("to_change", "changed")
 			},
-			out: LabelSet{
+			out: Metric{
 				"to_delete": "test1",
 				"to_change": "changed",
 			},
@@ -112,10 +112,12 @@ func TestMetricModify(t *testing.T) {
 	}
 
 	for i, s := range scenarios {
-		orig := testMetric
-		cm := NewMetric(orig)
+		orig := testMetric.Clone()
+		cm := &COWMetric{
+			Metric: orig,
+		}
 
-		s.fn(&cm)
+		s.fn(cm)
 
 		// Test that the original metric was not modified.
 		if !orig.Equal(testMetric) {
@@ -123,8 +125,8 @@ func TestMetricModify(t *testing.T) {
 		}
 
 		// Test that the new metric has the right changes.
-		if !cm.LabelSet.Equal(s.out) {
-			t.Fatalf("%d. copied metric doesn't contain expected changes; expected %v, got %v", i, s.out, cm.LabelSet)
+		if !cm.Metric.Equal(s.out) {
+			t.Fatalf("%d. copied metric doesn't contain expected changes; expected %v, got %v", i, s.out, cm.Metric)
 		}
 	}
 }

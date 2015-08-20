@@ -43,6 +43,10 @@ func (v *SampleValue) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+func (v SampleValue) Equal(o SampleValue) bool {
+	return v == o
+}
+
 func (v SampleValue) String() string {
 	return strconv.FormatFloat(float64(v), 'f', -1, 64)
 }
