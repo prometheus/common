@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package text
+package expfmt
 
 import (
 	"math"
@@ -22,9 +22,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 )
 
-var parser Parser
-
-func testParse(t testing.TB) {
+func testTextParse(t testing.TB) {
 	var scenarios = []struct {
 		in  string
 		out []*dto.MetricFamily
@@ -419,17 +417,17 @@ request_duration_microseconds_count 2693
 	}
 }
 
-func TestParse(t *testing.T) {
-	testParse(t)
+func TestTextParse(t *testing.T) {
+	testTextParse(t)
 }
 
-func BenchmarkParse(b *testing.B) {
+func BenchmarkTextParse(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		testParse(b)
+		testTextParse(b)
 	}
 }
 
-func testParseError(t testing.TB) {
+func testTextParseError(t testing.TB) {
 	var scenarios = []struct {
 		in  string
 		err string
@@ -577,12 +575,12 @@ metric_bucket{le="bla"} 3.14
 
 }
 
-func TestParseError(t *testing.T) {
-	testParseError(t)
+func TestTextParseError(t *testing.T) {
+	testTextParseError(t)
 }
 
 func BenchmarkParseError(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		testParseError(b)
+		testTextParseError(b)
 	}
 }

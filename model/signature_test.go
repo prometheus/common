@@ -125,7 +125,7 @@ func TestSignatureForLabels(t *testing.T) {
 	}
 
 	for i, scenario := range scenarios {
-		actual := SignatureForLabels(NewMetric(scenario.in), scenario.labels)
+		actual := SignatureForLabels(NewMetric(scenario.in), scenario.labels...)
 
 		if actual != scenario.out {
 			t.Errorf("%d. expected %d, got %d", i, scenario.out, actual)

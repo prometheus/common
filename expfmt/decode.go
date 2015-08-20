@@ -23,7 +23,6 @@ import (
 	dto "github.com/prometheus/client_model/go"
 
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
-	"github.com/prometheus/common/expfmt/text"
 	"github.com/prometheus/common/model"
 )
 
@@ -34,7 +33,7 @@ type Decoder interface {
 
 type DecodeOptions struct {
 	// Timestamp is added to each value from the stream that has no explicit timestamp set.
-	Timestamp model.Timestamp
+	Timestamp model.Time
 }
 
 // NewDecor returns a new decoder based on the HTTP header.
@@ -86,7 +85,7 @@ func (d *protoDecoder) Decode(v *dto.MetricFamily) error {
 // textDecoder implements the Decoder interface for the text protcol.
 type textDecoder struct {
 	r    io.Reader
-	p    text.Parser
+	p    TextParser
 	fams []*dto.MetricFamily
 }
 
@@ -117,7 +116,7 @@ type SampleDecoder struct {
 	Opts *DecodeOptions
 }
 
-func (sd *SampleDecoder) Decode(s *model.Samples) error {
+func (sd *SampleDecoder) Decode(s *model.Vector) error {
 	if err := sd.Dec.Decode(&sd.f); err != nil {
 		return err
 	}
@@ -126,15 +125,15 @@ func (sd *SampleDecoder) Decode(s *model.Samples) error {
 }
 
 // Extract samples builds a slice of samples from the provided metric families.
-func ExtractSamples(o *DecodeOptions, fams ...*dto.MetricFamily) model.Samples {
-	var all model.Samples
+func ExtractSamples(o *DecodeOptions, fams ...*dto.MetricFamily) model.Vector {
+	var all model.Vector
 	for _, f := range fams {
 		all = append(all, extractSamples(f, o)...)
 	}
 	return all
 }
 
-func extractSamples(f *dto.MetricFamily, o *DecodeOptions) model.Samples {
+func extractSamples(f *dto.MetricFamily, o *DecodeOptions) model.Vector {
 	switch *f.Type {
 	case dto.MetricType_COUNTER:
 		return extractCounter(o, f)
@@ -150,98 +149,101 @@ func extractSamples(f *dto.MetricFamily, o *DecodeOptions) model.Samples {
 	panic("expfmt.extractSamples: unknown metric family type")
 }
 
-func extractCounter(o *DecodeOptions, f *dto.MetricFamily) model.Samples {
-	samples := make(model.Samples, 0, len(f.Metric))
+func extractCounter(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
+	samples := make(model.Vector, 0, len(f.Metric))
 
 	for _, m := range f.Metric {
 		if m.Counter == nil {
 			continue
 		}
 
-		sample := &model.Sample{
-			Metric: model.Metric{},
+		lset := make(model.LabelSet, len(m.Label)+1)
+		for _, p := range m.Label {
+			lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
+		}
+		lset[model.MetricNameLabel] = model.LabelValue(f.GetName())
+
+		smpl := &model.Sample{
+			Metric: model.NewMetric(lset),
 			Value:  model.SampleValue(m.Counter.GetValue()),
 		}
-		samples = append(samples, sample)
 
 		if m.TimestampMs != nil {
-			sample.Timestamp = model.TimestampFromUnixNano(*m.TimestampMs * 1000000)
+			smpl.Timestamp = model.TimeFromUnixNano(*m.TimestampMs * 1000000)
 		} else {
-			sample.Timestamp = o.Timestamp
+			smpl.Timestamp = o.Timestamp
 		}
 
-		metric := sample.Metric
-		for _, p := range m.Label {
-			metric[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
-		}
-		metric[model.MetricNameLabel] = model.LabelValue(f.GetName())
+		samples = append(samples, smpl)
 	}
 
 	return samples
 }
 
-func extractGauge(o *DecodeOptions, f *dto.MetricFamily) model.Samples {
-	samples := make(model.Samples, 0, len(f.Metric))
+func extractGauge(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
+	samples := make(model.Vector, 0, len(f.Metric))
 
 	for _, m := range f.Metric {
 		if m.Gauge == nil {
 			continue
 		}
 
-		sample := &model.Sample{
-			Metric: model.Metric{},
+		lset := make(model.LabelSet, len(m.Label)+1)
+		for _, p := range m.Label {
+			lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
+		}
+		lset[model.MetricNameLabel] = model.LabelValue(f.GetName())
+
+		smpl := &model.Sample{
+			Metric: model.NewMetric(lset),
 			Value:  model.SampleValue(m.Gauge.GetValue()),
 		}
-		samples = append(samples, sample)
 
 		if m.TimestampMs != nil {
-			sample.Timestamp = model.TimestampFromUnixNano(*m.TimestampMs * 1000000)
+			smpl.Timestamp = model.TimeFromUnixNano(*m.TimestampMs * 1000000)
 		} else {
-			sample.Timestamp = o.Timestamp
+			smpl.Timestamp = o.Timestamp
 		}
 
-		metric := sample.Metric
-		for _, p := range m.Label {
-			metric[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
-		}
-		metric[model.MetricNameLabel] = model.LabelValue(f.GetName())
+		samples = append(samples, smpl)
 	}
 
 	return samples
 }
 
-func extractUntyped(o *DecodeOptions, f *dto.MetricFamily) model.Samples {
-	samples := make(model.Samples, 0, len(f.Metric))
+func extractUntyped(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
+	samples := make(model.Vector, 0, len(f.Metric))
 
 	for _, m := range f.Metric {
 		if m.Untyped == nil {
 			continue
 		}
 
-		sample := &model.Sample{
-			Metric: model.Metric{},
+		lset := make(model.LabelSet, len(m.Label)+1)
+		for _, p := range m.Label {
+			lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
+		}
+		lset[model.MetricNameLabel] = model.LabelValue(f.GetName())
+
+		smpl := &model.Sample{
+			Metric: model.NewMetric(lset),
 			Value:  model.SampleValue(m.Untyped.GetValue()),
 		}
-		samples = append(samples, sample)
 
 		if m.TimestampMs != nil {
-			sample.Timestamp = model.TimestampFromUnixNano(*m.TimestampMs * 1000000)
+			smpl.Timestamp = model.TimeFromUnixNano(*m.TimestampMs * 1000000)
 		} else {
-			sample.Timestamp = o.Timestamp
+			smpl.Timestamp = o.Timestamp
 		}
 
-		metric := sample.Metric
-		for _, p := range m.Label {
-			metric[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
-		}
-		metric[model.MetricNameLabel] = model.LabelValue(f.GetName())
+		samples = append(samples, smpl)
 	}
 
 	return samples
 }
 
-func extractSummary(o *DecodeOptions, f *dto.MetricFamily) model.Samples {
-	samples := make(model.Samples, 0, len(f.Metric))
+func extractSummary(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
+	samples := make(model.Vector, 0, len(f.Metric))
 
 	for _, m := range f.Metric {
 		if m.Summary == nil {
@@ -250,62 +252,59 @@ func extractSummary(o *DecodeOptions, f *dto.MetricFamily) model.Samples {
 
 		timestamp := o.Timestamp
 		if m.TimestampMs != nil {
-			timestamp = model.TimestampFromUnixNano(*m.TimestampMs * 1000000)
+			timestamp = model.TimeFromUnixNano(*m.TimestampMs * 1000000)
 		}
 
 		for _, q := range m.Summary.Quantile {
-			sample := &model.Sample{
-				Metric:    model.Metric{},
-				Value:     model.SampleValue(q.GetValue()),
-				Timestamp: timestamp,
-			}
-			samples = append(samples, sample)
-
-			metric := sample.Metric
+			lset := make(model.LabelSet, len(m.Label)+2)
 			for _, p := range m.Label {
-				metric[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
+				lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
 			}
 			// BUG(matt): Update other names to "quantile".
-			metric[model.LabelName(model.QuantileLabel)] = model.LabelValue(fmt.Sprint(q.GetQuantile()))
-			metric[model.MetricNameLabel] = model.LabelValue(f.GetName())
+			lset[model.LabelName(model.QuantileLabel)] = model.LabelValue(fmt.Sprint(q.GetQuantile()))
+			lset[model.MetricNameLabel] = model.LabelValue(f.GetName())
+
+			samples = append(samples, &model.Sample{
+				Metric:    model.NewMetric(lset),
+				Value:     model.SampleValue(q.GetValue()),
+				Timestamp: timestamp,
+			})
 		}
 
 		if m.Summary.SampleSum != nil {
-			sum := &model.Sample{
-				Metric:    model.Metric{},
+			lset := make(model.LabelSet, len(m.Label)+1)
+			for _, p := range m.Label {
+				lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
+			}
+			lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_sum")
+
+			samples = append(samples, &model.Sample{
+				Metric:    model.NewMetric(lset),
 				Value:     model.SampleValue(m.Summary.GetSampleSum()),
 				Timestamp: timestamp,
-			}
-			samples = append(samples, sum)
-
-			metric := sum.Metric
-			for _, p := range m.Label {
-				metric[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
-			}
-			metric[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_sum")
+			})
 		}
 
 		if m.Summary.SampleCount != nil {
-			count := &model.Sample{
-				Metric:    model.Metric{},
+			lset := make(model.LabelSet, len(m.Label)+1)
+			for _, p := range m.Label {
+				lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
+			}
+			lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_count")
+
+			samples = append(samples, &model.Sample{
+				Metric:    model.NewMetric(lset),
 				Value:     model.SampleValue(m.Summary.GetSampleCount()),
 				Timestamp: timestamp,
-			}
-			samples = append(samples, count)
-
-			metric := count.Metric
-			for _, p := range m.Label {
-				metric[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
-			}
-			metric[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_count")
+			})
 		}
 	}
 
 	return samples
 }
 
-func extractHistogram(o *DecodeOptions, f *dto.MetricFamily) model.Samples {
-	samples := make(model.Samples, 0, len(f.Metric))
+func extractHistogram(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
+	samples := make(model.Vector, 0, len(f.Metric))
 
 	for _, m := range f.Metric {
 		if m.Histogram == nil {
@@ -314,74 +313,72 @@ func extractHistogram(o *DecodeOptions, f *dto.MetricFamily) model.Samples {
 
 		timestamp := o.Timestamp
 		if m.TimestampMs != nil {
-			timestamp = model.TimestampFromUnixNano(*m.TimestampMs * 1000000)
+			timestamp = model.TimeFromUnixNano(*m.TimestampMs * 1000000)
 		}
 
 		infSeen := false
 
 		for _, q := range m.Histogram.Bucket {
-			sample := &model.Sample{
-				Metric:    model.Metric{},
-				Value:     model.SampleValue(q.GetCumulativeCount()),
-				Timestamp: timestamp,
-			}
-			samples = append(samples, sample)
-
-			metric := sample.Metric
+			lset := make(model.LabelSet, len(m.Label)+2)
 			for _, p := range m.Label {
-				metric[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
+				lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
 			}
-			metric[model.LabelName(model.BucketLabel)] = model.LabelValue(fmt.Sprint(q.GetUpperBound()))
-			metric[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_bucket")
+			lset[model.LabelName(model.BucketLabel)] = model.LabelValue(fmt.Sprint(q.GetUpperBound()))
+			lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_bucket")
 
 			if math.IsInf(q.GetUpperBound(), +1) {
 				infSeen = true
 			}
+
+			samples = append(samples, &model.Sample{
+				Metric:    model.NewMetric(lset),
+				Value:     model.SampleValue(q.GetCumulativeCount()),
+				Timestamp: timestamp,
+			})
 		}
 
 		if m.Histogram.SampleSum != nil {
-			sum := &model.Sample{
-				Metric:    model.Metric{},
+			lset := make(model.LabelSet, len(m.Label)+1)
+			for _, p := range m.Label {
+				lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
+			}
+			lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_sum")
+
+			samples = append(samples, &model.Sample{
+				Metric:    model.NewMetric(lset),
 				Value:     model.SampleValue(m.Histogram.GetSampleSum()),
 				Timestamp: timestamp,
-			}
-			samples = append(samples, sum)
-
-			metric := sum.Metric
-			for _, p := range m.Label {
-				metric[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
-			}
-			metric[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_sum")
+			})
 		}
 
 		if m.Histogram.SampleCount != nil {
+			lset := make(model.LabelSet, len(m.Label)+1)
+			for _, p := range m.Label {
+				lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
+			}
+			lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_count")
+
 			count := &model.Sample{
-				Metric:    model.Metric{},
+				Metric:    model.NewMetric(lset),
 				Value:     model.SampleValue(m.Histogram.GetSampleCount()),
 				Timestamp: timestamp,
 			}
 			samples = append(samples, count)
 
-			metric := count.Metric
-			for _, p := range m.Label {
-				metric[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
-			}
-			metric[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_count")
-
 			if !infSeen {
-				infBucket := &model.Sample{
-					Metric:    model.Metric{},
+				// Append a infinity bucket sample.
+				lset := make(model.LabelSet, len(m.Label)+2)
+				for _, p := range m.Label {
+					lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
+				}
+				lset[model.LabelName(model.BucketLabel)] = model.LabelValue("+Inf")
+				lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_bucket")
+
+				samples = append(samples, &model.Sample{
+					Metric:    model.NewMetric(lset),
 					Value:     count.Value,
 					Timestamp: timestamp,
-				}
-				samples = append(samples, infBucket)
-
-				metric := infBucket.Metric
-				for _, p := range m.Label {
-					metric[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
-				}
-				metric[model.LabelName(model.BucketLabel)] = model.LabelValue("+Inf")
-				metric[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_bucket")
+				})
 			}
 		}
 	}

@@ -20,15 +20,19 @@ import (
 	"strings"
 )
 
-// A Metric is similar to a LabelSet, but the key difference is that a Metric is
-// a singleton and refers to one and only one stream of samples.
+// A Metric is fixed set of labels that describes a stream of samples,
+// i.e. a single time series. It is safe for modification when passed
+// into another function after calling Clone().
+// The underlying LabelSet is accesible but must not be directly modified.
 type Metric struct {
 	LabelSet
 
 	Copied bool
 }
 
-// NewMetric wraps the LabelSet into a Metric.
+// NewMetric returns a new metric based on the given label set.
+// The underlying label set might be modified unless Clone() is
+// called beforehand.
 func NewMetric(ls LabelSet) Metric {
 	return Metric{
 		LabelSet: ls,
@@ -81,28 +85,28 @@ func (m *Metric) Copy() {
 	m.Copied = true
 }
 
-// Clone returns a clone of the metric. Until no change happens to any of the metrics
-// the underlying LabelSet is not copied.
+// Clone returns a copy of the metric pointing to the same underlying
+// label set. If either the original or returned metric a modified, they
+// create a new copy of the label set.
+// Clone must be called whenever a metric is passed down a function that
+// may call Del() or Set() and the caller still needs the metric.
 func (m *Metric) Clone() Metric {
 	m.Copied = false
-	return Metric{
-		LabelSet: m.LabelSet,
-		Copied:   false,
-	}
+	return *m
 }
 
 // Equal compares the metrics.
-func (m *Metric) Equal(o Metric) bool {
+func (m Metric) Equal(o Metric) bool {
 	return m.LabelSet.Equal(o.LabelSet)
 }
 
 // Before compares the metrics' underlying label sets.
-func (m *Metric) Before(o Metric) bool {
+func (m Metric) Before(o Metric) bool {
 	return m.LabelSet.Before(o.LabelSet)
 }
 
 // String implements Stringer.
-func (m *Metric) String() string {
+func (m Metric) String() string {
 	metricName, hasName := m.LabelSet[MetricNameLabel]
 	numLabels := len(m.LabelSet) - 1
 	if !hasName {
@@ -134,10 +138,9 @@ func (m Metric) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON implements json.Unmarshaler.
 func (m *Metric) UnmarshalJSON(b []byte) error {
-	if m.LabelSet != nil {
+	if m.LabelSet != nil && !m.Copied {
 		m.Copy()
 	}
-	m.Copied = true
 	return json.Unmarshal(b, &m.LabelSet)
 }
 
