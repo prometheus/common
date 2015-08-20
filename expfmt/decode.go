@@ -112,8 +112,9 @@ func (d *textDecoder) Decode(v *dto.MetricFamily) error {
 
 type SampleDecoder struct {
 	Dec  Decoder
-	f    dto.MetricFamily
 	Opts *DecodeOptions
+
+	f dto.MetricFamily
 }
 
 func (sd *SampleDecoder) Decode(s *model.Vector) error {

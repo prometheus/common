@@ -22,6 +22,12 @@ import (
 // For our purposes, FNV-1A 64-bit is used.
 type Fingerprint uint64
 
+// FingerprintFromString transforms a string representation into a Fingerprint.
+func FingerprintFromString(s string) (Fingerprint, error) {
+	num, err := strconv.ParseUint(s, 16, 64)
+	return Fingerprint(num), err
+}
+
 // ParseFingerprint parses the input string into a fingerprint.
 func ParseFingerprint(s string) (Fingerprint, error) {
 	num, err := strconv.ParseUint(s, 16, 64)
