@@ -28,6 +28,7 @@ type Metric struct {
 	Copied bool
 }
 
+// NewMetric wraps the LabelSet into a Metric.
 func NewMetric(ls LabelSet) Metric {
 	return Metric{
 		LabelSet: ls,
@@ -35,19 +36,30 @@ func NewMetric(ls LabelSet) Metric {
 	}
 }
 
+// Name returns the metric's name which is equivalent to the __name__ label.
+func (m *Metric) Name() string {
+	return string(m.LabelSet[MetricNameLabel])
+}
+
+// Len returns the number of labels including the Name label.
 func (m *Metric) Len() int {
 	return len(m.LabelSet)
 }
 
+// Get the value for the label with name ln. If the label is not set
+// the empty string is returned.
 func (m *Metric) Get(ln LabelName) LabelValue {
 	return m.LabelSet[ln]
 }
 
+// Has behaves like Get but returns a bool that is false if the label ln
+// is not set.
 func (m *Metric) Has(ln LabelName) (LabelValue, bool) {
 	v, ok := m.LabelSet[ln]
 	return v, ok
 }
 
+// Set the label value for ln to lv.
 func (m *Metric) Set(ln LabelName, lv LabelValue) {
 	if !m.Copied {
 		m.Copy()
@@ -55,6 +67,7 @@ func (m *Metric) Set(ln LabelName, lv LabelValue) {
 	m.LabelSet[ln] = lv
 }
 
+// Remote the label ln.
 func (m *Metric) Del(ln LabelName) {
 	if !m.Copied {
 		m.Copy()
@@ -62,10 +75,20 @@ func (m *Metric) Del(ln LabelName) {
 	delete(m.LabelSet, ln)
 }
 
+// Copy swaps the underlying label set of the metric for a fresh copy.
 func (m *Metric) Copy() {
-	fmt.Println("call copy")
 	m.LabelSet = m.LabelSet.Clone()
 	m.Copied = true
+}
+
+// Clone returns a clone of the metric. Until no change happens to any of the metrics
+// the underlying LabelSet is not copied.
+func (m *Metric) Clone() Metric {
+	m.Copied = false
+	return Metric{
+		LabelSet: m.LabelSet,
+		Copied:   false,
+	}
 }
 
 // Equal compares the metrics.

@@ -24,7 +24,6 @@ import (
 
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/prometheus/common/expfmt/text"
-
 	"github.com/prometheus/common/model"
 )
 

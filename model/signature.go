@@ -135,12 +135,12 @@ func labelSetToFastFingerprint(ls LabelSet) Fingerprint {
 // parameter (rather than a label map) and only includes the labels with the
 // specified LabelNames into the signature calculation. The labels passed in
 // will be sorted by this function.
-func SignatureForLabels(m Metric, labels LabelNames) uint64 {
+func SignatureForLabels(m Metric, labels ...LabelName) uint64 {
 	if len(m.LabelSet) == 0 || len(labels) == 0 {
 		return emptyLabelSignature
 	}
 
-	sort.Sort(labels)
+	sort.Sort(LabelNames(labels))
 
 	hb := getHashAndBuf()
 	defer putHashAndBuf(hb)

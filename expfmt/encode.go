@@ -21,8 +21,9 @@ import (
 	"bitbucket.org/ww/goautoneg"
 	"github.com/golang/protobuf/proto"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
-	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt/text"
+
+	dto "github.com/prometheus/client_model/go"
 )
 
 // Encoder types encode metric families into an underlying wire protocol.
