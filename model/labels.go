@@ -30,8 +30,9 @@ const (
 	// timeseries.
 	MetricNameLabel LabelName = "__name__"
 
-	// AlertNameLAbel is the name of the label that contains the an alert's name.
-	AlertNameLabel = "alertname"
+	// SchemeLabel is the name of the label that holds the scheme on which to
+	// scrape a target.
+	SchemeLabel LabelName = "__scheme__"
 
 	// AddressLabel is the name of the label that holds the address of
 	// a scrape target.
@@ -49,6 +50,16 @@ const (
 	// Labels with this prefix are used for intermediate label processing and
 	// will not be attached to time series.
 	MetaLabelPrefix = "__meta_"
+
+	// TmpLabelPrefix is a prefix for temporary labels as part of relabelling.
+	// Labels with this prefix are used for intermediate label processing and
+	// will not be attached to time series. This is reserved for use in
+	// Prometheus configuration files by users.
+	TmpLabelPrefix = "__tmp_"
+
+	// ParamLabelPrefix is a prefix for labels that provide URL parameters
+	// used to scrape a target.
+	ParamLabelPrefix = "__param_"
 
 	// JobLabel is the label name indicating the job from which a timeseries
 	// was scraped.
