@@ -94,7 +94,7 @@ func (m *COWMetric) Set(ln LabelName, lv LabelValue) {
 	m.Metric[ln] = lv
 }
 
-// Delete deletes a given label name from the wrapped Metric and copies the
+// Del deletes a given label name from the wrapped Metric and copies the
 // Metric initially, if it is not already a copy.
 func (m *COWMetric) Del(ln LabelName) {
 	m.doCOW()

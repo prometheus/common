@@ -94,8 +94,8 @@ func (s *SamplePair) String() string {
 // Sample is a sample pair associated with a metric.
 type Sample struct {
 	Metric    Metric
-	Value     SampleValue
 	Timestamp Time
+	Value     SampleValue
 }
 
 // Equal compares first the metrics, then the timestamp, then the value.
@@ -122,6 +122,22 @@ func (s *Sample) String() string {
 		Timestamp: s.Timestamp,
 		Value:     s.Value,
 	})
+}
+
+// MarshalJSON implements json.Marshaler.
+func (s *Sample) MarshalJSON() ([]byte, error) {
+	v := struct {
+		Metric Metric     `json:"metric"`
+		Value  SamplePair `json:"value"`
+	}{
+		Metric: s.Metric,
+		Value: SamplePair{
+			Timestamp: s.Timestamp,
+			Value:     s.Value,
+		},
+	}
+
+	return json.Marshal(&v)
 }
 
 // Samples is a sortable Sample slice. It implements sort.Interface.
@@ -251,6 +267,12 @@ func (s *Scalar) String() string {
 	return fmt.Sprintf("scalar: %v @[%v]", s.Value, s.Timestamp)
 }
 
+// MarshalJSON implements json.Marshaler.
+func (s *Scalar) MarshalJSON() ([]byte, error) {
+	v := strconv.FormatFloat(float64(s.Value), 'f', -1, 64)
+	return json.Marshal([]interface{}{s.Timestamp, string(v)})
+}
+
 // String is a string value evaluated at the set timestamp.
 type String struct {
 	Value     string `json:"value"`
@@ -259,6 +281,11 @@ type String struct {
 
 func (s *String) String() string {
 	return s.Value
+}
+
+// MarshalJSON implements json.Marshaler.
+func (s *String) MarshalJSON() ([]byte, error) {
+	return json.Marshal([]interface{}{s.Timestamp, s.Value})
 }
 
 // Vector is basically only an alias for Samples, but the
