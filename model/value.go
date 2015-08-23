@@ -268,9 +268,26 @@ func (s *Scalar) String() string {
 }
 
 // MarshalJSON implements json.Marshaler.
-func (s *Scalar) MarshalJSON() ([]byte, error) {
+func (s Scalar) MarshalJSON() ([]byte, error) {
 	v := strconv.FormatFloat(float64(s.Value), 'f', -1, 64)
-	return json.Marshal([]interface{}{s.Timestamp, string(v)})
+	return json.Marshal([...]interface{}{s.Timestamp, string(v)})
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (s *Scalar) UnmarshalJSON(b []byte) error {
+	var f string
+	v := [...]interface{}{&s.Timestamp, &f}
+
+	if err := json.Unmarshal(b, &v); err != nil {
+		return err
+	}
+
+	value, err := strconv.ParseFloat(f, 64)
+	if err != nil {
+		return fmt.Errorf("error parsing sample value: %s", err)
+	}
+	s.Value = SampleValue(value)
+	return nil
 }
 
 // String is a string value evaluated at the set timestamp.

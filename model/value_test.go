@@ -14,9 +14,64 @@
 package model
 
 import (
+	"encoding/json"
+	"math"
 	"sort"
 	"testing"
 )
+
+func TestScalarJSON(t *testing.T) {
+	input := []struct {
+		plain string
+		value Scalar
+	}{
+		{
+			plain: `[123.456,"456"]`,
+			value: Scalar{
+				Timestamp: 123456,
+				Value:     456,
+			},
+		},
+		{
+			plain: `[123123.456,"+Inf"]`,
+			value: Scalar{
+				Timestamp: 123123456,
+				Value:     SampleValue(math.Inf(1)),
+			},
+		},
+		{
+			plain: `[123123.456,"-Inf"]`,
+			value: Scalar{
+				Timestamp: 123123456,
+				Value:     SampleValue(math.Inf(-1)),
+			},
+		},
+	}
+
+	for _, test := range input {
+		b, err := json.Marshal(test.value)
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+
+		if string(b) != test.plain {
+			t.Errorf("encoding error: expected %q, got %q", test.plain, b)
+			continue
+		}
+
+		var sv Scalar
+		err = json.Unmarshal(b, &sv)
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+
+		if sv != test.value {
+			t.Errorf("decoding error: expected %v, got %v", test.value, sv)
+		}
+	}
+}
 
 func TestVectorSort(t *testing.T) {
 	input := Vector{
