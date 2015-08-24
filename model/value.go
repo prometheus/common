@@ -87,15 +87,15 @@ func (s *SamplePair) Equal(o *SamplePair) bool {
 	return s == o || (s.Value == o.Value && s.Timestamp.Equal(o.Timestamp))
 }
 
-func (s *SamplePair) String() string {
+func (s SamplePair) String() string {
 	return fmt.Sprintf("%s @[%s]", s.Value, s.Timestamp)
 }
 
 // Sample is a sample pair associated with a metric.
 type Sample struct {
-	Metric    Metric
-	Timestamp Time
-	Value     SampleValue
+	Metric    Metric      `json:"metric"`
+	Value     SampleValue `json:"value"`
+	Timestamp Time        `json:"timestamp"`
 }
 
 // Equal compares first the metrics, then the timestamp, then the value.
@@ -117,7 +117,7 @@ func (s *Sample) Equal(o *Sample) bool {
 	return true
 }
 
-func (s *Sample) String() string {
+func (s Sample) String() string {
 	return fmt.Sprintf("%s => %s", s.Metric, SamplePair{
 		Timestamp: s.Timestamp,
 		Value:     s.Value,
@@ -185,7 +185,7 @@ type SampleStream struct {
 	Values []SamplePair `json:"values"`
 }
 
-func (ss *SampleStream) String() string {
+func (ss SampleStream) String() string {
 	vals := make([]string, len(ss.Values))
 	for i, v := range ss.Values {
 		vals[i] = v.String()
@@ -263,7 +263,7 @@ type Scalar struct {
 	Timestamp Time        `json:"timestamp"`
 }
 
-func (s *Scalar) String() string {
+func (s Scalar) String() string {
 	return fmt.Sprintf("scalar: %v @[%v]", s.Value, s.Timestamp)
 }
 
@@ -301,8 +301,26 @@ func (s *String) String() string {
 }
 
 // MarshalJSON implements json.Marshaler.
-func (s *String) MarshalJSON() ([]byte, error) {
+func (s String) MarshalJSON() ([]byte, error) {
 	return json.Marshal([]interface{}{s.Timestamp, s.Value})
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (s *String) UnmarshalJSON(b []byte) error {
+	var f string
+	v := [...]interface{}{&s.Timestamp, &f}
+
+	if err := json.Unmarshal(b, &v); err != nil {
+		return err
+	}
+
+	value, err := strconv.ParseFloat(f, 64)
+	if err != nil {
+		return fmt.Errorf("error parsing sample value: %s", err)
+	}
+	s.Value = SampleValue(value)
+	return nil
+
 }
 
 // Vector is basically only an alias for Samples, but the
