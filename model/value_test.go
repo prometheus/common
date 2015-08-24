@@ -73,6 +73,52 @@ func TestScalarJSON(t *testing.T) {
 	}
 }
 
+func TestStringJSON(t *testing.T) {
+	input := []struct {
+		plain string
+		value String
+	}{
+		{
+			plain: `[123.456,"test"]`,
+			value: String{
+				Timestamp: 123456,
+				Value:     "test",
+			},
+		},
+		{
+			plain: `[123123.456,"台北"]`,
+			value: String{
+				Timestamp: 123123456,
+				Value:     "台北",
+			},
+		},
+	}
+
+	for _, test := range input {
+		b, err := json.Marshal(test.value)
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+
+		if string(b) != test.plain {
+			t.Errorf("encoding error: expected %q, got %q", test.plain, b)
+			continue
+		}
+
+		var sv String
+		err = json.Unmarshal(b, &sv)
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+
+		if sv != test.value {
+			t.Errorf("decoding error: expected %v, got %v", test.value, sv)
+		}
+	}
+}
+
 func TestVectorSort(t *testing.T) {
 	input := Vector{
 		&Sample{

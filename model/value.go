@@ -307,20 +307,8 @@ func (s String) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON implements json.Unmarshaler.
 func (s *String) UnmarshalJSON(b []byte) error {
-	var f string
-	v := [...]interface{}{&s.Timestamp, &f}
-
-	if err := json.Unmarshal(b, &v); err != nil {
-		return err
-	}
-
-	value, err := strconv.ParseFloat(f, 64)
-	if err != nil {
-		return fmt.Errorf("error parsing sample value: %s", err)
-	}
-	s.Value = SampleValue(value)
-	return nil
-
+	v := [...]interface{}{&s.Timestamp, &s.Value}
+	return json.Unmarshal(b, &v)
 }
 
 // Vector is basically only an alias for Samples, but the
