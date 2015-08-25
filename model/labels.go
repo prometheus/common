@@ -22,6 +22,9 @@ import (
 )
 
 const (
+	// AlertNameLabel is the name of the label containing the an alert's name.
+	AlertNameLabel = "alertname"
+
 	// ExportedLabelPrefix is the prefix to prepend to the label names present in
 	// exported metrics if a label of the same name is added by the server.
 	ExportedLabelPrefix = "exported_"
