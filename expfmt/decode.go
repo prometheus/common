@@ -36,7 +36,7 @@ type DecodeOptions struct {
 	Timestamp model.Time
 }
 
-// NewDecor returns a new decoder based on the HTTP header.
+// NewDecoder returns a new decoder based on the HTTP header.
 func NewDecoder(r io.Reader, h http.Header) (Decoder, error) {
 	ct := h.Get(hdrContentType)
 
