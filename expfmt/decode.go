@@ -135,7 +135,7 @@ func ExtractSamples(o *DecodeOptions, fams ...*dto.MetricFamily) model.Vector {
 }
 
 func extractSamples(f *dto.MetricFamily, o *DecodeOptions) model.Vector {
-	switch *f.Type {
+	switch f.GetType() {
 	case dto.MetricType_COUNTER:
 		return extractCounter(o, f)
 	case dto.MetricType_GAUGE:
