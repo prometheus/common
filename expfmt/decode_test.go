@@ -219,6 +219,20 @@ func TestProtoDecoder(t *testing.T) {
 				},
 			},
 		},
+		{
+			// The metric type is unset in this protobuf, which needs to be handled
+			// correctly by the decoder.
+			in: "\x1c\n\rrequest_count\"\v\x1a\t\t\x00\x00\x00\x00\x00\x00\xf0?",
+			expected: model.Vector{
+				&model.Sample{
+					Metric: model.Metric{
+						model.MetricNameLabel: "request_count",
+					},
+					Value:     1,
+					Timestamp: testTime,
+				},
+			},
+		},
 	}
 
 	for _, scenario := range scenarios {
