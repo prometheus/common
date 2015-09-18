@@ -133,6 +133,22 @@ func TestProtoDecoder(t *testing.T) {
 			expected: model.Vector{
 				&model.Sample{
 					Metric: model.Metric{
+						model.MetricNameLabel: "request_count_count",
+						"some_label_name":     "some_label_value",
+					},
+					Value:     0,
+					Timestamp: testTime,
+				},
+				&model.Sample{
+					Metric: model.Metric{
+						model.MetricNameLabel: "request_count_sum",
+						"some_label_name":     "some_label_value",
+					},
+					Value:     0,
+					Timestamp: testTime,
+				},
+				&model.Sample{
+					Metric: model.Metric{
 						model.MetricNameLabel: "request_count",
 						"some_label_name":     "some_label_value",
 						"quantile":            "0.99",
@@ -147,6 +163,22 @@ func TestProtoDecoder(t *testing.T) {
 						"quantile":            "0.999",
 					},
 					Value:     -84,
+					Timestamp: testTime,
+				},
+				&model.Sample{
+					Metric: model.Metric{
+						model.MetricNameLabel: "request_count_count",
+						"another_label_name":  "another_label_value",
+					},
+					Value:     0,
+					Timestamp: testTime,
+				},
+				&model.Sample{
+					Metric: model.Metric{
+						model.MetricNameLabel: "request_count_sum",
+						"another_label_name":  "another_label_value",
+					},
+					Value:     0,
 					Timestamp: testTime,
 				},
 				&model.Sample{
@@ -235,7 +267,7 @@ func TestProtoDecoder(t *testing.T) {
 		},
 	}
 
-	for _, scenario := range scenarios {
+	for i, scenario := range scenarios {
 		dec := &SampleDecoder{
 			Dec: &protoDecoder{r: strings.NewReader(scenario.in)},
 			Opts: &DecodeOptions{
@@ -258,7 +290,7 @@ func TestProtoDecoder(t *testing.T) {
 		sort.Sort(all)
 		sort.Sort(scenario.expected)
 		if !reflect.DeepEqual(all, scenario.expected) {
-			t.Fatalf("output does not match")
+			t.Fatalf("%d. output does not match, want: %#v, got %#v", i, scenario.expected, all)
 		}
 	}
 }
