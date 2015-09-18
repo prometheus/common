@@ -266,37 +266,37 @@ func TestProtoDecoder(t *testing.T) {
 func testDiscriminatorHTTPHeader(t testing.TB) {
 	var scenarios = []struct {
 		input  map[string]string
-		output Decoder
+		output Format
 		err    error
 	}{
 		{
 			input:  map[string]string{"Content-Type": `application/vnd.google.protobuf; proto="io.prometheus.client.MetricFamily"; encoding="delimited"`},
-			output: &protoDecoder{},
+			output: FmtProtoDelim,
 			err:    nil,
 		},
 		{
 			input:  map[string]string{"Content-Type": `application/vnd.google.protobuf; proto="illegal"; encoding="delimited"`},
-			output: nil,
+			output: "",
 			err:    errors.New("unrecognized protocol message illegal"),
 		},
 		{
 			input:  map[string]string{"Content-Type": `application/vnd.google.protobuf; proto="io.prometheus.client.MetricFamily"; encoding="illegal"`},
-			output: nil,
+			output: "",
 			err:    errors.New("unsupported encoding illegal"),
 		},
 		{
 			input:  map[string]string{"Content-Type": `text/plain; version=0.0.4`},
-			output: &textDecoder{},
+			output: FmtText,
 			err:    nil,
 		},
 		{
 			input:  map[string]string{"Content-Type": `text/plain`},
-			output: &textDecoder{},
+			output: FmtText,
 			err:    nil,
 		},
 		{
 			input:  map[string]string{"Content-Type": `text/plain; version=0.0.3`},
-			output: nil,
+			output: "",
 			err:    errors.New("unrecognized protocol version 0.0.3"),
 		},
 	}
@@ -312,7 +312,7 @@ func testDiscriminatorHTTPHeader(t testing.TB) {
 			header.Add(key, value)
 		}
 
-		actual, err := NewDecoder(nil, header)
+		actual, err := ResponseFormat(header)
 
 		if scenario.err != err {
 			if scenario.err != nil && err != nil {
