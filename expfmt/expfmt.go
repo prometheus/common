@@ -24,7 +24,7 @@ const (
 	ProtoFmt      = ProtoType + "; proto=" + ProtoProtocol + ";"
 
 	// The Content-Type values for the different wire protocols.
-	FmtUnkown       Format = `<unknown>`
+	FmtUnknown      Format = `<unknown>`
 	FmtText         Format = `text/plain; version=` + TextVersion
 	FmtProtoDelim   Format = ProtoFmt + ` encoding=delimited`
 	FmtProtoText    Format = ProtoFmt + ` encoding=text`

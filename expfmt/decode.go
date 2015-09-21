@@ -43,7 +43,7 @@ func ResponseFormat(h http.Header) Format {
 
 	mediatype, params, err := mime.ParseMediaType(ct)
 	if err != nil {
-		return FmtUnkown
+		return FmtUnknown
 	}
 
 	const (
@@ -54,16 +54,16 @@ func ResponseFormat(h http.Header) Format {
 	switch mediatype {
 	case ProtoType:
 		if p, ok := params["proto"]; ok && p != ProtoProtocol {
-			return FmtUnkown
+			return FmtUnknown
 		}
 		if e, ok := params["encoding"]; ok && e != "delimited" {
-			return FmtUnkown
+			return FmtUnknown
 		}
 		return FmtProtoDelim
 
 	case textType:
 		if v, ok := params["version"]; ok && v != TextVersion {
-			return FmtUnkown
+			return FmtUnknown
 		}
 		return FmtText
 
@@ -78,13 +78,13 @@ func ResponseFormat(h http.Header) Format {
 
 		switch prometheusAPIVersion {
 		case "0.0.2", "":
-			return FmtJSON2
+			return fmtJSON2
 		default:
-			return FmtUnkown
+			return FmtUnknown
 		}
 	}
 
-	return FmtUnkown
+	return FmtUnknown
 }
 
 // NewDecoder returns a new decoder based on the given input format.
@@ -92,11 +92,11 @@ func ResponseFormat(h http.Header) Format {
 func NewDecoder(r io.Reader, format Format) Decoder {
 	switch format {
 	case FmtProtoDelim:
-		return &protoDecoder{r: r}, nil
-	case FmtJSON2:
-		return newJSON2Decoder(r), nil
+		return &protoDecoder{r: r}
+	case fmtJSON2:
+		return newJSON2Decoder(r)
 	}
-	return &textDecoder{r: r}, nil
+	return &textDecoder{r: r}
 }
 
 // protoDecoder implements the Decoder interface for protocol buffers.
@@ -129,13 +129,14 @@ func (d *textDecoder) Decode(v *dto.MetricFamily) error {
 		if len(fams) == 0 {
 			return io.EOF
 		}
+		d.fams = make([]*dto.MetricFamily, 0, len(fams))
 		for _, f := range fams {
 			d.fams = append(d.fams, f)
 		}
 	}
 
-	*v = *d.fams[len(d.fams)-1]
-	d.fams = d.fams[:len(d.fams)-1]
+	*v = *d.fams[0]
+	d.fams = d.fams[1:]
 
 	return nil
 }
