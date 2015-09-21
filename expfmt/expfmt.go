@@ -19,16 +19,16 @@ type Format string
 const (
 	TextVersion = "0.0.4"
 
-	ProtoType     = `application`
-	ProtoSubType  = `vnd.google.protobuf`
+	ProtoType     = `application/vnd.google.protobuf`
 	ProtoProtocol = `io.prometheus.client.MetricFamily`
-	ProtoFmt      = ProtoType + "/" + ProtoSubType + "; proto=" + ProtoProtocol + ";"
+	ProtoFmt      = ProtoType + "; proto=" + ProtoProtocol + ";"
 
 	// The Content-Type values for the different wire protocols.
 	FmtText         Format = `text/plain; version=` + TextVersion
 	FmtProtoDelim   Format = ProtoFmt + ` encoding=delimited`
 	FmtProtoText    Format = ProtoFmt + ` encoding=text`
 	FmtProtoCompact Format = ProtoFmt + ` encoding=compact-text`
+	FmtJSON2        Format = `application/json; version=0.0.2`
 )
 
 const (

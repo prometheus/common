@@ -46,12 +46,12 @@ func ResponseFormat(h http.Header) (Format, error) {
 	}
 
 	const (
-		protoType = ProtoType + "/" + ProtoSubType
-		textType  = "text/plain"
+		textType = "text/plain"
+		jsonType = "application/json"
 	)
 
 	switch mediatype {
-	case protoType:
+	case ProtoType:
 		if p := params["proto"]; p != ProtoProtocol {
 			return "", fmt.Errorf("unrecognized protocol message %s", p)
 		}
@@ -61,13 +61,29 @@ func ResponseFormat(h http.Header) (Format, error) {
 		return FmtProtoDelim, nil
 
 	case textType:
-		if v, ok := params["version"]; ok && v != "0.0.4" {
+		if v, ok := params["version"]; ok && v != TextVersion {
 			return "", fmt.Errorf("unrecognized protocol version %s", v)
 		}
 		return FmtText, nil
+
+	case jsonType:
+		var prometheusAPIVersion string
+
+		if params["schema"] == "prometheus/telemetry" && params["version"] != "" {
+			prometheusAPIVersion = params["version"]
+		} else {
+			prometheusAPIVersion = h.Get("X-Prometheus-API-Version")
+		}
+
+		switch prometheusAPIVersion {
+		case "0.0.2":
+			return FmtJSON2, nil
+		default:
+			return "", fmt.Errorf("unrecognized API version %s", prometheusAPIVersion)
+		}
 	}
 
-	return "", fmt.Errorf("unsupported media type %q, expected %q or %q", mediatype, protoType, textType)
+	return "", fmt.Errorf("unsupported media type %q, expected %q or %q", mediatype, ProtoType, textType)
 }
 
 // NewDecoder returns a new decoder based on the HTTP header.
@@ -77,6 +93,8 @@ func NewDecoder(r io.Reader, format Format) (Decoder, error) {
 		return &protoDecoder{r: r}, nil
 	case FmtText:
 		return &textDecoder{r: r}, nil
+	case FmtJSON2:
+		return newJSON2Decoder(r), nil
 	}
 	return nil, fmt.Errorf("unsupported decoding format %q", format)
 }
@@ -115,8 +133,10 @@ func (d *textDecoder) Decode(v *dto.MetricFamily) error {
 			d.fams = append(d.fams, f)
 		}
 	}
+
 	*v = *d.fams[len(d.fams)-1]
 	d.fams = d.fams[:len(d.fams)-1]
+
 	return nil
 }
 
