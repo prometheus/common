@@ -314,6 +314,24 @@ request_duration_microseconds_sum 1.7560473e+06
 request_duration_microseconds_count 2693
 `,
 		},
+		// 6: No metric type, should result in default type Counter.
+		{
+			in: &dto.MetricFamily{
+				Name: proto.String("name"),
+				Help: proto.String("doc string"),
+				Metric: []*dto.Metric{
+					&dto.Metric{
+						Counter: &dto.Counter{
+							Value: proto.Float64(math.Inf(-1)),
+						},
+					},
+				},
+			},
+			out: `# HELP name doc string
+# TYPE name counter
+name -Inf
+`,
+		},
 	}
 
 	for i, scenario := range scenarios {
@@ -379,22 +397,7 @@ func testCreateError(t testing.TB) {
 			},
 			err: "MetricFamily has no name",
 		},
-		// 2: No metric type.
-		{
-			in: &dto.MetricFamily{
-				Name: proto.String("name"),
-				Help: proto.String("doc string"),
-				Metric: []*dto.Metric{
-					&dto.Metric{
-						Untyped: &dto.Untyped{
-							Value: proto.Float64(math.Inf(-1)),
-						},
-					},
-				},
-			},
-			err: "MetricFamily has no type",
-		},
-		// 3: Wrong type.
+		// 2: Wrong type.
 		{
 			in: &dto.MetricFamily{
 				Name: proto.String("name"),

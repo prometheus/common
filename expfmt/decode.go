@@ -282,33 +282,29 @@ func extractSummary(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 			})
 		}
 
-		if m.Summary.SampleSum != nil {
-			lset := make(model.LabelSet, len(m.Label)+1)
-			for _, p := range m.Label {
-				lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
-			}
-			lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_sum")
-
-			samples = append(samples, &model.Sample{
-				Metric:    model.Metric(lset),
-				Value:     model.SampleValue(m.Summary.GetSampleSum()),
-				Timestamp: timestamp,
-			})
+		lset := make(model.LabelSet, len(m.Label)+1)
+		for _, p := range m.Label {
+			lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
 		}
+		lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_sum")
 
-		if m.Summary.SampleCount != nil {
-			lset := make(model.LabelSet, len(m.Label)+1)
-			for _, p := range m.Label {
-				lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
-			}
-			lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_count")
+		samples = append(samples, &model.Sample{
+			Metric:    model.Metric(lset),
+			Value:     model.SampleValue(m.Summary.GetSampleSum()),
+			Timestamp: timestamp,
+		})
 
-			samples = append(samples, &model.Sample{
-				Metric:    model.Metric(lset),
-				Value:     model.SampleValue(m.Summary.GetSampleCount()),
-				Timestamp: timestamp,
-			})
+		lset = make(model.LabelSet, len(m.Label)+1)
+		for _, p := range m.Label {
+			lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
 		}
+		lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_count")
+
+		samples = append(samples, &model.Sample{
+			Metric:    model.Metric(lset),
+			Value:     model.SampleValue(m.Summary.GetSampleCount()),
+			Timestamp: timestamp,
+		})
 	}
 
 	return samples
@@ -348,49 +344,45 @@ func extractHistogram(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 			})
 		}
 
-		if m.Histogram.SampleSum != nil {
-			lset := make(model.LabelSet, len(m.Label)+1)
+		lset := make(model.LabelSet, len(m.Label)+1)
+		for _, p := range m.Label {
+			lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
+		}
+		lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_sum")
+
+		samples = append(samples, &model.Sample{
+			Metric:    model.Metric(lset),
+			Value:     model.SampleValue(m.Histogram.GetSampleSum()),
+			Timestamp: timestamp,
+		})
+
+		lset = make(model.LabelSet, len(m.Label)+1)
+		for _, p := range m.Label {
+			lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
+		}
+		lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_count")
+
+		count := &model.Sample{
+			Metric:    model.Metric(lset),
+			Value:     model.SampleValue(m.Histogram.GetSampleCount()),
+			Timestamp: timestamp,
+		}
+		samples = append(samples, count)
+
+		if !infSeen {
+			// Append an infinity bucket sample.
+			lset := make(model.LabelSet, len(m.Label)+2)
 			for _, p := range m.Label {
 				lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
 			}
-			lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_sum")
+			lset[model.LabelName(model.BucketLabel)] = model.LabelValue("+Inf")
+			lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_bucket")
 
 			samples = append(samples, &model.Sample{
 				Metric:    model.Metric(lset),
-				Value:     model.SampleValue(m.Histogram.GetSampleSum()),
+				Value:     count.Value,
 				Timestamp: timestamp,
 			})
-		}
-
-		if m.Histogram.SampleCount != nil {
-			lset := make(model.LabelSet, len(m.Label)+1)
-			for _, p := range m.Label {
-				lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
-			}
-			lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_count")
-
-			count := &model.Sample{
-				Metric:    model.Metric(lset),
-				Value:     model.SampleValue(m.Histogram.GetSampleCount()),
-				Timestamp: timestamp,
-			}
-			samples = append(samples, count)
-
-			if !infSeen {
-				// Append a infinity bucket sample.
-				lset := make(model.LabelSet, len(m.Label)+2)
-				for _, p := range m.Label {
-					lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
-				}
-				lset[model.LabelName(model.BucketLabel)] = model.LabelValue("+Inf")
-				lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_bucket")
-
-				samples = append(samples, &model.Sample{
-					Metric:    model.Metric(lset),
-					Value:     count.Value,
-					Timestamp: timestamp,
-				})
-			}
 		}
 	}
 
