@@ -14,7 +14,6 @@
 package expfmt
 
 import (
-	"errors"
 	"io"
 	"net/http"
 	"reflect"
@@ -304,32 +303,26 @@ func testDiscriminatorHTTPHeader(t testing.TB) {
 		{
 			input:  map[string]string{"Content-Type": `application/vnd.google.protobuf; proto="io.prometheus.client.MetricFamily"; encoding="delimited"`},
 			output: FmtProtoDelim,
-			err:    nil,
 		},
 		{
 			input:  map[string]string{"Content-Type": `application/vnd.google.protobuf; proto="illegal"; encoding="delimited"`},
-			output: "",
-			err:    errors.New("unrecognized protocol message illegal"),
+			output: FmtUnknown,
 		},
 		{
 			input:  map[string]string{"Content-Type": `application/vnd.google.protobuf; proto="io.prometheus.client.MetricFamily"; encoding="illegal"`},
-			output: "",
-			err:    errors.New("unsupported encoding illegal"),
+			output: FmtUnknown,
 		},
 		{
 			input:  map[string]string{"Content-Type": `text/plain; version=0.0.4`},
 			output: FmtText,
-			err:    nil,
 		},
 		{
 			input:  map[string]string{"Content-Type": `text/plain`},
 			output: FmtText,
-			err:    nil,
 		},
 		{
 			input:  map[string]string{"Content-Type": `text/plain; version=0.0.3`},
-			output: "",
-			err:    errors.New("unrecognized protocol version 0.0.3"),
+			output: FmtUnknown,
 		},
 	}
 
@@ -344,19 +337,9 @@ func testDiscriminatorHTTPHeader(t testing.TB) {
 			header.Add(key, value)
 		}
 
-		actual, err := ResponseFormat(header)
+		actual := ResponseFormat(header)
 
-		if scenario.err != err {
-			if scenario.err != nil && err != nil {
-				if scenario.err.Error() != err.Error() {
-					t.Errorf("%d. expected %s, got %s", i, scenario.err, err)
-				}
-			} else if scenario.err != nil || err != nil {
-				t.Errorf("%d. expected %s, got %s", i, scenario.err, err)
-			}
-		}
-
-		if !reflect.DeepEqual(scenario.output, actual) {
+		if scenario.output != actual {
 			t.Errorf("%d. expected %s, got %s", i, scenario.output, actual)
 		}
 	}
