@@ -25,34 +25,6 @@ var logger = logrus.New()
 
 type levelFlag struct{}
 
-type Logger interface {
-	Debug(...interface{})
-	Debugln(...interface{})
-	Debugf(string, ...interface{})
-
-	Info(...interface{})
-	Infoln(...interface{})
-	Infof(string, ...interface{})
-
-	Warn(...interface{})
-	Warnln(...interface{})
-	Warnf(string, ...interface{})
-
-	Error(...interface{})
-	Errorln(...interface{})
-	Errorf(string, ...interface{})
-
-	Fatal(...interface{})
-	Fatalln(...interface{})
-	Fatalf(string, ...interface{})
-
-	With(key string, value interface{}) Logger
-}
-
-func With(key string) Logger {
-	return logger.WithField(key, value)
-}
-
 // String implements flag.Value.
 func (f levelFlag) String() string {
 	return logger.Level.String()
@@ -71,7 +43,30 @@ func (f levelFlag) Set(level string) error {
 func init() {
 	// In order for this flag to take effect, the user of the package must call
 	// flag.Parse() before logging anything.
-	flag.Var(levelFlag{}, "log.level", "Only log messages with the given severity or above. Valid levels: [debug, info, warn, error, fatal, panic].")
+	flag.Var(levelFlag{}, "log.level", "Only log messages with the given severity or above. Valid levels: [debug, info, warn, error, fatal].")
+}
+
+type Logger interface {
+	Debug(...interface{})
+	Debugf(string, ...interface{})
+
+	Info(...interface{})
+	Infof(string, ...interface{})
+
+	Warn(...interface{})
+	Warnf(string, ...interface{})
+
+	Error(...interface{})
+	Errorf(string, ...interface{})
+
+	Fatal(...interface{})
+	Fatalf(string, ...interface{})
+
+	With(keyvals ...interface{}) Logger
+}
+
+func With(key string) Logger {
+	return logger.WithField(key, value)
 }
 
 // fileLineEntry returns a logrus.Entry with file and line annotations for the
@@ -83,24 +78,16 @@ func fileLineEntry() *logrus.Entry {
 		line = 1
 	} else {
 		slash := strings.LastIndex(file, "/")
-		if slash >= 0 {
-			file = file[slash+1:]
-		}
+		file = file[slash+1:]
 	}
 	return logger.WithFields(logrus.Fields{
-		"file": file,
-		"line": line,
+		"source": file + ":" + line,
 	})
 }
 
 // Debug logs a message at level Debug on the standard logger.
 func Debug(args ...interface{}) {
 	fileLineEntry().Debug(args...)
-}
-
-// Debugln logs a message at level Debug on the standard logger.
-func Debugln(args ...interface{}) {
-	fileLineEntry().Debugln(args...)
 }
 
 // Debugf logs a message at level Debug on the standard logger.
@@ -113,11 +100,6 @@ func Info(args ...interface{}) {
 	fileLineEntry().Info(args...)
 }
 
-// Infoln logs a message at level Info on the standard logger.
-func Infoln(args ...interface{}) {
-	fileLineEntry().Infoln(args...)
-}
-
 // Infof logs a message at level Info on the standard logger.
 func Infof(format string, args ...interface{}) {
 	fileLineEntry().Infof(format, args...)
@@ -126,11 +108,6 @@ func Infof(format string, args ...interface{}) {
 // Warn logs a message at level Warn on the standard logger.
 func Warn(args ...interface{}) {
 	fileLineEntry().Warn(args...)
-}
-
-// Warnln logs a message at level Warn on the standard logger.
-func Warnln(args ...interface{}) {
-	fileLineEntry().Warnln(args...)
 }
 
 // Warnf logs a message at level Warn on the standard logger.
@@ -143,11 +120,6 @@ func Error(args ...interface{}) {
 	fileLineEntry().Error(args...)
 }
 
-// Errorln logs a message at level Error on the standard logger.
-func Errorln(args ...interface{}) {
-	fileLineEntry().Errorln(args...)
-}
-
 // Errorf logs a message at level Error on the standard logger.
 func Errorf(format string, args ...interface{}) {
 	fileLineEntry().Errorf(format, args...)
@@ -156,11 +128,6 @@ func Errorf(format string, args ...interface{}) {
 // Fatal logs a message at level Fatal on the standard logger.
 func Fatal(args ...interface{}) {
 	fileLineEntry().Fatal(args...)
-}
-
-// Fatalln logs a message at level Fatal on the standard logger.
-func Fatalln(args ...interface{}) {
-	fileLineEntry().Fatalln(args...)
 }
 
 // Fatalf logs a message at level Fatal on the standard logger.
