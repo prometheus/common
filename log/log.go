@@ -47,18 +47,23 @@ func init() {
 
 type Logger interface {
 	Debug(...interface{})
+	Debugln(...interface{})
 	Debugf(string, ...interface{})
 
 	Info(...interface{})
+	Infoln(...interface{})
 	Infof(string, ...interface{})
 
 	Warn(...interface{})
+	Warnln(...interface{})
 	Warnf(string, ...interface{})
 
 	Error(...interface{})
+	Errorln(...interface{})
 	Errorf(string, ...interface{})
 
 	Fatal(...interface{})
+	Fatalln(...interface{})
 	Fatalf(string, ...interface{})
 
 	With(key string, value interface{}) Logger
@@ -77,6 +82,11 @@ func (l logger) Debug(args ...interface{}) {
 	l.sourced().Debug(args...)
 }
 
+// Debug logs a message at level Debug on the standard logger.
+func (l logger) Debugln(args ...interface{}) {
+	l.sourced().Debugln(args...)
+}
+
 // Debugf logs a message at level Debug on the standard logger.
 func (l logger) Debugf(format string, args ...interface{}) {
 	l.sourced().Debugf(format, args...)
@@ -85,6 +95,11 @@ func (l logger) Debugf(format string, args ...interface{}) {
 // Info logs a message at level Info on the standard logger.
 func (l logger) Info(args ...interface{}) {
 	l.sourced().Info(args...)
+}
+
+// Info logs a message at level Info on the standard logger.
+func (l logger) Infoln(args ...interface{}) {
+	l.sourced().Infoln(args...)
 }
 
 // Infof logs a message at level Info on the standard logger.
@@ -97,6 +112,11 @@ func (l logger) Warn(args ...interface{}) {
 	l.sourced().Warn(args...)
 }
 
+// Warn logs a message at level Warn on the standard logger.
+func (l logger) Warnln(args ...interface{}) {
+	l.sourced().Warnln(args...)
+}
+
 // Warnf logs a message at level Warn on the standard logger.
 func (l logger) Warnf(format string, args ...interface{}) {
 	l.sourced().Warnf(format, args...)
@@ -107,6 +127,11 @@ func (l logger) Error(args ...interface{}) {
 	l.sourced().Error(args...)
 }
 
+// Error logs a message at level Error on the standard logger.
+func (l logger) Errorln(args ...interface{}) {
+	l.sourced().Errorln(args...)
+}
+
 // Errorf logs a message at level Error on the standard logger.
 func (l logger) Errorf(format string, args ...interface{}) {
 	l.sourced().Errorf(format, args...)
@@ -115,6 +140,11 @@ func (l logger) Errorf(format string, args ...interface{}) {
 // Fatal logs a message at level Fatal on the standard logger.
 func (l logger) Fatal(args ...interface{}) {
 	l.sourced().Fatal(args...)
+}
+
+// Fatal logs a message at level Fatal on the standard logger.
+func (l logger) Fatalln(args ...interface{}) {
+	l.sourced().Fatalln(args...)
 }
 
 // Fatalf logs a message at level Fatal on the standard logger.
@@ -152,6 +182,11 @@ func Debug(args ...interface{}) {
 	baseLogger.sourced().Debug(args...)
 }
 
+// Debug logs a message at level Debug on the standard logger.
+func Debugln(args ...interface{}) {
+	baseLogger.sourced().Debugln(args...)
+}
+
 // Debugf logs a message at level Debug on the standard logger.
 func Debugf(format string, args ...interface{}) {
 	baseLogger.sourced().Debugf(format, args...)
@@ -160,6 +195,11 @@ func Debugf(format string, args ...interface{}) {
 // Info logs a message at level Info on the standard logger.
 func Info(args ...interface{}) {
 	baseLogger.sourced().Info(args...)
+}
+
+// Info logs a message at level Info on the standard logger.
+func Infoln(args ...interface{}) {
+	baseLogger.sourced().Infoln(args...)
 }
 
 // Infof logs a message at level Info on the standard logger.
@@ -172,6 +212,11 @@ func Warn(args ...interface{}) {
 	baseLogger.sourced().Warn(args...)
 }
 
+// Warn logs a message at level Warn on the standard logger.
+func Warnln(args ...interface{}) {
+	baseLogger.sourced().Warnln(args...)
+}
+
 // Warnf logs a message at level Warn on the standard logger.
 func Warnf(format string, args ...interface{}) {
 	baseLogger.sourced().Warnf(format, args...)
@@ -182,6 +227,11 @@ func Error(args ...interface{}) {
 	baseLogger.sourced().Error(args...)
 }
 
+// Error logs a message at level Error on the standard logger.
+func Errorln(args ...interface{}) {
+	baseLogger.sourced().Errorln(args...)
+}
+
 // Errorf logs a message at level Error on the standard logger.
 func Errorf(format string, args ...interface{}) {
 	baseLogger.sourced().Errorf(format, args...)
@@ -190,6 +240,11 @@ func Errorf(format string, args ...interface{}) {
 // Fatal logs a message at level Fatal on the standard logger.
 func Fatal(args ...interface{}) {
 	baseLogger.sourced().Fatal(args...)
+}
+
+// Fatal logs a message at level Fatal on the standard logger.
+func Fatalln(args ...interface{}) {
+	baseLogger.sourced().Fatalln(args...)
 }
 
 // Fatalf logs a message at level Fatal on the standard logger.
