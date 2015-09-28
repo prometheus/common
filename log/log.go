@@ -125,7 +125,6 @@ func (l logger) Fatalf(format string, args ...interface{}) {
 // sourced adds a source field to the logger that contains
 // the file name and line where the logging happened.
 func (l logger) sourced() *logrus.Entry {
-	fmt.Println("sourced")
 	_, file, line, ok := runtime.Caller(2)
 	if !ok {
 		file = "<???>"
@@ -150,50 +149,50 @@ func With(key string, value interface{}) Logger {
 
 // Debug logs a message at level Debug on the standard logger.
 func Debug(args ...interface{}) {
-	baseLogger.Debug(args...)
+	baseLogger.sourced().Debug(args...)
 }
 
 // Debugf logs a message at level Debug on the standard logger.
 func Debugf(format string, args ...interface{}) {
-	baseLogger.Debugf(format, args...)
+	baseLogger.sourced().Debugf(format, args...)
 }
 
 // Info logs a message at level Info on the standard logger.
 func Info(args ...interface{}) {
-	baseLogger.Info(args...)
+	baseLogger.sourced().Info(args...)
 }
 
 // Infof logs a message at level Info on the standard logger.
 func Infof(format string, args ...interface{}) {
-	baseLogger.Infof(format, args...)
+	baseLogger.sourced().Infof(format, args...)
 }
 
 // Warn logs a message at level Warn on the standard logger.
 func Warn(args ...interface{}) {
-	baseLogger.Warn(args...)
+	baseLogger.sourced().Warn(args...)
 }
 
 // Warnf logs a message at level Warn on the standard logger.
 func Warnf(format string, args ...interface{}) {
-	baseLogger.Warnf(format, args...)
+	baseLogger.sourced().Warnf(format, args...)
 }
 
 // Error logs a message at level Error on the standard logger.
 func Error(args ...interface{}) {
-	baseLogger.Error(args...)
+	baseLogger.sourced().Error(args...)
 }
 
 // Errorf logs a message at level Error on the standard logger.
 func Errorf(format string, args ...interface{}) {
-	baseLogger.Errorf(format, args...)
+	baseLogger.sourced().Errorf(format, args...)
 }
 
 // Fatal logs a message at level Fatal on the standard logger.
 func Fatal(args ...interface{}) {
-	baseLogger.Fatal(args...)
+	baseLogger.sourced().Fatal(args...)
 }
 
 // Fatalf logs a message at level Fatal on the standard logger.
 func Fatalf(format string, args ...interface{}) {
-	baseLogger.Fatalf(format, args...)
+	baseLogger.sourced().Fatalf(format, args...)
 }
