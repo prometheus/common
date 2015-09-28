@@ -25,6 +25,34 @@ var logger = logrus.New()
 
 type levelFlag struct{}
 
+type Logger interface {
+	Debug(...interface{})
+	Debugln(...interface{})
+	Debugf(string, ...interface{})
+
+	Info(...interface{})
+	Infoln(...interface{})
+	Infof(string, ...interface{})
+
+	Warn(...interface{})
+	Warnln(...interface{})
+	Warnf(string, ...interface{})
+
+	Error(...interface{})
+	Errorln(...interface{})
+	Errorf(string, ...interface{})
+
+	Fatal(...interface{})
+	Fatalln(...interface{})
+	Fatalf(string, ...interface{})
+
+	With(key string, value interface{}) Logger
+}
+
+func With(key string) Logger {
+	return logger.WithField(key, value)
+}
+
 // String implements flag.Value.
 func (f levelFlag) String() string {
 	return logger.Level.String()
@@ -138,19 +166,4 @@ func Fatalln(args ...interface{}) {
 // Fatalf logs a message at level Fatal on the standard logger.
 func Fatalf(format string, args ...interface{}) {
 	fileLineEntry().Fatalf(format, args...)
-}
-
-// Panic logs a message at level Panic on the standard logger.
-func Panic(args ...interface{}) {
-	fileLineEntry().Panicln(args...)
-}
-
-// Panicln logs a message at level Panic on the standard logger.
-func Panicln(args ...interface{}) {
-	fileLineEntry().Panicln(args...)
-}
-
-// Panicf logs a message at level Panic on the standard logger.
-func Panicf(format string, args ...interface{}) {
-	fileLineEntry().Panicf(format, args...)
 }
