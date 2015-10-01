@@ -60,3 +60,19 @@ func (a *Alert) Status() AlertStatus {
 	}
 	return AlertFiring
 }
+
+// Alert is a list of alerts that can be sorted in chronological order.
+type Alerts []*Alert
+
+func (at Alerts) Len() int      { return len(at) }
+func (at Alerts) Swap(i, j int) { at[i], at[j] = at[j], at[i] }
+
+func (at Alerts) Less(i, j int) bool {
+	if at[i].StartsAt.Before(at[j].StartsAt) {
+		return true
+	}
+	if at[i].EndsAt.Before(at[j].EndsAt) {
+		return true
+	}
+	return at[i].Fingerprint() < at[j].Fingerprint()
+}
