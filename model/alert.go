@@ -86,3 +86,11 @@ func (as Alerts) HasFiring() bool {
 	}
 	return false
 }
+
+// Status returns StatusFiring iff at least one of the alerts is firing.
+func (as Alerts) Status() AlertStatus {
+	if as.HasFiring() {
+		return AlertFiring
+	}
+	return AlertResolved
+}
