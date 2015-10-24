@@ -41,12 +41,15 @@ func (f levelFlag) Set(level string) error {
 	return nil
 }
 
-func setSyslogFormatter(appname, facility string) error {
-	if appname == "" || facility == "" {
-		return fmt.Errorf("your missing a appname(%s) or local(%s)", appname, facility)
+func setSyslogFormatter(appname, local string) error {
+	if appname == "" {
+		return fmt.Errorf("missing appname paramter")
+	}
+	if local == "" {
+		return fmt.Errorf("missing local paramter")
 	}
 
-	fmter, err := newSyslogger(appname, facility, origLogger.Formatter)
+	fmter, err := newSyslogger(appname, local, origLogger.Formatter)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error creating syslog formatter: %v\n", err)
 		origLogger.Errorf("can't connect logger to syslog: %v", err)
