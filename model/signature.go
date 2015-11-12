@@ -15,6 +15,8 @@ package model
 
 import (
 	"sort"
+
+	"github.com/realzeitmedia/fnv"
 )
 
 // SeparatorByte is a byte that cannot occur in valid UTF-8 sequences and is
@@ -24,7 +26,7 @@ const SeparatorByte byte = 255
 
 var (
 	// cache the signature of an empty label set.
-	emptyLabelSignature = hashNew()
+	emptyLabelSignature = fnv.New()
 )
 
 // LabelsToSignature returns a quasi-unique signature (i.e., fingerprint) for a
@@ -41,12 +43,12 @@ func LabelsToSignature(labels map[string]string) uint64 {
 	}
 	sort.Strings(labelNames)
 
-	sum := hashNew()
+	sum := fnv.New()
 	for _, labelName := range labelNames {
-		sum = hashAdd(sum, labelName)
-		sum = hashAddByte(sum, SeparatorByte)
-		sum = hashAdd(sum, labels[labelName])
-		sum = hashAddByte(sum, SeparatorByte)
+		sum = fnv.Add(sum, labelName)
+		sum = fnv.AddByte(sum, SeparatorByte)
+		sum = fnv.Add(sum, labels[labelName])
+		sum = fnv.AddByte(sum, SeparatorByte)
 	}
 	return sum
 }
@@ -64,12 +66,12 @@ func labelSetToFingerprint(ls LabelSet) Fingerprint {
 	}
 	sort.Sort(labelNames)
 
-	sum := hashNew()
+	sum := fnv.New()
 	for _, labelName := range labelNames {
-		sum = hashAdd(sum, string(labelName))
-		sum = hashAddByte(sum, SeparatorByte)
-		sum = hashAdd(sum, string(ls[labelName]))
-		sum = hashAddByte(sum, SeparatorByte)
+		sum = fnv.Add(sum, string(labelName))
+		sum = fnv.AddByte(sum, SeparatorByte)
+		sum = fnv.Add(sum, string(ls[labelName]))
+		sum = fnv.AddByte(sum, SeparatorByte)
 	}
 	return Fingerprint(sum)
 }
@@ -84,10 +86,10 @@ func labelSetToFastFingerprint(ls LabelSet) Fingerprint {
 
 	var result uint64
 	for labelName, labelValue := range ls {
-		sum := hashNew()
-		sum = hashAdd(sum, string(labelName))
-		sum = hashAddByte(sum, SeparatorByte)
-		sum = hashAdd(sum, string(labelValue))
+		sum := fnv.New()
+		sum = fnv.Add(sum, string(labelName))
+		sum = fnv.AddByte(sum, SeparatorByte)
+		sum = fnv.Add(sum, string(labelValue))
 		result ^= sum
 	}
 	return Fingerprint(result)
@@ -104,12 +106,12 @@ func SignatureForLabels(m Metric, labels ...LabelName) uint64 {
 
 	sort.Sort(LabelNames(labels))
 
-	sum := hashNew()
+	sum := fnv.New()
 	for _, label := range labels {
-		sum = hashAdd(sum, string(label))
-		sum = hashAddByte(sum, SeparatorByte)
-		sum = hashAdd(sum, string(m[label]))
-		sum = hashAddByte(sum, SeparatorByte)
+		sum = fnv.Add(sum, string(label))
+		sum = fnv.AddByte(sum, SeparatorByte)
+		sum = fnv.Add(sum, string(m[label]))
+		sum = fnv.AddByte(sum, SeparatorByte)
 	}
 	return sum
 }
@@ -133,12 +135,12 @@ func SignatureWithoutLabels(m Metric, labels map[LabelName]struct{}) uint64 {
 	}
 	sort.Sort(labelNames)
 
-	sum := hashNew()
+	sum := fnv.New()
 	for _, labelName := range labelNames {
-		sum = hashAdd(sum, string(labelName))
-		sum = hashAddByte(sum, SeparatorByte)
-		sum = hashAdd(sum, string(m[labelName]))
-		sum = hashAddByte(sum, SeparatorByte)
+		sum = fnv.Add(sum, string(labelName))
+		sum = fnv.AddByte(sum, SeparatorByte)
+		sum = fnv.Add(sum, string(m[labelName]))
+		sum = fnv.AddByte(sum, SeparatorByte)
 	}
 	return sum
 }
