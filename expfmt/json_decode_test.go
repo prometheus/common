@@ -122,3 +122,18 @@ func TestJSON2Decode(t *testing.T) {
 	}
 
 }
+
+func TestJSON2DecodeError(t *testing.T) {
+	f, err := os.Open("testdata/json2_bad")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	dec := newJSON2Decoder(f)
+
+	var v1 dto.MetricFamily
+	if err := dec.Decode(&v1); err == nil {
+		t.Fatal("Expected error but got none")
+	}
+}
