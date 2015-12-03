@@ -15,11 +15,15 @@ package model
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 )
 
-var separator = []byte{0}
+var (
+	separator    = []byte{0}
+	MetricNameRE = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_:]*$`)
+)
 
 // A Metric is similar to a LabelSet, but the key difference is that a Metric is
 // a singleton and refers to one and only one stream of samples.
