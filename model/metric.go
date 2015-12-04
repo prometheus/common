@@ -83,3 +83,16 @@ func (m Metric) Fingerprint() Fingerprint {
 func (m Metric) FastFingerprint() Fingerprint {
 	return LabelSet(m).FastFingerprint()
 }
+
+// IsValidMetricName returns true iff name matches the pattern of MetricNameRE.
+func IsValidMetricName(n LabelValue) bool {
+	if len(n) == 0 {
+		return false
+	}
+	for i, b := range n {
+		if !((b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || b == '_' || b == ':' || (b >= '0' && b <= '9' && i > 0)) {
+			return false
+		}
+	}
+	return true
+}

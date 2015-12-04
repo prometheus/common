@@ -19,7 +19,6 @@ import (
 	"math"
 	"mime"
 	"net/http"
-	"unicode/utf8"
 
 	dto "github.com/prometheus/client_model/go"
 
@@ -111,8 +110,7 @@ func (d *protoDecoder) Decode(v *dto.MetricFamily) error {
 	if err != nil {
 		return err
 	}
-	// MatchString already returns false if !utf8.ValidString(v.GetName()).
-	if !model.MetricNameRE.MatchString(v.GetName()) {
+	if !model.IsValidMetricName(model.LabelValue(v.GetName())) {
 		return fmt.Errorf("invalid metric name %q", v.GetName())
 	}
 	for _, m := range v.GetMetric() {
@@ -123,11 +121,10 @@ func (d *protoDecoder) Decode(v *dto.MetricFamily) error {
 			if l == nil {
 				continue
 			}
-			if !utf8.ValidString(l.GetValue()) {
+			if !model.LabelValue(l.GetValue()).IsValid() {
 				return fmt.Errorf("invalid label value %q", l.GetValue())
 			}
-			// MatchString already returns false if !utf8.ValidString(l.GetName()).
-			if !model.LabelNameRE.MatchString(l.GetName()) {
+			if !model.LabelName(l.GetName()).IsValid() {
 				return fmt.Errorf("invalid label name %q", l.GetName())
 			}
 		}
