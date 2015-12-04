@@ -294,6 +294,25 @@ func TestProtoDecoder(t *testing.T) {
 	}
 }
 
+func TestProtoDecoderFailsOnBadLabel(t *testing.T) {
+	var testTime = model.Now()
+
+	badLabelScenario := "\x8f\x01\n\rrequest_count\x12\x12Number of requests\x18\x00\"0\n#\n\x0fsome-label_name\x12\x10some_label_value\x1a\t\t\x00\x00\x00\x00\x00\x00E\xc0\"6\n)\n\x12another_label_name\x12\x13another_label_value\x1a\t\t\x00\x00\x00\x00\x00\x00U@"
+
+	dec := &SampleDecoder{
+		Dec: &protoDecoder{r: strings.NewReader(badLabelScenario)},
+		Opts: &DecodeOptions{
+			Timestamp: testTime,
+		},
+	}
+
+	var smpls model.Vector
+	err := dec.Decode(&smpls)
+	if err == nil {
+		t.Fatal("Bad label should decode with error.")
+	}
+}
+
 func testDiscriminatorHTTPHeader(t testing.TB) {
 	var scenarios = []struct {
 		input  map[string]string

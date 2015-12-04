@@ -19,6 +19,7 @@ import (
 	"math"
 	"mime"
 	"net/http"
+	"strings"
 
 	dto "github.com/prometheus/client_model/go"
 
@@ -107,6 +108,17 @@ type protoDecoder struct {
 // Decode implements the Decoder interface.
 func (d *protoDecoder) Decode(v *dto.MetricFamily) error {
 	_, err := pbutil.ReadDelimited(d.r, v)
+
+	// Check label names for correct formatting.
+	for _, m := range v.Metric {
+		for _, l := range m.Label {
+			if !model.LabelNameRE.MatchString(*l.Name) ||
+				strings.HasPrefix(*l.Name, model.ReservedLabelPrefix) {
+				return fmt.Errorf("improper label name %q", *l.Name)
+			}
+		}
+	}
+
 	return err
 }
 
