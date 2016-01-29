@@ -105,6 +105,12 @@ func TestParseDuration(t *testing.T) {
 		}, {
 			in:  "4d",
 			out: 4 * 24 * time.Hour,
+		}, {
+			in:  "3w",
+			out: 3 * 7 * 24 * time.Hour,
+		}, {
+			in:  "10y",
+			out: 10 * 365 * 24 * time.Hour,
 		},
 	}
 
