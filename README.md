@@ -8,3 +8,4 @@ components and libraries.
 * **expfmt**: Decoding and encoding for the exposition format
 * **route**: A routing wrapper around [httprouter](https://github.com/julienschmidt/httprouter) using `context.Context`
 * **log**: A logging wrapper around [logrus](https://github.com/Sirupsen/logrus)
+* **config**: Common configuration structures
