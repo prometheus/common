@@ -25,6 +25,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 
 	"github.com/golang/protobuf/proto"
+        "github.com/prometheus/common/log"
 	"github.com/prometheus/common/model"
 )
 
@@ -125,6 +126,15 @@ func (p *TextParser) reset(in io.Reader) {
 	} else {
 		p.buf.Reset(in)
 	}
+
+	// Some clients like to throw in UTF-8 BOM chars
+	maybeBOM, err := p.buf.Peek(3)
+	if len(maybeBOM) == 3 && maybeBOM[0] == 0xEF && maybeBOM[1] == 0xBB && maybeBOM[2] == 0xBF && err == nil {
+		// The common case dealing with funny Windows clients
+		log.Debug("Discarding BOM")
+		p.buf.Discard(3)
+	}
+
 	p.err = nil
 	p.lineCount = 0
 	if p.summaries == nil || len(p.summaries) > 0 {
