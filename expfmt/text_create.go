@@ -36,23 +36,23 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (int, error) {
 	if len(in.Metric) == 0 {
 		return written, fmt.Errorf("MetricFamily has no metrics: %s", in)
 	}
-	name := in.Name
+	name := in.GetName()
 	if name == "" {
 		return written, fmt.Errorf("MetricFamily has no name: %s", in)
 	}
 
 	// Comments, first HELP, then TYPE.
-	if in.Help != "" {
+	if in.Help != nil {
 		n, err := fmt.Fprintf(
 			out, "# HELP %s %s\n",
-			name, escapeString(in.Help, false),
+			name, escapeString(*in.Help, false),
 		)
 		written += n
 		if err != nil {
 			return written, err
 		}
 	}
-	metricType := in.Type
+	metricType := in.GetType()
 	n, err := fmt.Fprintf(
 		out, "# TYPE %s %s\n",
 		name, strings.ToLower(metricType.String()),
@@ -73,7 +73,7 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (int, error) {
 			}
 			n, err = writeSample(
 				name, metric, "", "",
-				metric.Counter.Value,
+				metric.Counter.GetValue(),
 				out,
 			)
 		case dto.MetricType_GAUGE:
@@ -84,7 +84,7 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (int, error) {
 			}
 			n, err = writeSample(
 				name, metric, "", "",
-				metric.Gauge.Value,
+				metric.Gauge.GetValue(),
 				out,
 			)
 		case dto.MetricType_UNTYPED:
@@ -95,7 +95,7 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (int, error) {
 			}
 			n, err = writeSample(
 				name, metric, "", "",
-				metric.Untyped.Value,
+				metric.Untyped.GetValue(),
 				out,
 			)
 		case dto.MetricType_SUMMARY:
@@ -107,8 +107,8 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (int, error) {
 			for _, q := range metric.Summary.Quantile {
 				n, err = writeSample(
 					name, metric,
-					model.QuantileLabel, fmt.Sprint(q.Quantile),
-					q.Value,
+					model.QuantileLabel, fmt.Sprint(q.GetQuantile()),
+					q.GetValue(),
 					out,
 				)
 				written += n
@@ -118,7 +118,7 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (int, error) {
 			}
 			n, err = writeSample(
 				name+"_sum", metric, "", "",
-				metric.Summary.SampleSum,
+				metric.Summary.GetSampleSum(),
 				out,
 			)
 			if err != nil {
@@ -127,7 +127,7 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (int, error) {
 			written += n
 			n, err = writeSample(
 				name+"_count", metric, "", "",
-				float64(metric.Summary.SampleCount),
+				float64(metric.Summary.GetSampleCount()),
 				out,
 			)
 		case dto.MetricType_HISTOGRAM:
@@ -140,15 +140,15 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (int, error) {
 			for _, q := range metric.Histogram.Bucket {
 				n, err = writeSample(
 					name+"_bucket", metric,
-					model.BucketLabel, fmt.Sprint(q.UpperBound),
-					float64(q.CumulativeCount),
+					model.BucketLabel, fmt.Sprint(q.GetUpperBound()),
+					float64(q.GetCumulativeCount()),
 					out,
 				)
 				written += n
 				if err != nil {
 					return written, err
 				}
-				if math.IsInf(q.UpperBound, +1) {
+				if math.IsInf(q.GetUpperBound(), +1) {
 					infSeen = true
 				}
 			}
@@ -156,7 +156,7 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (int, error) {
 				n, err = writeSample(
 					name+"_bucket", metric,
 					model.BucketLabel, "+Inf",
-					float64(metric.Histogram.SampleCount),
+					float64(metric.Histogram.GetSampleCount()),
 					out,
 				)
 				if err != nil {
@@ -166,7 +166,7 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (int, error) {
 			}
 			n, err = writeSample(
 				name+"_sum", metric, "", "",
-				metric.Histogram.SampleSum,
+				metric.Histogram.GetSampleSum(),
 				out,
 			)
 			if err != nil {
@@ -175,7 +175,7 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (int, error) {
 			written += n
 			n, err = writeSample(
 				name+"_count", metric, "", "",
-				float64(metric.Histogram.SampleCount),
+				float64(metric.Histogram.GetSampleCount()),
 				out,
 			)
 		default:
@@ -222,8 +222,8 @@ func writeSample(
 	if err != nil {
 		return written, err
 	}
-	if metric.TimestampMs != 0 {
-		n, err = fmt.Fprintf(out, " %v", metric.TimestampMs)
+	if metric.TimestampMs != nil {
+		n, err = fmt.Fprintf(out, " %v", *metric.TimestampMs)
 		written += n
 		if err != nil {
 			return written, err
@@ -257,7 +257,7 @@ func labelPairsToText(
 	for _, lp := range in {
 		n, err := fmt.Fprintf(
 			out, `%c%s="%s"`,
-			separator, lp.Name, escapeString(lp.Value, true),
+			separator, lp.GetName(), escapeString(lp.GetValue(), true),
 		)
 		written += n
 		if err != nil {

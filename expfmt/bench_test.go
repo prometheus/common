@@ -165,7 +165,7 @@ func BenchmarkParseProtoMap(b *testing.B) {
 				}
 				b.Fatal(err)
 			}
-			families[family.Name] = family
+			families[family.GetName()] = family
 		}
 	}
 }
