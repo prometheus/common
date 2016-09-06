@@ -16,6 +16,8 @@ package log
 import (
 	"flag"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
@@ -227,10 +229,26 @@ func (l logger) sourced() *logrus.Entry {
 var origLogger = logrus.New()
 var baseLogger = logger{entry: logrus.NewEntry(origLogger)}
 
+// Base returns the default Logger logging to
 func Base() Logger {
 	return baseLogger
 }
 
+// NewLogger returns a new Logger logging to out.
+func NewLogger(w io.Writer) Logger {
+	l := logrus.New()
+	l.Out = w
+	return logger{entry: logrus.NewEntry(l)}
+}
+
+// NewNopLogger returns a logger that discards all log messages.
+func NewNopLogger() Logger {
+	l := logrus.New()
+	l.Out = ioutil.Discard
+	return logger{entry: logrus.NewEntry(l)}
+}
+
+// With adds a field to the logger.
 func With(key string, value interface{}) Logger {
 	return baseLogger.With(key, value)
 }
@@ -240,7 +258,7 @@ func Debug(args ...interface{}) {
 	baseLogger.sourced().Debug(args...)
 }
 
-// Debug logs a message at level Debug on the standard logger.
+// Debugln logs a message at level Debug on the standard logger.
 func Debugln(args ...interface{}) {
 	baseLogger.sourced().Debugln(args...)
 }
@@ -270,7 +288,7 @@ func Warn(args ...interface{}) {
 	baseLogger.sourced().Warn(args...)
 }
 
-// Warn logs a message at level Warn on the standard logger.
+// Warnln logs a message at level Warn on the standard logger.
 func Warnln(args ...interface{}) {
 	baseLogger.sourced().Warnln(args...)
 }
@@ -285,7 +303,7 @@ func Error(args ...interface{}) {
 	baseLogger.sourced().Error(args...)
 }
 
-// Error logs a message at level Error on the standard logger.
+// Errorln logs a message at level Error on the standard logger.
 func Errorln(args ...interface{}) {
 	baseLogger.sourced().Errorln(args...)
 }
@@ -300,7 +318,7 @@ func Fatal(args ...interface{}) {
 	baseLogger.sourced().Fatal(args...)
 }
 
-// Fatal logs a message at level Fatal on the standard logger.
+// Fatalln logs a message at level Fatal on the standard logger.
 func Fatalln(args ...interface{}) {
 	baseLogger.sourced().Fatalln(args...)
 }
