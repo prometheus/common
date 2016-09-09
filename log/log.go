@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/Sirupsen/logrus"
@@ -46,6 +47,9 @@ func (f levelFlag) Set(level string) error {
 
 // setSyslogFormatter is nil if the target architecture does not support syslog.
 var setSyslogFormatter func(string, string) error
+
+// setEventlogFormatter is nil if the target OS does not support Eventlog (i.e., is not Windows).
+var setEventlogFormatter func(string, bool) error
 
 func setJSONFormatter() {
 	origLogger.Formatter = &logrus.JSONFormatter{}
@@ -81,6 +85,18 @@ func (f logFormatFlag) Set(format string) error {
 		appname := u.Query().Get("appname")
 		facility := u.Query().Get("local")
 		return setSyslogFormatter(appname, facility)
+	case "eventlog":
+		if setEventlogFormatter == nil {
+			return fmt.Errorf("system does not support eventlog")
+		}
+		name := u.Query().Get("name")
+		debugAsInfo := false
+		debugAsInfoRaw := u.Query().Get("debugAsInfo")
+		if parsedDebugAsInfo, err := strconv.ParseBool(debugAsInfoRaw); err == nil {
+			debugAsInfo = parsedDebugAsInfo
+		}
+
+		return setEventlogFormatter(name, debugAsInfo)
 	case "stdout":
 		origLogger.Out = os.Stdout
 	case "stderr":
