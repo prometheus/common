@@ -28,11 +28,11 @@ import (
 	"github.com/Sirupsen/logrus"
 )
 
-type levelFlag struct{}
+type levelFlag string
 
 // String implements flag.Value.
 func (f levelFlag) String() string {
-	return origLogger.Level.String()
+	return fmt.Sprintf("%q", string(f))
 }
 
 // Set implements flag.Value.
@@ -55,16 +55,16 @@ func setJSONFormatter() {
 	origLogger.Formatter = &logrus.JSONFormatter{}
 }
 
-type logFormatFlag struct{ uri string }
+type logFormatFlag url.URL
 
 // String implements flag.Value.
 func (f logFormatFlag) String() string {
-	return f.uri
+	u := url.URL(f)
+	return fmt.Sprintf("%q", u.String())
 }
 
 // Set implements flag.Value.
 func (f logFormatFlag) Set(format string) error {
-	f.uri = format
 	u, err := url.Parse(format)
 	if err != nil {
 		return err
@@ -95,15 +95,13 @@ func (f logFormatFlag) Set(format string) error {
 		if parsedDebugAsInfo, err := strconv.ParseBool(debugAsInfoRaw); err == nil {
 			debugAsInfo = parsedDebugAsInfo
 		}
-
 		return setEventlogFormatter(name, debugAsInfo)
 	case "stdout":
 		origLogger.Out = os.Stdout
 	case "stderr":
 		origLogger.Out = os.Stderr
-
 	default:
-		return fmt.Errorf("unsupported logger %s", u.Opaque)
+		return fmt.Errorf("unsupported logger %q", u.Opaque)
 	}
 	return nil
 }
@@ -117,10 +115,19 @@ func init() {
 // adds the flags to flag.CommandLine anyway. Thus, it's usually enough to call
 // flag.Parse() to make the logging flags take effect.
 func AddFlags(fs *flag.FlagSet) {
-	fs.Var(levelFlag{}, "log.level", "Only log messages with the given severity or above. Valid levels: [debug, info, warn, error, fatal].")
-	fs.Var(logFormatFlag{}, "log.format", "If set use a syslog logger or JSON logging. Example: logger:syslog?appname=bob&local=7 or logger:stdout?json=true. Defaults to stderr.")
+	fs.Var(
+		levelFlag(origLogger.Level.String()),
+		"log.level",
+		"Only log messages with the given severity or above. Valid levels: [debug, info, warn, error, fatal]",
+	)
+	fs.Var(
+		logFormatFlag(url.URL{Scheme: "logger", Opaque: "stderr"}),
+		"log.format",
+		`Set the log target and format. Example: "logger:syslog?appname=bob&local=7" or "logger:stdout?json=true"`,
+	)
 }
 
+// Logger is the interface for loggers used in the Prometheus components.
 type Logger interface {
 	Debug(...interface{})
 	Debugln(...interface{})
@@ -289,7 +296,7 @@ func Info(args ...interface{}) {
 	baseLogger.sourced().Info(args...)
 }
 
-// Info logs a message at level Info on the standard logger.
+// Infoln logs a message at level Info on the standard logger.
 func Infoln(args ...interface{}) {
 	baseLogger.sourced().Infoln(args...)
 }
