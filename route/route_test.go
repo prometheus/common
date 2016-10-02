@@ -1,6 +1,7 @@
 package route
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -29,8 +30,8 @@ func TestRedirect(t *testing.T) {
 }
 
 func TestContextFn(t *testing.T) {
-	router := New(func(r *http.Request) context.Context {
-		return context.WithValue(context.Background(), "testkey", "testvalue")
+	router := New(func(r *http.Request) (context.Context, error) {
+		return context.WithValue(context.Background(), "testkey", "testvalue"), nil
 	})
 
 	router.Get("/test", func(w http.ResponseWriter, r *http.Request) {
@@ -46,4 +47,29 @@ func TestContextFn(t *testing.T) {
 		t.Fatalf("Error building test request: %s", err)
 	}
 	router.ServeHTTP(nil, r)
+}
+
+func TestContextFnError(t *testing.T) {
+	router := New(func(r *http.Request) (context.Context, error) {
+		return context.Background(), fmt.Errorf("test error")
+	})
+
+	router.Get("/test", func(w http.ResponseWriter, r *http.Request) {})
+
+	r, err := http.NewRequest("GET", "http://localhost:9090/test", nil)
+	if err != nil {
+		t.Fatalf("Error building test request: %s", err)
+	}
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, r)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("Unexpected response status: got %q, want %q", w.Code, http.StatusBadRequest)
+	}
+
+	want := "Error creating request context: test error\n"
+	got := w.Body.String()
+	if want != got {
+		t.Fatalf("Unexpected response body: got %q, want %q", got, want)
+	}
 }
