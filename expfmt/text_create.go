@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strconv"
 	"strings"
 
 	dto "github.com/prometheus/client_model/go"
@@ -220,7 +221,7 @@ func writeSample(
 	if err != nil {
 		return written, err
 	}
-	n, err = fmt.Fprintf(out, " %v", value)
+	n, err = fmt.Fprintf(out, " %s", strconv.FormatFloat(value, 'f', -1, 64))
 	written += n
 	if err != nil {
 		return written, err
