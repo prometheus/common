@@ -111,6 +111,14 @@ func TestMetricNameIsValid(t *testing.T) {
 			mn:    "a lid_23name",
 			valid: false,
 		},
+		{
+			mn:    ":leading_colon",
+			valid: true,
+		},
+		{
+			mn:    "colon:in:the:middle",
+			valid: true,
+		},
 	}
 
 	for _, s := range scenarios {
