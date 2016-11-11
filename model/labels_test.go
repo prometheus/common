@@ -119,6 +119,14 @@ func TestLabelNameIsValid(t *testing.T) {
 			ln:    "a lid_23name",
 			valid: false,
 		},
+		{
+			ln:    ":leading_colon",
+			valid: false,
+		},
+		{
+			ln:    "colon:in:the:middle",
+			valid: false,
+		},
 	}
 
 	for _, s := range scenarios {
