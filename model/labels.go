@@ -81,7 +81,7 @@ const (
 )
 
 // LabelNameRE is a regular expression matching valid label names. Note that the
-// IsValid method of LabelName performs the same check but faster than a metch
+// IsValid method of LabelName performs the same check but faster than a match
 // with this regular expression.
 var LabelNameRE = regexp.MustCompile("^[a-zA-Z_][a-zA-Z0-9_]*$")
 
@@ -89,7 +89,7 @@ var LabelNameRE = regexp.MustCompile("^[a-zA-Z_][a-zA-Z0-9_]*$")
 // therewith.
 type LabelName string
 
-// IsValid is true iff the label name matches the pattern of LabelNameRE. ;This
+// IsValid is true iff the label name matches the pattern of LabelNameRE. This
 // method, however, does not use LabelNameRE for the check but a much faster
 // hardcoded implementation.
 func (ln LabelName) IsValid() bool {

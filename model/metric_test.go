@@ -123,7 +123,10 @@ func TestMetricNameIsValid(t *testing.T) {
 
 	for _, s := range scenarios {
 		if IsValidMetricName(s.mn) != s.valid {
-			t.Errorf("Expected %v for %q", s.valid, s.mn)
+			t.Errorf("Expected %v for %q using IsValidMetricName function", s.valid, s.mn)
+		}
+		if MetricNameRE.MatchString(string(s.mn)) != s.valid {
+			t.Errorf("Expected %v for %q using regexp matching", s.valid, s.mn)
 		}
 	}
 }
