@@ -31,6 +31,7 @@ type Decoder interface {
 	Decode(*dto.MetricFamily) error
 }
 
+// DecodeOptions contains options used by the Decoder and in sample extraction.
 type DecodeOptions struct {
 	// Timestamp is added to each value from the stream that has no explicit timestamp set.
 	Timestamp model.Time
@@ -142,6 +143,8 @@ func (d *textDecoder) Decode(v *dto.MetricFamily) error {
 	return nil
 }
 
+// SampleDecoder wraps a Decoder to extract samples from the metric families
+// decoded by the wrapped Decoder.
 type SampleDecoder struct {
 	Dec  Decoder
 	Opts *DecodeOptions
@@ -149,6 +152,8 @@ type SampleDecoder struct {
 	f dto.MetricFamily
 }
 
+// Decode calls the Decode method of the wrapped Decoder and then extracts the
+// samples from the decoded MetricFamily into the provided model.Vector.
 func (sd *SampleDecoder) Decode(s *model.Vector) error {
 	if err := sd.Dec.Decode(&sd.f); err != nil {
 		return err
