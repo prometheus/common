@@ -212,6 +212,7 @@ func extractCounter(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 			lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
 		}
 		lset[model.MetricNameLabel] = model.LabelValue(f.GetName())
+		lset[model.MetricTypeLabel] = model.CounterLabel
 
 		smpl := &model.Sample{
 			Metric: model.Metric(lset),
@@ -243,6 +244,7 @@ func extractGauge(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 			lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
 		}
 		lset[model.MetricNameLabel] = model.LabelValue(f.GetName())
+		lset[model.MetricTypeLabel] = model.GaugeLabel
 
 		smpl := &model.Sample{
 			Metric: model.Metric(lset),
@@ -274,6 +276,7 @@ func extractUntyped(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 			lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
 		}
 		lset[model.MetricNameLabel] = model.LabelValue(f.GetName())
+		lset[model.MetricTypeLabel] = model.UntypedLabel
 
 		smpl := &model.Sample{
 			Metric: model.Metric(lset),
@@ -313,6 +316,7 @@ func extractSummary(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 			// BUG(matt): Update other names to "quantile".
 			lset[model.LabelName(model.QuantileLabel)] = model.LabelValue(fmt.Sprint(q.GetQuantile()))
 			lset[model.MetricNameLabel] = model.LabelValue(f.GetName())
+			lset[model.MetricTypeLabel] = model.SummaryQuantileLabel
 
 			samples = append(samples, &model.Sample{
 				Metric:    model.Metric(lset),
@@ -326,6 +330,7 @@ func extractSummary(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 			lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
 		}
 		lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_sum")
+		lset[model.MetricTypeLabel] = model.SummarySumLabel
 
 		samples = append(samples, &model.Sample{
 			Metric:    model.Metric(lset),
@@ -338,6 +343,7 @@ func extractSummary(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 			lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
 		}
 		lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_count")
+		lset[model.MetricTypeLabel] = model.SummaryCountLabel
 
 		samples = append(samples, &model.Sample{
 			Metric:    model.Metric(lset),
@@ -371,6 +377,7 @@ func extractHistogram(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 			}
 			lset[model.LabelName(model.BucketLabel)] = model.LabelValue(fmt.Sprint(q.GetUpperBound()))
 			lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_bucket")
+			lset[model.MetricTypeLabel] = model.HistogramBucketLabel
 
 			if math.IsInf(q.GetUpperBound(), +1) {
 				infSeen = true
@@ -388,6 +395,7 @@ func extractHistogram(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 			lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
 		}
 		lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_sum")
+		lset[model.MetricTypeLabel] = model.HistogramSumLabel
 
 		samples = append(samples, &model.Sample{
 			Metric:    model.Metric(lset),
@@ -400,6 +408,7 @@ func extractHistogram(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 			lset[model.LabelName(p.GetName())] = model.LabelValue(p.GetValue())
 		}
 		lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_count")
+		lset[model.MetricTypeLabel] = model.HistogramCountLabel
 
 		count := &model.Sample{
 			Metric:    model.Metric(lset),
@@ -416,6 +425,7 @@ func extractHistogram(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 			}
 			lset[model.LabelName(model.BucketLabel)] = model.LabelValue("+Inf")
 			lset[model.MetricNameLabel] = model.LabelValue(f.GetName() + "_bucket")
+			lset[model.MetricTypeLabel] = model.HistogramBucketLabel
 
 			samples = append(samples, &model.Sample{
 				Metric:    model.Metric(lset),

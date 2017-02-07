@@ -43,6 +43,7 @@ mf2 4
 			&model.Sample{
 				Metric: model.Metric{
 					model.MetricNameLabel: "mf1",
+					model.MetricTypeLabel: model.UntypedLabel,
 					"label":               "value1",
 				},
 				Value:     -3.14,
@@ -51,6 +52,7 @@ mf2 4
 			&model.Sample{
 				Metric: model.Metric{
 					model.MetricNameLabel: "mf1",
+					model.MetricTypeLabel: model.UntypedLabel,
 					"label":               "value2",
 				},
 				Value:     42,
@@ -59,6 +61,7 @@ mf2 4
 			&model.Sample{
 				Metric: model.Metric{
 					model.MetricNameLabel: "mf2",
+					model.MetricTypeLabel: model.CounterLabel,
 				},
 				Value:     3,
 				Timestamp: ts,
@@ -66,6 +69,7 @@ mf2 4
 			&model.Sample{
 				Metric: model.Metric{
 					model.MetricNameLabel: "mf2",
+					model.MetricTypeLabel: model.CounterLabel,
 				},
 				Value:     4,
 				Timestamp: ts,
@@ -79,6 +83,7 @@ mf2 4
 			Timestamp: ts,
 		},
 	}
+
 	var all model.Vector
 	for {
 		var smpls model.Vector
@@ -120,6 +125,7 @@ func TestProtoDecoder(t *testing.T) {
 				&model.Sample{
 					Metric: model.Metric{
 						model.MetricNameLabel: "request_count",
+						model.MetricTypeLabel: model.CounterLabel,
 						"some_label_name":     "some_label_value",
 					},
 					Value:     -42,
@@ -128,6 +134,7 @@ func TestProtoDecoder(t *testing.T) {
 				&model.Sample{
 					Metric: model.Metric{
 						model.MetricNameLabel: "request_count",
+						model.MetricTypeLabel: model.CounterLabel,
 						"another_label_name":  "another_label_value",
 					},
 					Value:     84,
@@ -141,6 +148,7 @@ func TestProtoDecoder(t *testing.T) {
 				&model.Sample{
 					Metric: model.Metric{
 						model.MetricNameLabel: "request_count_count",
+						model.MetricTypeLabel: model.SummaryCountLabel,
 						"some_label_name":     "some_label_value",
 					},
 					Value:     0,
@@ -149,6 +157,7 @@ func TestProtoDecoder(t *testing.T) {
 				&model.Sample{
 					Metric: model.Metric{
 						model.MetricNameLabel: "request_count_sum",
+						model.MetricTypeLabel: model.SummarySumLabel,
 						"some_label_name":     "some_label_value",
 					},
 					Value:     0,
@@ -157,6 +166,7 @@ func TestProtoDecoder(t *testing.T) {
 				&model.Sample{
 					Metric: model.Metric{
 						model.MetricNameLabel: "request_count",
+						model.MetricTypeLabel: model.SummaryQuantileLabel,
 						"some_label_name":     "some_label_value",
 						"quantile":            "0.99",
 					},
@@ -166,6 +176,7 @@ func TestProtoDecoder(t *testing.T) {
 				&model.Sample{
 					Metric: model.Metric{
 						model.MetricNameLabel: "request_count",
+						model.MetricTypeLabel: model.SummaryQuantileLabel,
 						"some_label_name":     "some_label_value",
 						"quantile":            "0.999",
 					},
@@ -175,6 +186,7 @@ func TestProtoDecoder(t *testing.T) {
 				&model.Sample{
 					Metric: model.Metric{
 						model.MetricNameLabel: "request_count_count",
+						model.MetricTypeLabel: model.SummaryCountLabel,
 						"another_label_name":  "another_label_value",
 					},
 					Value:     0,
@@ -183,6 +195,7 @@ func TestProtoDecoder(t *testing.T) {
 				&model.Sample{
 					Metric: model.Metric{
 						model.MetricNameLabel: "request_count_sum",
+						model.MetricTypeLabel: model.SummarySumLabel,
 						"another_label_name":  "another_label_value",
 					},
 					Value:     0,
@@ -191,6 +204,7 @@ func TestProtoDecoder(t *testing.T) {
 				&model.Sample{
 					Metric: model.Metric{
 						model.MetricNameLabel: "request_count",
+						model.MetricTypeLabel: model.SummaryQuantileLabel,
 						"another_label_name":  "another_label_value",
 						"quantile":            "0.5",
 					},
@@ -205,6 +219,7 @@ func TestProtoDecoder(t *testing.T) {
 				&model.Sample{
 					Metric: model.Metric{
 						model.MetricNameLabel: "request_duration_microseconds_bucket",
+						model.MetricTypeLabel: model.HistogramBucketLabel,
 						"le": "100",
 					},
 					Value:     123,
@@ -213,6 +228,7 @@ func TestProtoDecoder(t *testing.T) {
 				&model.Sample{
 					Metric: model.Metric{
 						model.MetricNameLabel: "request_duration_microseconds_bucket",
+						model.MetricTypeLabel: model.HistogramBucketLabel,
 						"le": "120",
 					},
 					Value:     412,
@@ -221,6 +237,7 @@ func TestProtoDecoder(t *testing.T) {
 				&model.Sample{
 					Metric: model.Metric{
 						model.MetricNameLabel: "request_duration_microseconds_bucket",
+						model.MetricTypeLabel: model.HistogramBucketLabel,
 						"le": "144",
 					},
 					Value:     592,
@@ -229,6 +246,7 @@ func TestProtoDecoder(t *testing.T) {
 				&model.Sample{
 					Metric: model.Metric{
 						model.MetricNameLabel: "request_duration_microseconds_bucket",
+						model.MetricTypeLabel: model.HistogramBucketLabel,
 						"le": "172.8",
 					},
 					Value:     1524,
@@ -237,6 +255,7 @@ func TestProtoDecoder(t *testing.T) {
 				&model.Sample{
 					Metric: model.Metric{
 						model.MetricNameLabel: "request_duration_microseconds_bucket",
+						model.MetricTypeLabel: model.HistogramBucketLabel,
 						"le": "+Inf",
 					},
 					Value:     2693,
@@ -245,6 +264,7 @@ func TestProtoDecoder(t *testing.T) {
 				&model.Sample{
 					Metric: model.Metric{
 						model.MetricNameLabel: "request_duration_microseconds_sum",
+						model.MetricTypeLabel: model.HistogramSumLabel,
 					},
 					Value:     1756047.3,
 					Timestamp: testTime,
@@ -252,6 +272,7 @@ func TestProtoDecoder(t *testing.T) {
 				&model.Sample{
 					Metric: model.Metric{
 						model.MetricNameLabel: "request_duration_microseconds_count",
+						model.MetricTypeLabel: model.HistogramCountLabel,
 					},
 					Value:     2693,
 					Timestamp: testTime,
@@ -266,6 +287,7 @@ func TestProtoDecoder(t *testing.T) {
 				&model.Sample{
 					Metric: model.Metric{
 						model.MetricNameLabel: "request_count",
+						model.MetricTypeLabel: model.CounterLabel,
 					},
 					Value:     1,
 					Timestamp: testTime,
@@ -418,8 +440,16 @@ func TestExtractSamples(t *testing.T) {
 		t.Error("Unexpected error from ExtractSamples:", err)
 	}
 	want := model.Vector{
-		&model.Sample{Metric: model.Metric{model.MetricNameLabel: "foo"}, Value: 4711, Timestamp: 42},
-		&model.Sample{Metric: model.Metric{model.MetricNameLabel: "bar"}, Value: 3.14, Timestamp: 42},
+		&model.Sample{
+			Metric:    model.Metric{model.MetricNameLabel: "foo", model.MetricTypeLabel: model.CounterLabel},
+			Value:     4711,
+			Timestamp: 42,
+		},
+		&model.Sample{
+			Metric:    model.Metric{model.MetricNameLabel: "bar", model.MetricTypeLabel: model.GaugeLabel},
+			Value:     3.14,
+			Timestamp: 42,
+		},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("unexpected samples extracted, got: %v, want: %v", got, want)
