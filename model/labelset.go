@@ -41,7 +41,7 @@ func (ls LabelSet) Validate() error {
 	return nil
 }
 
-// Equal returns true iff both label sets have exactly the same key/value pairs.
+// Equal returns true if both label sets have exactly the same key/value pairs.
 func (ls LabelSet) Equal(o LabelSet) bool {
 	if len(ls) != len(o) {
 		return false
