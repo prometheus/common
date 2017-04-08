@@ -41,13 +41,16 @@ func (r *Router) WithPrefix(prefix string) *Router {
 // handle turns a HandlerFunc into an httprouter.Handle.
 func (r *Router) handle(h http.HandlerFunc) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		ctx, cancel := context.WithCancel(req.Context())
+		ctx, cancel := context.WithCancel(newContext(req))
 		defer cancel()
 
 		for _, p := range params {
 			ctx = context.WithValue(ctx, param(p.Key), p.Value)
 		}
-		h(w, req.WithContext(ctx))
+
+		req = setContext(ctx, req)
+		h(w, req)
+		deleteContext(req)
 	}
 }
 
@@ -94,7 +97,7 @@ func FileServe(dir string) http.HandlerFunc {
 	fs := http.FileServer(http.Dir(dir))
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		r.URL.Path = Param(r.Context(), "filepath")
+		r.URL.Path = Param(Context(r), "filepath")
 		fs.ServeHTTP(w, r)
 	}
 }
