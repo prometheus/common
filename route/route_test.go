@@ -30,7 +30,7 @@ func TestContext(t *testing.T) {
 	router := New()
 	router.Get("/test/:foo/", func(w http.ResponseWriter, r *http.Request) {
 		want := "bar"
-		got := Param(Context(r), "foo")
+		got := Param(r.Context(), "foo")
 		if want != got {
 			t.Fatalf("Unexpected context value: want %q, got %q", want, got)
 		}
