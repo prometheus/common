@@ -127,6 +127,12 @@ func AddFlags(fs *flag.FlagSet) {
 	)
 }
 
+// AssignLogLevelFlag assigns the log.level flag passed via command line arguments
+func AssignLogLevelFlag(fs *flag.FlagSet) {
+	fl := fs.Lookup("log.level")
+	fl.Value = levelFlag(origLogger.Level.String())
+}
+
 // Logger is the interface for loggers used in the Prometheus components.
 type Logger interface {
 	Debug(...interface{})
