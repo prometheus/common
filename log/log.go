@@ -32,7 +32,7 @@ type levelFlag string
 
 // String implements flag.Value.
 func (f levelFlag) String() string {
-	return fmt.Sprintf("%q", string(f))
+	return fmt.Sprintf("%q", string(origLogger.Level.String()))
 }
 
 // Set implements flag.Value.
@@ -125,12 +125,6 @@ func AddFlags(fs *flag.FlagSet) {
 		"log.format",
 		`Set the log target and format. Example: "logger:syslog?appname=bob&local=7" or "logger:stdout?json=true"`,
 	)
-}
-
-// AssignLogLevelFlag assigns the log.level flag passed via command line arguments
-func AssignLogLevelFlag(fs *flag.FlagSet) {
-	fl := fs.Lookup("log.level")
-	fl.Value = levelFlag(origLogger.Level.String())
 }
 
 // Logger is the interface for loggers used in the Prometheus components.
