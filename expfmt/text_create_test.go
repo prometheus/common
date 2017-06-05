@@ -117,7 +117,7 @@ name{labelname="val2",basename="basevalue"} 0.23 1234567890
 			out: `# HELP gauge_name gauge\ndoc\nstr"ing
 # TYPE gauge_name gauge
 gauge_name{name_1="val with\nnew line",name_2="val with \\backslash and \"quotes\""} +Inf
-gauge_name{name_1="Björn",name_2="佖佥"} 3.14e+42
+gauge_name{name_1="Björn",name_2="佖佥"} 3140000000000000000000000000000000000000000
 `,
 		},
 		// 2: Untyped, no help, one sample with no labels and -Inf as value, another sample with one label.
@@ -146,7 +146,7 @@ gauge_name{name_1="Björn",name_2="佖佥"} 3.14e+42
 			},
 			out: `# TYPE untyped_name untyped
 untyped_name -Inf
-untyped_name{name_1="value 1"} -1.23e-45
+untyped_name{name_1="value 1"} -0.00000000000000000000000000000000000000000000123
 `,
 		},
 		// 3: Summary.
@@ -266,7 +266,7 @@ request_duration_microseconds_bucket{le="120"} 412
 request_duration_microseconds_bucket{le="144"} 592
 request_duration_microseconds_bucket{le="172.8"} 1524
 request_duration_microseconds_bucket{le="+Inf"} 2693
-request_duration_microseconds_sum 1.7560473e+06
+request_duration_microseconds_sum 1756047.3
 request_duration_microseconds_count 2693
 `,
 		},
@@ -310,7 +310,7 @@ request_duration_microseconds_bucket{le="120"} 412
 request_duration_microseconds_bucket{le="144"} 592
 request_duration_microseconds_bucket{le="172.8"} 1524
 request_duration_microseconds_bucket{le="+Inf"} 2693
-request_duration_microseconds_sum 1.7560473e+06
+request_duration_microseconds_sum 1756047.3
 request_duration_microseconds_count 2693
 `,
 		},
