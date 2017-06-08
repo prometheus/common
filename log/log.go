@@ -14,6 +14,7 @@
 package log
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -149,11 +150,50 @@ type Logger interface {
 	Fatalln(...interface{})
 	Fatalf(string, ...interface{})
 
+	Log(keyvals ...interface{}) error
+
 	With(key string, value interface{}) Logger
 }
 
 type logger struct {
 	entry *logrus.Entry
+}
+
+func (l logger) Log(keyvals ...interface{}) (err error) {
+	if len(keyvals)%2 != 0 {
+		return errors.New("invalid arg count")
+	}
+	var lv string
+	var msg interface{}
+	fields := make(logrus.Fields, 5)
+
+	for i := 0; i < len(keyvals); i += 2 {
+		switch k := keyvals[i].(string); k {
+		case "level":
+			lv = fmt.Sprint(keyvals[i+1])
+		case "msg":
+			msg = fmt.Sprint(keyvals[i+1])
+		default:
+			fields[fmt.Sprint(keyvals[i])] = fmt.Sprint(keyvals[i+1])
+		}
+	}
+	ll := l.entry.WithFields(fields)
+
+	if msg == nil {
+		msg = ""
+	}
+	switch lv {
+	case "debug":
+		ll.Debug(msg)
+	case "warn":
+		ll.Warn(msg)
+	case "error":
+		ll.Error(msg)
+	default:
+		ll.Info(msg)
+	}
+
+	return nil
 }
 
 func (l logger) With(key string, value interface{}) Logger {
