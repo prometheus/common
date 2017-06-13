@@ -21,12 +21,14 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	yaml "gopkg.in/yaml.v2"
 )
 
 // BasicAuth contains basic HTTP authentication credentials.
 type BasicAuth struct {
 	Username string `yaml:"username"`
-	Password string `yaml:"password"`
+	Password Secret `yaml:"password"`
 
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline"`
@@ -37,12 +39,35 @@ type URL struct {
 	*url.URL
 }
 
+// UnmarshalYAML implements the yaml.Unmarshaler interface for URLs.
+func (u *URL) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	if err := unmarshal(&s); err != nil {
+		return err
+	}
+
+	urlp, err := url.Parse(s)
+	if err != nil {
+		return err
+	}
+	u.URL = urlp
+	return nil
+}
+
+// MarshalYAML implements the yaml.Marshaler interface for URLs.
+func (u URL) MarshalYAML() (interface{}, error) {
+	if u.URL != nil {
+		return u.String(), nil
+	}
+	return nil, nil
+}
+
 // HTTPClientConfig configures an HTTP client.
 type HTTPClientConfig struct {
 	// The HTTP basic authentication credentials for the targets.
 	BasicAuth *BasicAuth `yaml:"basic_auth,omitempty"`
 	// The bearer token for the targets.
-	BearerToken string `yaml:"bearer_token,omitempty"`
+	BearerToken Secret `yaml:"bearer_token,omitempty"`
 	// The bearer token file for the targets.
 	BearerTokenFile string `yaml:"bearer_token_file,omitempty"`
 	// HTTP proxy server to use to connect to the targets.
@@ -64,13 +89,18 @@ func (c *HTTPClientConfig) validate() error {
 	return nil
 }
 
-// ClientCert contains client cert credentials.
-type ClientCert struct {
-	Cert string `yaml:"cert"`
-	Key  string `yaml:"key"`
-
-	// Catches all undefined fields and must be empty after parsing.
-	XXX map[string]interface{} `yaml:",inline"`
+// UnmarshalYAML implements the yaml.Unmarshaler interface
+func (c *HTTPClientConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type plain HTTPClientConfig
+	err := unmarshal((*plain)(c))
+	if err != nil {
+		return err
+	}
+	err = c.validate()
+	if err != nil {
+		return c.validate()
+	}
+	return checkOverflow(c.XXX, "http_client_config")
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
@@ -83,20 +113,15 @@ func (a *BasicAuth) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return checkOverflow(a.XXX, "basic_auth")
 }
 
-// NewClient returns a http.Client using the specified http.RoundTripper.
-func NewClient(rt http.RoundTripper) *http.Client {
-	return &http.Client{Transport: rt}
-}
-
-// NewClientFromConfig returns a new HTTP client configured for the
+// NewHTTPClientFromConfig returns a new HTTP client configured for the
 // given config.HTTPClientConfig.
-func NewClientFromConfig(cfg HTTPClientConfig) (*http.Client, error) {
-	tlsConfig, err := NewTLSConfig(cfg.TLSConfig)
+func NewHTTPClientFromConfig(cfg *HTTPClientConfig) (*http.Client, error) {
+	tlsConfig, err := NewTLSConfig(&cfg.TLSConfig)
 	if err != nil {
 		return nil, err
 	}
-	// The only timeout we care about is the configured scrape timeout.
-	// It is applied on request. So we leave out any timings here.
+
+	// It's the caller's job to handle timeouts
 	var rt http.RoundTripper = &http.Transport{
 		Proxy:             http.ProxyURL(cfg.ProxyURL.URL),
 		DisableKeepAlives: true,
@@ -111,7 +136,7 @@ func NewClientFromConfig(cfg HTTPClientConfig) (*http.Client, error) {
 		if err != nil {
 			return nil, fmt.Errorf("unable to read bearer token file %s: %s", cfg.BearerTokenFile, err)
 		}
-		bearerToken = strings.TrimSpace(string(b))
+		bearerToken = Secret(strings.TrimSpace(string(b)))
 	}
 
 	if len(bearerToken) > 0 {
@@ -119,34 +144,34 @@ func NewClientFromConfig(cfg HTTPClientConfig) (*http.Client, error) {
 	}
 
 	if cfg.BasicAuth != nil {
-		rt = NewBasicAuthRoundTripper(cfg.BasicAuth.Username, cfg.BasicAuth.Password, rt)
+		rt = NewBasicAuthRoundTripper(cfg.BasicAuth.Username, Secret(cfg.BasicAuth.Password), rt)
 	}
 
 	// Return a new client with the configured round tripper.
-	return NewClient(rt), nil
+	return &http.Client{Transport: rt}, nil
 }
 
 type bearerAuthRoundTripper struct {
-	bearerToken string
+	bearerToken Secret
 	rt          http.RoundTripper
 }
 
 type basicAuthRoundTripper struct {
 	username string
-	password string
+	password Secret
 	rt       http.RoundTripper
 }
 
 // NewBasicAuthRoundTripper will apply a BASIC auth authorization header to a request unless it has
 // already been set.
-func NewBasicAuthRoundTripper(username, password string, rt http.RoundTripper) http.RoundTripper {
+func NewBasicAuthRoundTripper(username string, password Secret, rt http.RoundTripper) http.RoundTripper {
 	return &basicAuthRoundTripper{username, password, rt}
 }
 
 func (rt *bearerAuthRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if len(req.Header.Get("Authorization")) == 0 {
 		req = cloneRequest(req)
-		req.Header.Set("Authorization", "Bearer "+rt.bearerToken)
+		req.Header.Set("Authorization", "Bearer "+string(rt.bearerToken))
 	}
 
 	return rt.rt.RoundTrip(req)
@@ -154,7 +179,7 @@ func (rt *bearerAuthRoundTripper) RoundTrip(req *http.Request) (*http.Response, 
 
 // NewBearerAuthRoundTripper adds the provided bearer token to a request unless the authorization
 // header has already been set.
-func NewBearerAuthRoundTripper(bearer string, rt http.RoundTripper) http.RoundTripper {
+func NewBearerAuthRoundTripper(bearer Secret, rt http.RoundTripper) http.RoundTripper {
 	return &bearerAuthRoundTripper{bearer, rt}
 }
 
@@ -163,7 +188,7 @@ func (rt *basicAuthRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 		return rt.RoundTrip(req)
 	}
 	req = cloneRequest(req)
-	req.SetBasicAuth(rt.username, rt.password)
+	req.SetBasicAuth(rt.username, string(rt.password))
 	return rt.rt.RoundTrip(req)
 }
 
@@ -182,7 +207,7 @@ func cloneRequest(r *http.Request) *http.Request {
 }
 
 // NewTLSConfig creates a new tls.Config from the given config.TLSConfig.
-func NewTLSConfig(cfg TLSConfig) (*tls.Config, error) {
+func NewTLSConfig(cfg *TLSConfig) (*tls.Config, error) {
 	tlsConfig := &tls.Config{InsecureSkipVerify: cfg.InsecureSkipVerify}
 
 	// If a CA cert is provided then let's read it in so we can validate the
@@ -201,8 +226,13 @@ func NewTLSConfig(cfg TLSConfig) (*tls.Config, error) {
 	if len(cfg.ServerName) > 0 {
 		tlsConfig.ServerName = cfg.ServerName
 	}
+
 	// If a client cert & key is provided then configure TLS config accordingly.
-	if len(cfg.CertFile) > 0 && len(cfg.KeyFile) > 0 {
+	if len(cfg.CertFile) > 0 && len(cfg.KeyFile) == 0 {
+		return nil, fmt.Errorf("client cert file %q specified without client key file", cfg.CertFile)
+	} else if len(cfg.KeyFile) > 0 && len(cfg.CertFile) == 0 {
+		return nil, fmt.Errorf("client key file %q specified without client cert file", cfg.KeyFile)
+	} else if len(cfg.CertFile) > 0 && len(cfg.KeyFile) > 0 {
 		cert, err := tls.LoadX509KeyPair(cfg.CertFile, cfg.KeyFile)
 		if err != nil {
 			return nil, fmt.Errorf("unable to use specified client cert (%s) & key (%s): %s", cfg.CertFile, cfg.KeyFile, err)
@@ -212,4 +242,38 @@ func NewTLSConfig(cfg TLSConfig) (*tls.Config, error) {
 	tlsConfig.BuildNameToCertificate()
 
 	return tlsConfig, nil
+}
+
+// TLSConfig configures the options for TLS connections.
+type TLSConfig struct {
+	// The CA cert to use for the targets.
+	CAFile string `yaml:"ca_file,omitempty"`
+	// The client cert file for the targets.
+	CertFile string `yaml:"cert_file,omitempty"`
+	// The client key file for the targets.
+	KeyFile string `yaml:"key_file,omitempty"`
+	// Used to verify the hostname for the targets.
+	ServerName string `yaml:"server_name,omitempty"`
+	// Disable target certificate validation.
+	InsecureSkipVerify bool `yaml:"insecure_skip_verify"`
+
+	// Catches all undefined fields and must be empty after parsing.
+	XXX map[string]interface{} `yaml:",inline"`
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (c *TLSConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type plain TLSConfig
+	if err := unmarshal((*plain)(c)); err != nil {
+		return err
+	}
+	return checkOverflow(c.XXX, "TLS config")
+}
+
+func (c HTTPClientConfig) String() string {
+	b, err := yaml.Marshal(c)
+	if err != nil {
+		return fmt.Sprintf("<error creating http client config string: %s>", err)
+	}
+	return string(b)
 }
