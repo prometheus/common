@@ -112,6 +112,9 @@ type Logger interface {
 	Fatalf(string, ...interface{})
 
 	With(key string, value interface{}) Logger
+
+	SetFormat(string) error
+	SetLevel(string) error
 }
 
 type logger struct {
