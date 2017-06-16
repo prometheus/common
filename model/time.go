@@ -172,7 +172,7 @@ func (d *Duration) Set(s string) error {
 
 // Type implements pflag.Value
 func (d *Duration) Type() string {
-	return "model.Duration"
+	return "duration"
 }
 
 var durationRE = regexp.MustCompile("^([0-9]+)(y|w|d|h|m|s|ms)$")
