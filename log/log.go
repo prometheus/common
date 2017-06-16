@@ -65,45 +65,7 @@ func (f logFormatFlag) String() string {
 
 // Set implements flag.Value.
 func (f logFormatFlag) Set(format string) error {
-	u, err := url.Parse(format)
-	if err != nil {
-		return err
-	}
-	if u.Scheme != "logger" {
-		return fmt.Errorf("invalid scheme %s", u.Scheme)
-	}
-	jsonq := u.Query().Get("json")
-	if jsonq == "true" {
-		setJSONFormatter()
-	}
-
-	switch u.Opaque {
-	case "syslog":
-		if setSyslogFormatter == nil {
-			return fmt.Errorf("system does not support syslog")
-		}
-		appname := u.Query().Get("appname")
-		facility := u.Query().Get("local")
-		return setSyslogFormatter(baseLogger, appname, facility)
-	case "eventlog":
-		if setEventlogFormatter == nil {
-			return fmt.Errorf("system does not support eventlog")
-		}
-		name := u.Query().Get("name")
-		debugAsInfo := false
-		debugAsInfoRaw := u.Query().Get("debugAsInfo")
-		if parsedDebugAsInfo, err := strconv.ParseBool(debugAsInfoRaw); err == nil {
-			debugAsInfo = parsedDebugAsInfo
-		}
-		return setEventlogFormatter(baseLogger, name, debugAsInfo)
-	case "stdout":
-		origLogger.Out = os.Stdout
-	case "stderr":
-		origLogger.Out = os.Stderr
-	default:
-		return fmt.Errorf("unsupported logger %q", u.Opaque)
-	}
-	return nil
+	return baseLogger.SetFormat(format)
 }
 
 func init() {
