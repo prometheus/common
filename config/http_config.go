@@ -121,9 +121,16 @@ func NewHTTPClientFromConfig(cfg *HTTPClientConfig) (*http.Client, error) {
 		return nil, err
 	}
 
+	var proxyFunc func(*http.Request) (*url.URL, error)
+	if cfg.ProxyURL.URL != nil {
+		proxyFunc = http.ProxyURL(cfg.ProxyURL.URL)
+	} else {
+		proxyFunc = http.ProxyFromEnvironment
+	}
+
 	// It's the caller's job to handle timeouts
 	var rt http.RoundTripper = &http.Transport{
-		Proxy:             http.ProxyURL(cfg.ProxyURL.URL),
+		Proxy:             proxyFunc,
 		DisableKeepAlives: true,
 		TLSClientConfig:   tlsConfig,
 	}
