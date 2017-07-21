@@ -34,14 +34,12 @@ var (
 )
 
 // NewCollector returns a collector which exports metrics about current version information.
-func NewCollector(program string) *prometheus.GaugeVec {
+func NewCollector() *prometheus.GaugeVec {
 	buildInfo := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Namespace: program,
 			Name:      "build_info",
 			Help: fmt.Sprintf(
-				"A metric with a constant '1' value labeled by version, revision, branch, and goversion from which %s was built.",
-				program,
+				"A metric with a constant '1' value labeled by version, revision, branch, and goversion from which the binary was built.",
 			),
 		},
 		[]string{"version", "revision", "branch", "goversion"},
