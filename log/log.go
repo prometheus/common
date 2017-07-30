@@ -53,14 +53,6 @@ func (s *loggerSettings) apply(ctx *kingpin.ParseContext) error {
 	return err
 }
 
-func init() {
-	AddFlags(kingpin.CommandLine)
-}
-
-// AddFlags adds the flags used by this package to the Kingpin application. That's
-// useful if working with a custom application. The init function of this package
-// adds the flags to the default instance anyway. Thus, it's usually enough to call
-// kingpin.Parse() to make the logging flags take effect.
 func AddFlags(a *kingpin.Application) {
 	s := loggerSettings{}
 	kingpin.Flag("log.level", "Only log messages with the given severity or above. Valid levels: [debug, info, warn, error, fatal]").
