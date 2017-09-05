@@ -33,6 +33,10 @@ const (
 	// timeseries.
 	MetricNameLabel = "__name__"
 
+	// MetricTypeLabel is the name of the label indicating the metric type of a
+	// timeseries.
+	MetricTypeLabel = "metric_type"
+
 	// SchemeLabel is the name of the label that holds the scheme on which to
 	// scrape a target.
 	SchemeLabel = "__scheme__"
