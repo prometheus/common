@@ -21,6 +21,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/kit/log/term"
 	"github.com/pkg/errors"
 )
 
@@ -29,6 +30,25 @@ import (
 type AllowedLevel struct {
 	s string
 	o level.Option
+}
+
+func colorFn(keyvals ...interface{}) term.FgBgColor {
+	for i := 1; i < len(keyvals); i += 2 {
+		if keyvals[i] != "level" {
+			continue
+		}
+		switch keyvals[i+1] {
+		case "debug":
+			return term.FgBgColor{Fg: term.Blue}
+		case "warn":
+			return term.FgBgColor{Fg: term.Yellow}
+		case "error":
+			return term.FgBgColor{Fg: term.Red}
+		default:
+			return term.FgBgColor{}
+		}
+	}
+	return term.FgBgColor{}
 }
 
 func (l *AllowedLevel) String() string {
@@ -56,7 +76,10 @@ func (l *AllowedLevel) Set(s string) error {
 // New returns a new leveled oklog logger in the logfmt format. Each logged line will be annotated
 // with a timestamp. The output always goes to stderr.
 func New(al AllowedLevel) log.Logger {
-	l := log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
+	syncWriter := log.NewSyncWriter(os.Stderr)
+	// Returns a new logger with color logging capabilites if we're in a terminal, otherwise we
+	// just get a standard go-kit logger.
+	l := term.NewLogger(syncWriter, log.NewLogfmtLogger, colorFn)
 	l = level.NewFilter(l, al.o)
 	l = log.With(l, "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
 	return l
