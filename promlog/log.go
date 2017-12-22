@@ -24,6 +24,7 @@ import (
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	"github.com/go-kit/log/term"
 )
 
 var (
@@ -58,6 +59,25 @@ func (l *AllowedLevel) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 	*l = *lo
 	return nil
+}
+
+func colorFn(keyvals ...interface{}) term.FgBgColor {
+	for i := 1; i < len(keyvals); i += 2 {
+		if keyvals[i] != "level" {
+			continue
+		}
+		switch keyvals[i+1] {
+		case "debug":
+			return term.FgBgColor{Fg: term.Blue}
+		case "warn":
+			return term.FgBgColor{Fg: term.Yellow}
+		case "error":
+			return term.FgBgColor{Fg: term.Red}
+		default:
+			return term.FgBgColor{}
+		}
+	}
+	return term.FgBgColor{}
 }
 
 func (l *AllowedLevel) String() string {
@@ -112,10 +132,13 @@ type Config struct {
 // with a timestamp. The output always goes to stderr.
 func New(config *Config) log.Logger {
 	var l log.Logger
+	syncWriter := log.NewSyncWriter(os.Stderr)
 	if config.Format != nil && config.Format.s == "json" {
-		l = log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+		l = log.NewJSONLogger(syncWriter)
 	} else {
-		l = log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
+		// Returns a new logger with color logging capabilites if we're in a terminal, otherwise we
+		// just get a standard go-kit logger.
+		l = term.NewLogger(syncWriter, log.NewLogfmtLogger, colorFn)
 	}
 
 	if config.Level != nil {
