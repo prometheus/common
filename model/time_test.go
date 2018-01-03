@@ -130,3 +130,77 @@ func TestParseDuration(t *testing.T) {
 		}
 	}
 }
+
+func TestTimeString(t *testing.T) {
+	var cases = []struct {
+		in  Time
+		out string
+	}{
+		{
+			in:  Time(1),
+			out: ".001",
+		},
+		{
+			in:  Time(10),
+			out: ".010",
+		},
+		{
+			in:  Time(100),
+			out: ".100",
+		},
+		{
+			in:  Time(10000),
+			out: "10.000",
+		},
+		{
+			in:  Time(1000000),
+			out: "1000.000",
+		},
+	}
+
+	for _, c := range cases {
+		actual := c.in.String()
+		if actual != c.out {
+			t.Fatalf("Mismatched time output expected=%s actual=%s", c.out, actual)
+		}
+	}
+}
+
+func TestTimeJson(t *testing.T) {
+	var cases = []struct {
+		in  Time
+		out string
+	}{
+		{
+			in:  Time(1),
+			out: ".001",
+		},
+		{
+			in:  Time(10),
+			out: ".010",
+		},
+		{
+			in:  Time(100),
+			out: ".100",
+		},
+		{
+			in:  Time(10000),
+			out: "10.000",
+		},
+		{
+			in:  Time(1000000),
+			out: "1000.000",
+		},
+	}
+
+	for _, c := range cases {
+		b, err := c.in.MarshalJSON()
+		if err != nil {
+			t.Fatalf("Error marshaling time: %v", err)
+		}
+		actual := string(b)
+		if actual != c.out {
+			t.Fatalf("Mismatched time output expected=%s actual=%s", c.out, actual)
+		}
+	}
+}
