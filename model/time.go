@@ -122,16 +122,16 @@ func (t Time) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
 func (t *Time) UnmarshalJSON(b []byte) error {
-	p := strings.Split(string(b), ".")
-	switch len(p) {
-	case 1:
-		v, err := strconv.ParseInt(string(p[0]), 10, 64)
+	s := string(b)
+	i := strings.IndexByte(s, '.')
+	if i == -1 {
+		v, err := strconv.ParseInt(s, 10, 64)
 		if err != nil {
 			return err
 		}
 		*t = Time(v * second)
-
-	case 2:
+	} else {
+		p := [2]string{s[:i], s[i+1:]}
 		v, err := strconv.ParseInt(string(p[0]), 10, 64)
 		if err != nil {
 			return err
@@ -151,9 +151,6 @@ func (t *Time) UnmarshalJSON(b []byte) error {
 		}
 
 		*t = Time(v + va)
-
-	default:
-		return fmt.Errorf("invalid time %q", string(b))
 	}
 	return nil
 }
