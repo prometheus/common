@@ -130,3 +130,18 @@ func TestParseDuration(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkMarshalJSON(b *testing.B) {
+	t := TimeFromUnixNano(1514834431600000000)
+	for i := 0; i < b.N; i++ {
+		t.MarshalJSON()
+	}
+}
+
+func BenchmarkUnmarshalJSON(b *testing.B) {
+	t := TimeFromUnixNano(1514834431600000000)
+	buf, _ := t.MarshalJSON()
+	for i := 0; i < b.N; i++ {
+		t.UnmarshalJSON(buf)
+	}
+}
