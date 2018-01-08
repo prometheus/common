@@ -117,7 +117,7 @@ func (t Time) String() string {
 
 // MarshalJSON implements the json.Marshaler interface.
 func (t Time) MarshalJSON() ([]byte, error) {
-	return []byte(t.String()), nil
+	return strconv.AppendFloat(nil, float64(t)/float64(second), 'f', -1, 64), nil
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
