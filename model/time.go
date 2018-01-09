@@ -110,6 +110,9 @@ func (t Time) UnixNano() int64 {
 // The number of digits after the dot.
 var dotPrecision = int(math.Log10(float64(second)))
 
+// Enough zeros to pad a number with fewer than dotPrecision
+var zeros = strings.Repeat("0", dotPrecision)
+
 // String returns a string representation of the Time.
 func (t Time) String() string {
 	return strconv.FormatFloat(float64(t)/float64(second), 'f', -1, 64)
@@ -142,7 +145,7 @@ func (t *Time) UnmarshalJSON(b []byte) error {
 		if prec < 0 {
 			p[1] = p[1][:dotPrecision]
 		} else if prec > 0 {
-			p[1] = p[1] + strings.Repeat("0", prec)
+			p[1] = p[1] + zeros[:prec]
 		}
 
 		va, err := strconv.ParseInt(p[1], 10, 32)
