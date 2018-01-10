@@ -22,7 +22,7 @@ import (
 	"net/url"
 	"strings"
 
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 )
 
 // BasicAuth contains basic HTTP authentication credentials.
@@ -79,7 +79,9 @@ type HTTPClientConfig struct {
 	XXX map[string]interface{} `yaml:",inline"`
 }
 
-func (c *HTTPClientConfig) validate() error {
+// Validate validates the HTTPClientConfig to check only one of BearerToken,
+// BasicAuth and BearerTokenFile is configured.
+func (c *HTTPClientConfig) Validate() error {
 	if len(c.BearerToken) > 0 && len(c.BearerTokenFile) > 0 {
 		return fmt.Errorf("at most one of bearer_token & bearer_token_file must be configured")
 	}
@@ -96,9 +98,9 @@ func (c *HTTPClientConfig) UnmarshalYAML(unmarshal func(interface{}) error) erro
 	if err != nil {
 		return err
 	}
-	err = c.validate()
+	err = c.Validate()
 	if err != nil {
-		return c.validate()
+		return c.Validate()
 	}
 	return checkOverflow(c.XXX, "http_client_config")
 }
@@ -210,7 +212,7 @@ func cloneRequest(r *http.Request) *http.Request {
 func NewTLSConfig(cfg *TLSConfig) (*tls.Config, error) {
 	tlsConfig := &tls.Config{InsecureSkipVerify: cfg.InsecureSkipVerify}
 
-	// If a CA cert is provided then let's read it in so we can validate the
+	// If a CA cert is provided then let's read it in so we can Validate the
 	// scrape target's certificate properly.
 	if len(cfg.CAFile) > 0 {
 		caCertPool := x509.NewCertPool()
