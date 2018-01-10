@@ -212,7 +212,7 @@ func cloneRequest(r *http.Request) *http.Request {
 func NewTLSConfig(cfg *TLSConfig) (*tls.Config, error) {
 	tlsConfig := &tls.Config{InsecureSkipVerify: cfg.InsecureSkipVerify}
 
-	// If a CA cert is provided then let's read it in so we can Validate the
+	// If a CA cert is provided then let's read it in so we can validate the
 	// scrape target's certificate properly.
 	if len(cfg.CAFile) > 0 {
 		caCertPool := x509.NewCertPool()
