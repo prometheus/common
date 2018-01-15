@@ -53,11 +53,16 @@ func (l *AllowedLevel) Set(s string) error {
 	return nil
 }
 
+// Filter wraps logger with a filter corresponding to the allowed level
+func (l *AllowedLevel) Filter(logger log.Logger) log.Logger {
+	return level.NewFilter(logger, l.o)
+}
+
 // New returns a new leveled oklog logger in the logfmt format. Each logged line will be annotated
 // with a timestamp. The output always goes to stderr.
 func New(al AllowedLevel) log.Logger {
 	l := log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
-	l = level.NewFilter(l, al.o)
+	l = al.Filter(l)
 	l = log.With(l, "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
 	return l
 }
