@@ -14,6 +14,8 @@
 
 # A common Makefile that includes rules to be reused in different prometheus projects.
 
+# !!! Open PRs only against the prometheus/common repository!
+
 # Example usage :
 # Create the main Makefile in the root project directory. 
 # Add a "catch all" rule which will run when no other local rule is an exact match.
