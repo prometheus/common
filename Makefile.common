@@ -68,7 +68,7 @@ style:
 
 check_license:
 	@echo ">> checking license header"
-	@mkdir scripts
+	@mkdir -p scripts
 	@curl https://raw.githubusercontent.com/prometheus/common/master/scripts/check_license.sh -f -o scripts/check_license.sh || true  
 	@./scripts/check_license.sh
 
