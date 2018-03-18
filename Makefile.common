@@ -18,19 +18,18 @@
 
 # Example usage :
 # Create the main Makefile in the root project directory. 
-# Add a "catch all" rule which will run when no other local rule is an exact match.
-# %:
-# 	@echo ">> downloading a fresh copy of the Makefile.common"
-# 	# It will use the cached version in case the pull fails.
+
+# .EXPORT_ALL_VARIABLES:
+# SOURCE := https://raw.githubusercontent.com/prometheus/common/master/Makefile.common
+
+# %:	download
+# 	@$(MAKE) -f Makefile.common $@
+
+# download :
+# 	@echo ">> downloading a fresh copy of $(SOURCE)"
+# 	# If the pull fails it will use the local cached version.
 # 	@# -f do NOT overwrite the file in case of a network error. Keep cached copy!
-# 	@curl https://raw.githubusercontent.com/prometheus/common/master/Makefile.common -s -f -o Makefile.common || true  
-# 	@make -f Makefile.common $@
-# local-rule:
-# 	@echo ">> runing a local rules which has a priority over the catch all rule"
-
-# Any env to be passed down the Makefile.common should be put before the "catch all" rule in the format
-# export DOCKER_IMAGE_NAME       ?= prometheus
-
+# 	@curl $(SOURCE) -s -f -o Makefile.common || true
 
 
 # Ensure GOBIN is not set during build so that promu is installed to the correct path
