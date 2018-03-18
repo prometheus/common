@@ -18,12 +18,11 @@
 # Create the main Makefile in the root project directory. 
 # Add a "catch all" rule which will run when no other local rule is an exact match.
 # %:
-# 	@echo ">> downloading common Makefile"
-# 	#Try to download a fresh copy, but continue even if it fails.
+# 	@echo ">> downloading a fresh copy of the Makefile.common"
+# 	# It will use the cached version in case the pull fails.
 # 	# -f do NOT overwrite the file in case of a network error. Keep cached copy!
-# 	#This allows running the cached version or Makefile.common when working offline.
-# 	curl https://raw.githubusercontent.com/prometheus/common/master/Makefile.common -f -o Makefile.common || true  
-# 	make -f Makefile.common $@
+# 	@curl https://raw.githubusercontent.com/prometheus/common/master/Makefile.common -f -o Makefile.common || true  
+# 	@make -f Makefile.common $@
 # local-rule:
 # 	@echo ">> runing a local rules which has a priority over the catch all rule"
 
@@ -69,6 +68,8 @@ style:
 
 check_license:
 	@echo ">> checking license header"
+	@mkdir scripts
+	@curl https://raw.githubusercontent.com/prometheus/common/master/scripts/check_license.sh -f -o scripts/check_license.sh || true  
 	@./scripts/check_license.sh
 
 # TODO(fabxc): example tests temporarily removed.
