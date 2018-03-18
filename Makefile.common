@@ -20,8 +20,8 @@
 # %:
 # 	@echo ">> downloading a fresh copy of the Makefile.common"
 # 	# It will use the cached version in case the pull fails.
-# 	# -f do NOT overwrite the file in case of a network error. Keep cached copy!
-# 	@curl https://raw.githubusercontent.com/prometheus/common/master/Makefile.common -f -o Makefile.common || true  
+# 	@# -f do NOT overwrite the file in case of a network error. Keep cached copy!
+# 	@curl https://raw.githubusercontent.com/prometheus/common/master/Makefile.common -s -f -o Makefile.common || true  
 # 	@make -f Makefile.common $@
 # local-rule:
 # 	@echo ">> runing a local rules which has a priority over the catch all rule"
@@ -69,7 +69,7 @@ style:
 check_license:
 	@echo ">> checking license header"
 	@mkdir -p scripts
-	@curl https://raw.githubusercontent.com/prometheus/common/master/scripts/check_license.sh -f -o scripts/check_license.sh || true  
+	@curl https://raw.githubusercontent.com/prometheus/common/master/scripts/check_license.sh -s -f -o scripts/check_license.sh || true
 	@./scripts/check_license.sh
 
 # TODO(fabxc): example tests temporarily removed.
