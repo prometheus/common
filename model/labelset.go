@@ -27,6 +27,15 @@ import (
 // match.
 type LabelSet map[LabelName]LabelValue
 
+// RemoveEmptyLabels removes labels that have empty values.
+func (ls LabelSet) RemoveEmptyLabels() {
+	for k, v := range ls {
+		if string(v) == "" {
+			delete(ls, k)
+		}
+	}
+}
+
 // Validate checks whether all names and values in the label set
 // are valid.
 func (ls LabelSet) Validate() error {
