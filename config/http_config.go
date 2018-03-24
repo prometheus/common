@@ -115,9 +115,9 @@ func (a *BasicAuth) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return checkOverflow(a.XXX, "basic_auth")
 }
 
-// NewHTTPClientFromConfig returns a new HTTP client configured for the
-// given config.HTTPClientConfig.
-func NewHTTPClientFromConfig(cfg *HTTPClientConfig) (*http.Client, error) {
+// NewHTTPRoundTripperFromConfig returns a new HTTP RoundTripper configured for
+// the given config.HTTPClientConfig.
+func NewHTTPRoundTripperFromConfig(cfg *HTTPClientConfig) (http.RoundTripper, error) {
 	tlsConfig, err := NewTLSConfig(&cfg.TLSConfig)
 	if err != nil {
 		return nil, err
@@ -147,6 +147,17 @@ func NewHTTPClientFromConfig(cfg *HTTPClientConfig) (*http.Client, error) {
 
 	if cfg.BasicAuth != nil {
 		rt = NewBasicAuthRoundTripper(cfg.BasicAuth.Username, Secret(cfg.BasicAuth.Password), rt)
+	}
+
+	return rt, nil
+}
+
+// NewHTTPClientFromConfig returns a new HTTP client configured for the
+// given config.HTTPClientConfig.
+func NewHTTPClientFromConfig(cfg *HTTPClientConfig) (*http.Client, error) {
+	rt, err := NewHTTPRoundTripperFromConfig(cfg)
+	if err != nil {
+		return nil, err
 	}
 
 	// Return a new client with the configured round tripper.
