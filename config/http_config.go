@@ -21,7 +21,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
+	"github.com/prometheus/common/model"
 	"gopkg.in/yaml.v2"
 )
 
@@ -74,6 +76,8 @@ type HTTPClientConfig struct {
 	ProxyURL URL `yaml:"proxy_url,omitempty"`
 	// TLSConfig to use to connect to the targets.
 	TLSConfig TLSConfig `yaml:"tls_config,omitempty"`
+	// Timeout to apply to every request.
+	Timeout model.Duration `yaml:"timeout,omitempty"`
 
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline"`
@@ -149,8 +153,8 @@ func NewHTTPClientFromConfig(cfg *HTTPClientConfig) (*http.Client, error) {
 		rt = NewBasicAuthRoundTripper(cfg.BasicAuth.Username, Secret(cfg.BasicAuth.Password), rt)
 	}
 
-	// Return a new client with the configured round tripper.
-	return &http.Client{Transport: rt}, nil
+	// Return a new client with the configured timeout and round tripper.
+	return &http.Client{Timeout: time.Duration(cfg.Timeout), Transport: rt}, nil
 }
 
 type bearerAuthRoundTripper struct {
