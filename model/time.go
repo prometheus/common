@@ -110,6 +110,9 @@ func (t Time) UnixNano() int64 {
 // The number of digits after the dot.
 var dotPrecision = int(math.Log10(float64(second)))
 
+// Enough zeros to pad a number with fewer than dotPrecision
+var zeros = strings.Repeat("0", dotPrecision)
+
 // String returns a string representation of the Time.
 func (t Time) String() string {
 	return strconv.FormatFloat(float64(t)/float64(second), 'f', -1, 64)
@@ -117,21 +120,21 @@ func (t Time) String() string {
 
 // MarshalJSON implements the json.Marshaler interface.
 func (t Time) MarshalJSON() ([]byte, error) {
-	return []byte(t.String()), nil
+	return strconv.AppendFloat(nil, float64(t)/float64(second), 'f', -1, 64), nil
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
 func (t *Time) UnmarshalJSON(b []byte) error {
-	p := strings.Split(string(b), ".")
-	switch len(p) {
-	case 1:
-		v, err := strconv.ParseInt(string(p[0]), 10, 64)
+	s := string(b)
+	i := strings.IndexByte(s, '.')
+	if i == -1 {
+		v, err := strconv.ParseInt(s, 10, 64)
 		if err != nil {
 			return err
 		}
 		*t = Time(v * second)
-
-	case 2:
+	} else {
+		p := [2]string{s[:i], s[i+1:]}
 		v, err := strconv.ParseInt(string(p[0]), 10, 64)
 		if err != nil {
 			return err
@@ -142,7 +145,7 @@ func (t *Time) UnmarshalJSON(b []byte) error {
 		if prec < 0 {
 			p[1] = p[1][:dotPrecision]
 		} else if prec > 0 {
-			p[1] = p[1] + strings.Repeat("0", prec)
+			p[1] = p[1] + zeros[:prec]
 		}
 
 		va, err := strconv.ParseInt(p[1], 10, 32)
@@ -151,9 +154,6 @@ func (t *Time) UnmarshalJSON(b []byte) error {
 		}
 
 		*t = Time(v + va)
-
-	default:
-		return fmt.Errorf("invalid time %q", string(b))
 	}
 	return nil
 }
