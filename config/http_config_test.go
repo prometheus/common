@@ -542,7 +542,7 @@ func TestInvalidHTTPConfigs(t *testing.T) {
 // LoadHTTPConfig parses the YAML input s into a HTTPClientConfig.
 func LoadHTTPConfig(s string) (*HTTPClientConfig, error) {
 	cfg := &HTTPClientConfig{}
-	err := yaml.Unmarshal([]byte(s), cfg)
+	err := yaml.UnmarshalStrict([]byte(s), cfg)
 	if err != nil {
 		return nil, err
 	}
