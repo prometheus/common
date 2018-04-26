@@ -29,7 +29,7 @@ func LoadTLSConfig(filename string) (*tls.Config, error) {
 		return nil, err
 	}
 	cfg := TLSConfig{}
-	if err = yaml.Unmarshal(content, &cfg); err != nil {
+	if err = yaml.UnmarshalStrict(content, &cfg); err != nil {
 		return nil, err
 	}
 	return NewTLSConfig(&cfg)
