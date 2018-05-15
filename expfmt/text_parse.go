@@ -152,6 +152,8 @@ func (p *TextParser) startOfLine() stateFn {
 		return p.startComment
 	case '\n':
 		return p.startOfLine // Empty line, start the next one.
+	case '\r':
+		return p.startOfLine // Empty line, start the next one.
 	}
 	return p.readingMetricName
 }
@@ -162,7 +164,7 @@ func (p *TextParser) startComment() stateFn {
 	if p.skipBlankTab(); p.err != nil {
 		return nil // Unexpected end of input.
 	}
-	if p.currentByte == '\n' {
+	if p.currentByte == '\n' || p.currentByte == '\r' {
 		return p.startOfLine
 	}
 	if p.readTokenUntilWhitespace(); p.err != nil {
@@ -170,13 +172,13 @@ func (p *TextParser) startComment() stateFn {
 	}
 	// If we have hit the end of line already, there is nothing left
 	// to do. This is not considered a syntax error.
-	if p.currentByte == '\n' {
+	if p.currentByte == '\n' || p.currentByte == '\r' {
 		return p.startOfLine
 	}
 	keyword := p.currentToken.String()
 	if keyword != "HELP" && keyword != "TYPE" {
 		// Generic comment, ignore by fast forwarding to end of line.
-		for p.currentByte != '\n' {
+		for p.currentByte != '\n' || p.currentByte == '\r' {
 			if p.currentByte, p.err = p.buf.ReadByte(); p.err != nil {
 				return nil // Unexpected end of input.
 			}
@@ -190,7 +192,7 @@ func (p *TextParser) startComment() stateFn {
 	if p.readTokenAsMetricName(); p.err != nil {
 		return nil // Unexpected end of input.
 	}
-	if p.currentByte == '\n' {
+	if p.currentByte == '\n' || p.currentByte == '\r' {
 		// At the end of the line already.
 		// Again, this is not considered a syntax error.
 		return p.startOfLine
@@ -203,7 +205,7 @@ func (p *TextParser) startComment() stateFn {
 	if p.skipBlankTab(); p.err != nil {
 		return nil // Unexpected end of input.
 	}
-	if p.currentByte == '\n' {
+	if p.currentByte == '\n' || p.currentByte == '\r' {
 		// At the end of the line already.
 		// Again, this is not considered a syntax error.
 		return p.startOfLine
@@ -446,7 +448,7 @@ func (p *TextParser) readingValue() stateFn {
 	default:
 		p.err = fmt.Errorf("unexpected type for metric name %q", p.currentMF.GetName())
 	}
-	if p.currentByte == '\n' {
+	if p.currentByte == '\n' || p.currentByte == '\r' {
 		return p.startOfLine
 	}
 	return p.startTimestamp
@@ -546,7 +548,7 @@ func (p *TextParser) skipBlankTabIfCurrentBlankTab() {
 // into p.currentToken.
 func (p *TextParser) readTokenUntilWhitespace() {
 	p.currentToken.Reset()
-	for p.err == nil && !isBlankOrTab(p.currentByte) && p.currentByte != '\n' {
+	for p.err == nil && !isBlankOrTab(p.currentByte) && p.currentByte != '\n' && p.currentByte != '\r' {
 		p.currentToken.WriteByte(p.currentByte)
 		p.currentByte, p.err = p.buf.ReadByte()
 	}
@@ -568,6 +570,8 @@ func (p *TextParser) readTokenUntilNewline(recognizeEscapeSequence bool) {
 				p.currentToken.WriteByte(p.currentByte)
 			case 'n':
 				p.currentToken.WriteByte('\n')
+			case 'r':
+				p.currentToken.WriteByte('\r')
 			default:
 				p.parseError(fmt.Sprintf("invalid escape sequence '\\%c'", p.currentByte))
 				return
@@ -576,6 +580,8 @@ func (p *TextParser) readTokenUntilNewline(recognizeEscapeSequence bool) {
 		} else {
 			switch p.currentByte {
 			case '\n':
+				return
+			case '\r':
 				return
 			case '\\':
 				escaped = true
@@ -641,6 +647,8 @@ func (p *TextParser) readTokenAsLabelValue() {
 				p.currentToken.WriteByte(p.currentByte)
 			case 'n':
 				p.currentToken.WriteByte('\n')
+			case 'r':
+				p.currentToken.WriteByte('\r')
 			default:
 				p.parseError(fmt.Sprintf("invalid escape sequence '\\%c'", p.currentByte))
 				return
@@ -653,6 +661,9 @@ func (p *TextParser) readTokenAsLabelValue() {
 			return
 		case '\n':
 			p.parseError(fmt.Sprintf("label value %q contains unescaped new-line", p.currentToken.String()))
+			return
+		case '\r':
+			p.parseError(fmt.Sprintf("label value %q contains unescaped carriage-return", p.currentToken.String()))
 			return
 		case '\\':
 			escaped = true
