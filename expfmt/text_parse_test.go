@@ -384,6 +384,51 @@ request_duration_microseconds_count 2693
 				},
 			},
 		},
+		// 5: Minimal, with carriage returns.
+		{
+			in: "\r\n" +
+				"minimal_metric 1.234\r\n" +
+				"another_metric -3e3 103948\r\n" +
+				"# Even that:\r\n" +
+				"no_labels{} 3\r\n" +
+				"# HELP line for non-existing metric will be ignored.\r\n",
+			out: []*dto.MetricFamily{
+				&dto.MetricFamily{
+					Name: proto.String("minimal_metric"),
+					Type: dto.MetricType_UNTYPED.Enum(),
+					Metric: []*dto.Metric{
+						&dto.Metric{
+							Untyped: &dto.Untyped{
+								Value: proto.Float64(1.234),
+							},
+						},
+					},
+				},
+				&dto.MetricFamily{
+					Name: proto.String("another_metric"),
+					Type: dto.MetricType_UNTYPED.Enum(),
+					Metric: []*dto.Metric{
+						&dto.Metric{
+							Untyped: &dto.Untyped{
+								Value: proto.Float64(-3e3),
+							},
+							TimestampMs: proto.Int64(103948),
+						},
+					},
+				},
+				&dto.MetricFamily{
+					Name: proto.String("no_labels"),
+					Type: dto.MetricType_UNTYPED.Enum(),
+					Metric: []*dto.Metric{
+						&dto.Metric{
+							Untyped: &dto.Untyped{
+								Value: proto.Float64(3),
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for i, scenario := range scenarios {
