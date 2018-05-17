@@ -206,7 +206,7 @@ func TestNewClientFromConfig(t *testing.T) {
 		}
 		defer testServer.Close()
 
-		client, err := NewClientFromConfig(validConfig.clientConfig, "test")
+		client, err := NewClientFromConfig(validConfig.clientConfig, "test", false)
 		if err != nil {
 			t.Errorf("Can't create a client from this config: %+v", validConfig.clientConfig)
 			continue
@@ -256,7 +256,7 @@ func TestNewClientFromInvalidConfig(t *testing.T) {
 	}
 
 	for _, invalidConfig := range newClientInvalidConfig {
-		client, err := NewClientFromConfig(invalidConfig.clientConfig, "test")
+		client, err := NewClientFromConfig(invalidConfig.clientConfig, "test", false)
 		if client != nil {
 			t.Errorf("A client instance was returned instead of nil using this config: %+v", invalidConfig.clientConfig)
 		}
@@ -295,7 +295,7 @@ func TestMissingBearerAuthFile(t *testing.T) {
 	}
 	defer testServer.Close()
 
-	client, err := NewClientFromConfig(cfg, "test")
+	client, err := NewClientFromConfig(cfg, "test", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -472,7 +472,7 @@ func TestBasicAuthNoPassword(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error loading HTTP client config: %v", err)
 	}
-	client, err := NewClientFromConfig(*cfg, "test")
+	client, err := NewClientFromConfig(*cfg, "test", false)
 	if err != nil {
 		t.Fatalf("Error creating HTTP Client: %v", err)
 	}
@@ -524,7 +524,7 @@ func TestBasicAuthPasswordFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error loading HTTP client config: %v", err)
 	}
-	client, err := NewClientFromConfig(*cfg, "test")
+	client, err := NewClientFromConfig(*cfg, "test", false)
 	if err != nil {
 		t.Fatalf("Error creating HTTP Client: %v", err)
 	}
