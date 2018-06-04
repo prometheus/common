@@ -115,6 +115,18 @@ func TestParseDuration(t *testing.T) {
 			in:  "10y",
 			out: 10 * 365 * 24 * time.Hour,
 		},
+
+		// Test compatibility with time.Duration
+		{
+			in:  "5m0s",
+			out: 5 * time.Minute,
+		}, {
+			in:  "5m4s",
+			out: 5*time.Minute + time.Second*4,
+		}, {
+			in:  "5m4s3ns",
+			out: 5*time.Minute + time.Second*4 + time.Nanosecond*3,
+		},
 	}
 
 	for _, c := range cases {
@@ -126,7 +138,26 @@ func TestParseDuration(t *testing.T) {
 			t.Errorf("Expected %v but got %v", c.out, d)
 		}
 		if d.String() != c.in {
-			t.Errorf("Expected duration string %q but got %q", c.in, d.String())
+			// If the string representations differ but are logically
+			// the same consider this a non error condition.
+			if c.out.Nanoseconds() != time.Duration(d).Nanoseconds() {
+				t.Errorf("Expected duration string %q but got %q", c.in, d.String())
+			}
+		}
+	}
+}
+
+func TestParseDurationInvalidFormats(t *testing.T) {
+	for _, invalid := range []string{
+		// Not a duration
+		"",
+		// Seemingly valid duration, but is neither single unit nor upstream
+		"5w0s",
+		// Assumption about units
+		"5",
+	} {
+		if _, err := ParseDuration(invalid); err == nil {
+			t.Errorf("Expected error on invalid input %q", invalid)
 		}
 	}
 }
