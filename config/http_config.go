@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 	"time"
 
@@ -146,6 +147,8 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string) (http.RoundTri
 		),
 	}
 
+	rt = NewTLSConfigRoundTripper(cfg, tlsConfig, name, rt)
+
 	// If a bearer token is provided, create a round tripper that will set the
 	// Authorization header correctly on each request.
 	if len(cfg.BearerToken) > 0 {
@@ -160,6 +163,33 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string) (http.RoundTri
 
 	// Return a new configured RoundTripper.
 	return rt, nil
+}
+
+type tlsConfigRoundTripper struct {
+	cfg       HTTPClientConfig
+	tlsConfig *tls.Config
+	name      string
+	rt        http.RoundTripper
+}
+
+// NewTLSConfigRoundTripper reads the tls configuration upton each request
+// and updates the TLS configuration as needed
+func NewTLSConfigRoundTripper(cfg HTTPClientConfig, tlsConfig *tls.Config, name string, rt http.RoundTripper) http.RoundTripper {
+	return &tlsConfigRoundTripper{cfg, tlsConfig, name, rt}
+}
+
+func (rt *tlsConfigRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	tlsConfig, err := NewTLSConfig(&rt.cfg.TLSConfig)
+	if err != nil {
+		return nil, err
+	}
+	if !reflect.DeepEqual(tlsConfig, rt.tlsConfig) {
+		rt.rt, err = NewRoundTripperFromConfig(rt.cfg, rt.name)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return rt.rt.RoundTrip(req)
 }
 
 type bearerAuthRoundTripper struct {
