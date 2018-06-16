@@ -14,12 +14,15 @@
 package config
 
 import (
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -292,10 +295,16 @@ func NewTLSConfig(cfg *TLSConfig) (*tls.Config, error) {
 type TLSConfig struct {
 	// The CA cert to use for the targets.
 	CAFile string `yaml:"ca_file,omitempty"`
+	// The CA cert hash, to reload config upon CA change
+	CAFileHash string `yaml:",omitempty"`
 	// The client cert file for the targets.
 	CertFile string `yaml:"cert_file,omitempty"`
+	// The cert hash, to reload config upon cert change
+	CertFileHash string `yaml:",omitempty"`
 	// The client key file for the targets.
 	KeyFile string `yaml:"key_file,omitempty"`
+	// Key file hash, to reload config upon key file change
+	KeyFileHash string `yaml:",omitempty"`
 	// Used to verify the hostname for the targets.
 	ServerName string `yaml:"server_name,omitempty"`
 	// Disable target certificate validation.
@@ -305,7 +314,38 @@ type TLSConfig struct {
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (c *TLSConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type plain TLSConfig
-	return unmarshal((*plain)(c))
+	err := unmarshal((*plain)(c))
+	if err != nil {
+		return err
+	}
+	// Loosely compute hashes, errors will be catched later on
+	// With this we ensure that upon certificate change,
+	// the config is seen as changed
+	if c.CAFile != "" {
+		c.CAFileHash, _ = computeSha256(c.CAFile)
+	}
+	if c.KeyFile != "" {
+		c.KeyFileHash, _ = computeSha256(c.CAFile)
+	}
+	if c.CertFile != "" {
+		c.CertFileHash, _ = computeSha256(c.CAFile)
+	}
+	return nil
+}
+
+func computeSha256(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
 func (c HTTPClientConfig) String() string {
