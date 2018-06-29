@@ -93,6 +93,7 @@ func newTestServer(handler func(w http.ResponseWriter, r *http.Request)) (*httpt
 }
 
 func TestNewClientFromConfig(t *testing.T) {
+	fVal := false
 	var newClientValidConfig = []struct {
 		clientConfig HTTPClientConfig
 		handler      func(w http.ResponseWriter, r *http.Request)
@@ -117,6 +118,19 @@ func TestNewClientFromConfig(t *testing.T) {
 					KeyFile:            BarneyKeyNoPassPath,
 					ServerName:         "",
 					InsecureSkipVerify: false},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprint(w, ExpectedMessage)
+			},
+		}, {
+			clientConfig: HTTPClientConfig{
+				TLSConfig: TLSConfig{
+					CAFile:             TLSCAChainPath,
+					CertFile:           BarneyCertificatePath,
+					KeyFile:            BarneyKeyNoPassPath,
+					ServerName:         "",
+					InsecureSkipVerify: false},
+				KeepAlive: &fVal,
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprint(w, ExpectedMessage)

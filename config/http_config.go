@@ -74,6 +74,8 @@ type HTTPClientConfig struct {
 	ProxyURL URL `yaml:"proxy_url,omitempty"`
 	// TLSConfig to use to connect to the targets.
 	TLSConfig TLSConfig `yaml:"tls_config,omitempty"`
+	// If set, override whether to use HTTP KeepAlive - defaults ON
+	KeepAlive *bool `yaml:"keep_alive,omitempty"`
 }
 
 // Validate validates the HTTPClientConfig to check only one of BearerToken,
@@ -128,13 +130,18 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string) (http.RoundTri
 	if err != nil {
 		return nil, err
 	}
+	// If not specified in config, default HTTP connections to allow keep-alive
+	disableKeepAlives := false
+	if cfg.KeepAlive != nil {
+		disableKeepAlives = !*cfg.KeepAlive
+	}
 	// The only timeout we care about is the configured scrape timeout.
 	// It is applied on request. So we leave out any timings here.
 	var rt http.RoundTripper = &http.Transport{
 		Proxy:               http.ProxyURL(cfg.ProxyURL.URL),
 		MaxIdleConns:        20000,
 		MaxIdleConnsPerHost: 1000, // see https://github.com/golang/go/issues/13801
-		DisableKeepAlives:   false,
+		DisableKeepAlives:   disableKeepAlives,
 		TLSClientConfig:     tlsConfig,
 		DisableCompression:  true,
 		// 5 minutes is typically above the maximum sane scrape interval. So we can
