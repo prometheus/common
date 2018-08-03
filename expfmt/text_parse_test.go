@@ -384,6 +384,23 @@ request_duration_microseconds_count 2693
 				},
 			},
 		},
+		// 5: Skip UTF-8 BOM.
+		{
+			in: "\xef\xbb\xbfafter_utf8_bom 1\n",
+			out: []*dto.MetricFamily{
+				&dto.MetricFamily{
+					Name: proto.String("after_utf8_bom"),
+					Type: dto.MetricType_UNTYPED.Enum(),
+					Metric: []*dto.Metric{
+						&dto.Metric{
+							Untyped: &dto.Untyped{
+								Value: proto.Float64(1),
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for i, scenario := range scenarios {

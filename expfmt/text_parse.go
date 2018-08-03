@@ -125,6 +125,11 @@ func (p *TextParser) reset(in io.Reader) {
 	} else {
 		p.buf.Reset(in)
 	}
+	// Some clients might throw in UTF-8 BOM chars, ignore if found.
+	maybeBOM, err := p.buf.Peek(3)
+	if len(maybeBOM) == 3 && maybeBOM[0] == 0xEF && maybeBOM[1] == 0xBB && maybeBOM[2] == 0xBF && err == nil {
+		p.buf.Discard(3)
+	}
 	p.err = nil
 	p.lineCount = 0
 	if p.summaries == nil || len(p.summaries) > 0 {
