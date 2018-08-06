@@ -101,25 +101,9 @@ func (p *TextParser) TextToMetricFamilies(in io.Reader) (map[string]*dto.MetricF
 	p.reset(in)
 
 	// Some clients might throw in Unicode BOM chars which is explicitly forbidden.
-	maybeBOM, err := p.buf.Peek(4)
-	if err == nil && len(maybeBOM) >= 2 {
-		// UTF-8 BOM.
-		if len(maybeBOM) >= 3 && maybeBOM[0] == 0xEF && maybeBOM[1] == 0xBB && maybeBOM[2] == 0xBF {
-			p.parseError("UTF-8 BOM detected but not supported")
-		}
-		// UTF-16 BOM.
-		if (maybeBOM[0] == 0xFE && maybeBOM[1] == 0xFF) || (maybeBOM[0] == 0xFF && maybeBOM[1] == 0xFE) {
-			p.parseError("UTF-16 BOM detected but not supported")
-		}
-		// UTF-32 BOM.
-		if len(maybeBOM) == 4 &&
-			((maybeBOM[0] == 0x00 && maybeBOM[1] == 0x00 && maybeBOM[2] == 0xFE && maybeBOM[3] == 0xFF) ||
-				(maybeBOM[0] == 0xFF && maybeBOM[1] == 0xFE && maybeBOM[2] == 0x00 && maybeBOM[3] == 0x00)) {
-			p.parseError("UTF-32 BOM detected but not supported")
-		}
-		if p.err != nil {
-			return p.metricFamiliesByName, p.err
-		}
+	if bomType := p.hasBOM(); bomType != "" {
+		p.parseError(bomType + " BOM detected but not supported")
+		return p.metricFamiliesByName, p.err
 	}
 
 	for nextState := p.startOfLine; nextState != nil; nextState = nextState() {
@@ -139,6 +123,31 @@ func (p *TextParser) TextToMetricFamilies(in io.Reader) (map[string]*dto.MetricF
 		p.parseError("unexpected end of input stream")
 	}
 	return p.metricFamiliesByName, p.err
+}
+
+func (p *TextParser) hasBOM() string {
+	maybeBOM, err := p.buf.Peek(4)
+
+	// Can't read, no BOM found.
+	if err != nil {
+		return ""
+	}
+	// UTF-32 BOM.
+	if len(maybeBOM) == 4 &&
+		((maybeBOM[0] == 0x00 && maybeBOM[1] == 0x00 && maybeBOM[2] == 0xFE && maybeBOM[3] == 0xFF) ||
+			(maybeBOM[0] == 0xFF && maybeBOM[1] == 0xFE && maybeBOM[2] == 0x00 && maybeBOM[3] == 0x00)) {
+		return "UTF-32"
+	}
+	// UTF-16 BOM.
+	if len(maybeBOM) >= 2 && ((maybeBOM[0] == 0xFE && maybeBOM[1] == 0xFF) || (maybeBOM[0] == 0xFF && maybeBOM[1] == 0xFE)) {
+		return "UTF-16"
+	}
+	// UTF-8 BOM.
+	if len(maybeBOM) >= 3 && maybeBOM[0] == 0xEF && maybeBOM[1] == 0xBB && maybeBOM[2] == 0xBF {
+		return "UTF-8"
+	}
+	// No BOM.
+	return ""
 }
 
 func (p *TextParser) reset(in io.Reader) {
