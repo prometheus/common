@@ -99,6 +99,29 @@ type TextParser struct {
 // input concurrently, instantiate a separate Parser for each goroutine.
 func (p *TextParser) TextToMetricFamilies(in io.Reader) (map[string]*dto.MetricFamily, error) {
 	p.reset(in)
+
+	// Some clients might throw in Unicode BOM chars which is explicitly forbidden.
+	maybeBOM, err := p.buf.Peek(4)
+	if err == nil && len(maybeBOM) >= 2 {
+		// UTF-8 BOM.
+		if len(maybeBOM) >= 3 && maybeBOM[0] == 0xEF && maybeBOM[1] == 0xBB && maybeBOM[2] == 0xBF {
+			p.parseError("UTF-8 BOM detected but not supported")
+		}
+		// UTF-16 BOM.
+		if (maybeBOM[0] == 0xFE && maybeBOM[1] == 0xFF) || (maybeBOM[0] == 0xFF && maybeBOM[1] == 0xFE) {
+			p.parseError("UTF-16 BOM detected but not supported")
+		}
+		// UTF-32 BOM.
+		if len(maybeBOM) == 4 &&
+			((maybeBOM[0] == 0x00 && maybeBOM[1] == 0x00 && maybeBOM[2] == 0xFE && maybeBOM[3] == 0xFF) ||
+				(maybeBOM[0] == 0xFF && maybeBOM[1] == 0xFE && maybeBOM[2] == 0x00 && maybeBOM[3] == 0x00)) {
+			p.parseError("UTF-32 BOM detected but not supported")
+		}
+		if p.err != nil {
+			return p.metricFamiliesByName, p.err
+		}
+	}
+
 	for nextState := p.startOfLine; nextState != nil; nextState = nextState() {
 		// Magic happens here...
 	}
@@ -124,11 +147,6 @@ func (p *TextParser) reset(in io.Reader) {
 		p.buf = bufio.NewReader(in)
 	} else {
 		p.buf.Reset(in)
-	}
-	// Some clients might throw in UTF-8 BOM chars, ignore if found.
-	maybeBOM, err := p.buf.Peek(3)
-	if len(maybeBOM) == 3 && maybeBOM[0] == 0xEF && maybeBOM[1] == 0xBB && maybeBOM[2] == 0xBF && err == nil {
-		p.buf.Discard(3)
 	}
 	p.err = nil
 	p.lineCount = 0

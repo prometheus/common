@@ -384,23 +384,6 @@ request_duration_microseconds_count 2693
 				},
 			},
 		},
-		// 5: Skip UTF-8 BOM.
-		{
-			in: "\xef\xbb\xbfafter_utf8_bom 1\n",
-			out: []*dto.MetricFamily{
-				&dto.MetricFamily{
-					Name: proto.String("after_utf8_bom"),
-					Type: dto.MetricType_UNTYPED.Enum(),
-					Metric: []*dto.Metric{
-						&dto.Metric{
-							Untyped: &dto.Untyped{
-								Value: proto.Float64(1),
-							},
-						},
-					},
-				},
-			},
-		},
 	}
 
 	for i, scenario := range scenarios {
@@ -580,6 +563,31 @@ metric_bucket{le="bla"} 3.14
 		{
 			in:  "metric{l=\"\xbd\"} 3.14\n",
 			err: "text format parsing error in line 1: invalid label value \"\\xbd\"",
+		},
+		// 20: UTF-8 BOM present.
+		{
+			in:  "\xef\xbb\xbfafter_utf8_bom 1\n",
+			err: "text format parsing error in line 0: UTF-8 BOM detected but not supported",
+		},
+		// 21: UTF-16 LE BOM present.
+		{
+			in:  "\xfe\xffafter_utf16le_bom 1\n",
+			err: "text format parsing error in line 0: UTF-16 BOM detected but not supported",
+		},
+		// 22: UTF-16 BE BOM present.
+		{
+			in:  "\xff\xfeafter_utf16be_bom 1\n",
+			err: "text format parsing error in line 0: UTF-16 BOM detected but not supported",
+		},
+		// 23: UTF-32 LE BOM present.
+		{
+			in:  "\xff\xfe\x00\x00after_utf32le_bom 1\n",
+			err: "text format parsing error in line 0: UTF-32 BOM detected but not supported",
+		},
+		// 24: UTF-32 BE BOM present.
+		{
+			in:  "\x00\x00\xfe\xffafter_utf32be_bom 1\n",
+			err: "text format parsing error in line 0: UTF-32 BOM detected but not supported",
 		},
 	}
 
