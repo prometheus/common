@@ -41,6 +41,9 @@ const (
 	BearerToken            = "theanswertothegreatquestionoflifetheuniverseandeverythingisfortytwo"
 	BearerTokenFile        = "testdata/bearer.token"
 	MissingBearerTokenFile = "missing/bearer.token"
+	ApiToken               = "owtytrofsignihtyrevednaesrevinuehtefilfonoitseuqtaergehtotrewsnaeht"
+	ApiTokenFile           = "testdata/api.token"
+	MissingApiTokenFile    = "missing/api.token"
 	ExpectedBearer         = "Bearer " + BearerToken
 	ExpectedUsername       = "arthurdent"
 	ExpectedPassword       = "42"
@@ -52,15 +55,19 @@ var invalidHTTPClientConfigs = []struct {
 }{
 	{
 		httpClientConfigFile: "testdata/http.conf.bearer-token-and-file-set.bad.yml",
-		errMsg:               "at most one of bearer_token & bearer_token_file must be configured",
+		errMsg:               "at most one of bearer_token and bearer_token_file must be configured",
 	},
 	{
-		httpClientConfigFile: "testdata/http.conf.empty.bad.yml",
-		errMsg:               "at most one of basic_auth, bearer_token & bearer_token_file must be configured",
+		httpClientConfigFile: "testdata/http.conf.multiple_methods.bad.yml",
+		errMsg:               "at most one auth method must be configured",
 	},
 	{
 		httpClientConfigFile: "testdata/http.conf.basic-auth.too-much.bad.yaml",
-		errMsg:               "at most one of basic_auth password & password_file must be configured",
+		errMsg:               "at most one of basic_auth.password and basic_auth.password_file must be configured",
+	},
+	{
+		httpClientConfigFile: "testdata/http.conf.api.token-and-file.bad.yaml",
+		errMsg:               "at most one of api_token and api_token_file must be configured",
 	},
 }
 
@@ -184,6 +191,42 @@ func TestNewClientFromConfig(t *testing.T) {
 					fmt.Fprint(w, ExpectedMessage)
 				}
 			},
+		}, {
+			clientConfig: HTTPClientConfig{
+				ApiToken: ApiToken,
+				TLSConfig: TLSConfig{
+					CAFile:             TLSCAChainPath,
+					CertFile:           BarneyCertificatePath,
+					KeyFile:            BarneyKeyNoPassPath,
+					ServerName:         "",
+					InsecureSkipVerify: false},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				token := r.Header.Get("Authorization")
+				if token != ApiToken {
+					fmt.Fprintf(w, "The expected api token (%s) differs from the obtained api token (%s)", token, ApiToken)
+				} else {
+					fmt.Fprint(w, ExpectedMessage)
+				}
+			},
+		}, {
+			clientConfig: HTTPClientConfig{
+				ApiTokenFile: ApiTokenFile,
+				TLSConfig: TLSConfig{
+					CAFile:             TLSCAChainPath,
+					CertFile:           BarneyCertificatePath,
+					KeyFile:            BarneyKeyNoPassPath,
+					ServerName:         "",
+					InsecureSkipVerify: false},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				token := r.Header.Get("Authorization")
+				if token != ApiToken {
+					fmt.Fprintf(w, "The expected api token (%s) differs from the obtained api token (%s)", token, ApiToken)
+				} else {
+					fmt.Fprint(w, ExpectedMessage)
+				}
+			},
 		},
 	}
 
@@ -293,6 +336,41 @@ func TestMissingBearerAuthFile(t *testing.T) {
 	}
 }
 
+func TestMissingApiAuthFile(t *testing.T) {
+	cfg := HTTPClientConfig{
+		ApiTokenFile: MissingApiTokenFile,
+		TLSConfig: TLSConfig{
+			CAFile:             TLSCAChainPath,
+			CertFile:           BarneyCertificatePath,
+			KeyFile:            BarneyKeyNoPassPath,
+			ServerName:         "",
+			InsecureSkipVerify: false},
+	}
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		token := r.Header.Get("Authorization")
+		if token != ApiToken {
+			fmt.Fprintf(w, "The expected api token (%s) differs from the obtained api token (%s)", token, ApiToken)
+		} else {
+			fmt.Fprint(w, ExpectedMessage)
+		}
+	}
+
+	testServer, err := newTestServer(handler)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	defer testServer.Close()
+
+	_, err = NewClientFromConfig(cfg, "test")
+	if err == nil {
+		t.Fatal("No error is returned here")
+	}
+
+	if !strings.Contains(err.Error(), "unable to read api token file missing/api.token: open missing/api.token: no such file or directory") {
+		t.Fatal("wrong error message being returned")
+	}
+}
+
 func TestBearerAuthRoundTripper(t *testing.T) {
 	const (
 		newBearerToken = "goodbyeandthankyouforthefish"
@@ -320,10 +398,6 @@ func TestBearerAuthRoundTripper(t *testing.T) {
 }
 
 func TestBearerAuthFileRoundTripper(t *testing.T) {
-	const (
-		newBearerToken = "goodbyeandthankyouforthefish"
-	)
-
 	fakeRoundTripper := NewRoundTripCheckRequest(func(req *http.Request) {
 		bearer := req.Header.Get("Authorization")
 		if bearer != ExpectedBearer {
@@ -343,6 +417,31 @@ func TestBearerAuthFileRoundTripper(t *testing.T) {
 	request, _ = http.NewRequest("GET", "/hitchhiker", nil)
 	request.Header.Set("Authorization", ExpectedBearer)
 	bearerAuthRoundTripperShouldNotModifyExistingAuthorization.RoundTrip(request)
+}
+
+func TestApiAuthRoundTripper(t *testing.T) {
+	const (
+		newApiToken = "hsifehtrofuoyknahtdnaeybdoog"
+	)
+
+	fakeRoundTripper := NewRoundTripCheckRequest(func(req *http.Request) {
+		token := req.Header.Get("Authorization")
+		if token != ApiToken {
+			t.Errorf("The expected api token (%s) differs from the obtained api token (%s)", token, ApiToken)
+		}
+	}, nil, nil)
+
+	// Normal flow.
+	apiAuthRoundTripper := NewApiAuthRoundTripper(ApiToken, fakeRoundTripper)
+	request, _ := http.NewRequest("GET", "/hitchhiker", nil)
+	request.Header.Set("User-Agent", "Douglas Adams mind")
+	apiAuthRoundTripper.RoundTrip(request)
+
+	// Should honor already Authorization header set.
+	apiAuthRoundTripperShouldNotModifyExistingAuthorization := NewApiAuthRoundTripper(newApiToken, fakeRoundTripper)
+	request, _ = http.NewRequest("GET", "/hitchhiker", nil)
+	request.Header.Set("Authorization", ApiToken)
+	apiAuthRoundTripperShouldNotModifyExistingAuthorization.RoundTrip(request)
 }
 
 func TestTLSConfig(t *testing.T) {

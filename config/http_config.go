@@ -70,23 +70,44 @@ type HTTPClientConfig struct {
 	BearerToken Secret `yaml:"bearer_token,omitempty"`
 	// The bearer token file for the targets.
 	BearerTokenFile string `yaml:"bearer_token_file,omitempty"`
+	// The api key for the targets.
+	ApiToken Secret `yaml:"api_token,omitempty"`
+	// The api key file for the targets
+	ApiTokenFile string `yaml:"api_token_file,omitempty"`
 	// HTTP proxy server to use to connect to the targets.
 	ProxyURL URL `yaml:"proxy_url,omitempty"`
 	// TLSConfig to use to connect to the targets.
 	TLSConfig TLSConfig `yaml:"tls_config,omitempty"`
 }
 
-// Validate validates the HTTPClientConfig to check only one of BearerToken,
-// BasicAuth and BearerTokenFile is configured.
+// Validate validates the HTTPClientConfig to check only one of BearerToken, BearerTokenFile,
+// ApiToken, ApiTokenFile and BasicAuth and  is configured.
 func (c *HTTPClientConfig) Validate() error {
-	if len(c.BearerToken) > 0 && len(c.BearerTokenFile) > 0 {
-		return fmt.Errorf("at most one of bearer_token & bearer_token_file must be configured")
+	bearerAuth := len(c.BearerToken) > 0 || len(c.BearerTokenFile) > 0
+	apiAuth := len(c.ApiToken) > 0 || len(c.ApiTokenFile) > 0
+	basicAuth := c.BasicAuth != nil
+
+	// Check that only one auth method is configured
+	if (bearerAuth && apiAuth) || (bearerAuth && basicAuth) || (apiAuth && basicAuth) {
+		return fmt.Errorf("at most one auth method must be configured")
 	}
-	if c.BasicAuth != nil && (len(c.BearerToken) > 0 || len(c.BearerTokenFile) > 0) {
-		return fmt.Errorf("at most one of basic_auth, bearer_token & bearer_token_file must be configured")
-	}
-	if c.BasicAuth != nil && (string(c.BasicAuth.Password) != "" && c.BasicAuth.PasswordFile != "") {
-		return fmt.Errorf("at most one of basic_auth password & password_file must be configured")
+
+	token := len(c.BearerToken) > 0 || len(c.ApiToken) > 0 || len(c.BasicAuth.Password) > 0
+	file := len(c.BearerTokenFile) > 0 || len(c.ApiTokenFile) > 0 || len(c.BasicAuth.PasswordFile) > 0
+
+	// Check that token and file aren't both configured
+	if token && file {
+		// this if-statement is just here to give more detailed error output
+		var actual string
+		if len(c.BearerToken) > 0 {
+			actual = "bearer_token"
+		} else if len(c.ApiToken) > 0 {
+			actual = "api_token"
+		} else if len(c.BasicAuth.Password) > 0 {
+			actual = "basic_auth.password"
+		}
+
+		return fmt.Errorf("at most one of %s and %s_file must be configured", actual, actual)
 	}
 	return nil
 }
@@ -154,6 +175,18 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string) (http.RoundTri
 		rt = NewBearerAuthFileRoundTripper(cfg.BearerTokenFile, rt)
 	}
 
+	if len(cfg.ApiToken) > 0 || len(cfg.ApiTokenFile) > 0 {
+		token := cfg.ApiToken
+		if len(cfg.ApiTokenFile) > 0 {
+			t, err := ioutil.ReadFile(cfg.ApiTokenFile)
+			if err != nil {
+				return nil, fmt.Errorf("unable to read api token file %s: %s", cfg.ApiTokenFile, err)
+			}
+			token = Secret(strings.TrimSpace(string(t)))
+		}
+		rt = NewApiAuthRoundTripper(token, rt)
+	}
+
 	if cfg.BasicAuth != nil {
 		rt = NewBasicAuthRoundTripper(cfg.BasicAuth.Username, cfg.BasicAuth.Password, cfg.BasicAuth.PasswordFile, rt)
 	}
@@ -204,6 +237,25 @@ func (rt *bearerAuthFileRoundTripper) RoundTrip(req *http.Request) (*http.Respon
 		req.Header.Set("Authorization", "Bearer "+bearerToken)
 	}
 
+	return rt.rt.RoundTrip(req)
+}
+
+type apiAuthRoundTripper struct {
+	apiKey Secret
+	rt     http.RoundTripper
+}
+
+// NewApiAuthRoundTripper adds the provided api token to a request unless the authorization
+// header has already been set.
+func NewApiAuthRoundTripper(token Secret, rt http.RoundTripper) http.RoundTripper {
+	return &apiAuthRoundTripper{token, rt}
+}
+
+func (rt *apiAuthRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if len(req.Header.Get("Authorization")) == 0 {
+		req = cloneRequest(req)
+		req.Header.Set("Authorization", fmt.Sprintf("%s", string(rt.apiKey)))
+	}
 	return rt.rt.RoundTrip(req)
 }
 
