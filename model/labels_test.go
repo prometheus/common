@@ -127,6 +127,14 @@ func TestLabelNameIsValid(t *testing.T) {
 			ln:    "colon:in:the:middle",
 			valid: false,
 		},
+		{
+			ln:    "*",
+			valid: true,
+		},
+		{
+			ln:    "a*",
+			valid: false,
+		},
 	}
 
 	for _, s := range scenarios {

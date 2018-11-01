@@ -78,12 +78,15 @@ const (
 	// QuantileLabel is used for the label that defines the quantile in a
 	// summary.
 	QuantileLabel = "quantile"
+
+	// Used in some configurations to define that all labels should be used.
+	WildcardLabel = "*"
 )
 
 // LabelNameRE is a regular expression matching valid label names. Note that the
 // IsValid method of LabelName performs the same check but faster than a match
 // with this regular expression.
-var LabelNameRE = regexp.MustCompile("^[a-zA-Z_][a-zA-Z0-9_]*$")
+var LabelNameRE = regexp.MustCompile("^\\*$|^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 // A LabelName is a key for a LabelSet or Metric.  It has a value associated
 // therewith.
@@ -95,6 +98,9 @@ type LabelName string
 func (ln LabelName) IsValid() bool {
 	if len(ln) == 0 {
 		return false
+	}
+	if len(ln) == 1 && ln[0] == '*' {
+		return true
 	}
 	for i, b := range ln {
 		if !((b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || b == '_' || (b >= '0' && b <= '9' && i > 0)) {
