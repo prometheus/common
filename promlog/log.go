@@ -73,6 +73,7 @@ func (f *AllowedFormat) Set(s string) error {
 	return nil
 }
 
+// Config is a struct containing configurable settings for the logger
 type Config struct {
 	Level  *AllowedLevel
 	Format *AllowedFormat
