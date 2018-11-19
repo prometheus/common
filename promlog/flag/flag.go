@@ -35,11 +35,11 @@ const FormatFlagHelp = "Output format of log messages. One of: [logfmt, json]"
 // AddFlags adds the flags used by this package to the Kingpin application.
 // To use the default Kingpin application, call AddFlags(kingpin.CommandLine)
 func AddFlags(a *kingpin.Application, config *promlog.Config) {
-	config.Level = new(promlog.AllowedLevel)
+	config.Level = &promlog.AllowedLevel{}
 	a.Flag(LevelFlagName, LevelFlagHelp).
 		Default("info").SetValue(config.Level)
 
-	config.Format = new(promlog.AllowedFormat)
+	config.Format = &promlog.AllowedFormat{}
 	a.Flag(FormatFlagName, FormatFlagHelp).
 		Default("logfmt").SetValue(config.Format)
 }
