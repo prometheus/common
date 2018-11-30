@@ -31,6 +31,8 @@ var (
 	BuildUser string
 	BuildDate string
 	GoVersion = runtime.Version()
+	Product   = "Prometheus-common"
+	userAgent = fmt.Sprintf("%s/%s", Product, Version)
 )
 
 // NewCollector returns a collector which exports metrics about current version information.
@@ -86,4 +88,15 @@ func Info() string {
 // BuildContext returns goVersion, buildUser and buildDate information.
 func BuildContext() string {
 	return fmt.Sprintf("(go=%s, user=%s, date=%s)", GoVersion, BuildUser, BuildDate)
+}
+
+// UAWithProduct returns a string that can be used for User-Agent headers on HTTP requests.
+// An empty product returns the User-Agent. One or more arguments will get appended to the
+// value, space separated. The format of the User-Agent header is described in RFC 2616.
+func UAWithProduct(products ...string) string {
+	if len(products) == 0 {
+		return userAgent
+	}
+
+	return fmt.Sprintf("%s %s", userAgent, strings.Join(products, " "))
 }
