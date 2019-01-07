@@ -35,7 +35,11 @@ var setSyslogFormatter func(logger, string, string) error
 var setEventlogFormatter func(logger, string, bool) error
 
 func setJSONFormatter() {
-	origLogger.Formatter = &logrus.JSONFormatter{}
+	SetJSONFormatter(&logrus.JSONFormatter{})
+}
+
+func SetJSONFormatter(f *logrus.JSONFormatter) {
+	origLogger.Formatter = f
 }
 
 type loggerSettings struct {

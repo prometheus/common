@@ -37,3 +37,20 @@ func TestFileLineLogging(t *testing.T) {
 		t.Fatalf("%q did not match expected regex %q", buf.String(), re)
 	}
 }
+
+func TestSetJSONFormatter(t *testing.T) {
+	var buf bytes.Buffer
+	origLogger.Out = &buf
+	origLogger.Formatter = &logrus.JSONFormatter{
+		FieldMap: logrus.FieldMap{
+			logrus.FieldKeyTime:  "@t",
+		},
+	}
+
+	Infof("Ignoring...")
+
+	re := `"@t":".*"`
+	if !regexp.MustCompile(re).Match(buf.Bytes()) {
+		t.Fatalf("%q did not match expected regex %q", buf.String(), re)
+	}
+}
