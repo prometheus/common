@@ -111,26 +111,46 @@ func newClient(rt http.RoundTripper) *http.Client {
 	return &http.Client{Transport: rt}
 }
 
+type ClientWithCloser struct {
+	*http.Client
+	closer func()
+}
+
 // NewClientFromConfig returns a new HTTP client configured for the
 // given config.HTTPClientConfig. The name is used as go-conntrack metric label.
-func NewClientFromConfig(cfg HTTPClientConfig, name string) (*http.Client, error) {
+func NewClientFromConfig(cfg HTTPClientConfig, name string) (*ClientWithCloser, error) {
 	rt, err := NewRoundTripperFromConfig(cfg, name)
 	if err != nil {
 		return nil, err
 	}
-	return newClient(rt), nil
+	client := &ClientWithCloser{newClient(rt), rt.CloseIdleConnections}
+	return client, nil
+}
+
+type roundTripperWithCloser interface {
+	http.RoundTripper
+	CloseIdleConnections()
+}
+
+type rtWithCloser struct {
+	http.RoundTripper
+	closer func()
+}
+
+func (rt *rtWithCloser) CloseIdleConnections() {
+	rt.closer()
 }
 
 // NewRoundTripperFromConfig returns a new HTTP RoundTripper configured for the
 // given config.HTTPClientConfig. The name is used as go-conntrack metric label.
-func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string) (http.RoundTripper, error) {
+func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string) (roundTripperWithCloser, error) {
 	tlsConfig, err := NewTLSConfig(&cfg.TLSConfig)
 	if err != nil {
 		return nil, err
 	}
 	// The only timeout we care about is the configured scrape timeout.
 	// It is applied on request. So we leave out any timings here.
-	var rt http.RoundTripper = &http.Transport{
+	var trans *http.Transport = &http.Transport{
 		Proxy:               http.ProxyURL(cfg.ProxyURL.URL),
 		MaxIdleConns:        20000,
 		MaxIdleConnsPerHost: 1000, // see https://github.com/golang/go/issues/13801
@@ -146,6 +166,8 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string) (http.RoundTri
 		),
 	}
 
+	var rt http.RoundTripper = trans
+
 	// If a bearer token is provided, create a round tripper that will set the
 	// Authorization header correctly on each request.
 	if len(cfg.BearerToken) > 0 {
@@ -159,7 +181,7 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string) (http.RoundTri
 	}
 
 	// Return a new configured RoundTripper.
-	return rt, nil
+	return &rtWithCloser{rt, trans.CloseIdleConnections}, nil
 }
 
 type bearerAuthRoundTripper struct {
