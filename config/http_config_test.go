@@ -11,6 +11,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// +build go1.8
+
 package config
 
 import (
@@ -544,7 +546,6 @@ func TestBasicAuthPasswordFile(t *testing.T) {
 }
 
 func getCertificateBlobs(t *testing.T) map[string][]byte {
-	t.Helper()
 	files := []string{
 		TLSCAChainPath,
 		BarneyCertificatePath,
