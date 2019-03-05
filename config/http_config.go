@@ -32,6 +32,10 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+type closeIdler interface {
+	CloseIdleConnections()
+}
+
 // BasicAuth contains basic HTTP authentication credentials.
 type BasicAuth struct {
 	Username     string `yaml:"username"`
@@ -195,6 +199,12 @@ func (rt *bearerAuthRoundTripper) RoundTrip(req *http.Request) (*http.Response, 
 	return rt.rt.RoundTrip(req)
 }
 
+func (rt *bearerAuthRoundTripper) CloseIdleConnections() {
+	if ci, ok := rt.rt.(closeIdler); ok {
+		ci.CloseIdleConnections()
+	}
+}
+
 type bearerAuthFileRoundTripper struct {
 	bearerFile string
 	rt         http.RoundTripper
@@ -219,6 +229,12 @@ func (rt *bearerAuthFileRoundTripper) RoundTrip(req *http.Request) (*http.Respon
 	}
 
 	return rt.rt.RoundTrip(req)
+}
+
+func (rt *bearerAuthFileRoundTripper) CloseIdleConnections() {
+	if ci, ok := rt.rt.(closeIdler); ok {
+		ci.CloseIdleConnections()
+	}
 }
 
 type basicAuthRoundTripper struct {
@@ -249,6 +265,12 @@ func (rt *basicAuthRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 		req.SetBasicAuth(rt.username, strings.TrimSpace(string(rt.password)))
 	}
 	return rt.rt.RoundTrip(req)
+}
+
+func (rt *basicAuthRoundTripper) CloseIdleConnections() {
+	if ci, ok := rt.rt.(closeIdler); ok {
+		ci.CloseIdleConnections()
+	}
 }
 
 // cloneRequest returns a clone of the provided *http.Request.
@@ -421,6 +443,7 @@ func (t *tlsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+	t.CloseIdleConnections()
 
 	t.mtx.Lock()
 	t.rt = rt
@@ -428,6 +451,14 @@ func (t *tlsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	t.mtx.Unlock()
 
 	return rt.RoundTrip(req)
+}
+
+func (t *tlsRoundTripper) CloseIdleConnections() {
+	t.mtx.Lock()
+	defer t.mtx.Unlock()
+	if ci, ok := t.rt.(closeIdler); ok {
+		ci.CloseIdleConnections()
+	}
 }
 
 func (c HTTPClientConfig) String() string {
