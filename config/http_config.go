@@ -72,6 +72,10 @@ type HTTPClientConfig struct {
 	BearerTokenFile string `yaml:"bearer_token_file,omitempty"`
 	// HTTP proxy server to use to connect to the targets.
 	ProxyURL URL `yaml:"proxy_url,omitempty"`
+	// Username to use to connect to the targets using proxy.
+	ProxyUsername Secret `yaml:"proxy_username,omitempty"`
+	// Password to use to connect to the targets using proxy.
+	ProxyPassword Secret `yaml:"proxy_password,omitempty"`
 	// TLSConfig to use to connect to the targets.
 	TLSConfig TLSConfig `yaml:"tls_config,omitempty"`
 }
@@ -87,6 +91,12 @@ func (c *HTTPClientConfig) Validate() error {
 	}
 	if c.BasicAuth != nil && (string(c.BasicAuth.Password) != "" && c.BasicAuth.PasswordFile != "") {
 		return fmt.Errorf("at most one of basic_auth password & password_file must be configured")
+	}
+	if c.ProxyURL.String() == "" && (string(c.ProxyUsername) != "" && string(c.ProxyPassword) != "") {
+		return fmt.Errorf("if proxy_username is set, proxy_url must be set")
+	}
+	if string(c.ProxyPassword) != "" && string(c.ProxyUsername) == "" {
+		return fmt.Errorf("if proxy_password is set, proxy_username must be set")
 	}
 	return nil
 }
@@ -128,6 +138,12 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string) (http.RoundTri
 	if err != nil {
 		return nil, err
 	}
+
+	if cfg.ProxyUsername != "" {
+		userInfo := url.UserPassword(string(cfg.ProxyUsername), string(cfg.ProxyPassword))
+		cfg.ProxyURL.URL.User = userInfo
+	}
+
 	// The only timeout we care about is the configured scrape timeout.
 	// It is applied on request. So we leave out any timings here.
 	var rt http.RoundTripper = &http.Transport{
