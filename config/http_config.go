@@ -454,8 +454,8 @@ func (t *tlsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func (t *tlsRoundTripper) CloseIdleConnections() {
-	t.mtx.Lock()
-	defer t.mtx.Unlock()
+	t.mtx.RLock()
+	defer t.mtx.RUnlock()
 	if ci, ok := t.rt.(closeIdler); ok {
 		ci.CloseIdleConnections()
 	}
