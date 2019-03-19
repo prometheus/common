@@ -145,7 +145,9 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string) (http.RoundTri
 			DisableCompression:  true,
 			// 5 minutes is typically above the maximum sane scrape interval. So we can
 			// use keepalive for all configurations.
-			IdleConnTimeout: 5 * time.Minute,
+			IdleConnTimeout:       5 * time.Minute,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
 			DialContext: conntrack.NewDialContextFunc(
 				conntrack.DialWithTracing(),
 				conntrack.DialWithName(name),
