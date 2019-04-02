@@ -25,8 +25,8 @@ type param string
 // Param returns param p for the context, or the empty string when
 // param does not exist in context.
 func Param(ctx context.Context, p string) string {
-	if v, ok := ctx.Value(param(p)).(string); ok {
-		return v
+	if v := ctx.Value(param(p)); v != nil {
+		return v.(string)
 	}
 	return ""
 }
