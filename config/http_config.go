@@ -293,9 +293,14 @@ func cloneRequest(r *http.Request) *http.Request {
 func NewTLSConfig(cfg *TLSConfig) (*tls.Config, error) {
 	tlsConfig := &tls.Config{InsecureSkipVerify: cfg.InsecureSkipVerify}
 
-	// If a CA cert is provided then let's read it in so we can validate the
-	// scrape target's certificate properly.
-	if len(cfg.CAFile) > 0 {
+	if len(cfg.CAData) > 0 {
+		b := []byte(cfg.CAData)
+		if !updateRootCA(tlsConfig, b) {
+			return nil, fmt.Errorf("unable to use specified CA cert data %s", cfg.CAData)
+		}
+	} else if len(cfg.CAFile) > 0 {
+		// If a CA cert is provided then let's read it in so we can validate the
+		// scrape target's certificate properly.
 		b, err := readCAFile(cfg.CAFile)
 		if err != nil {
 			return nil, err
@@ -326,6 +331,8 @@ func NewTLSConfig(cfg *TLSConfig) (*tls.Config, error) {
 
 // TLSConfig configures the options for TLS connections.
 type TLSConfig struct {
+	// The CA cert data to use for the targets.
+	CAData string `yaml:"ca_data,omitempty"`
 	// The CA cert to use for the targets.
 	CAFile string `yaml:"ca_file,omitempty"`
 	// The client cert file for the targets.
