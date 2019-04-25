@@ -17,5 +17,5 @@ include Makefile.common
 test:: deps check_license unused common-test
 
 ifeq (,$(shell echo $(GO_VERSION_NUMBER) | grep -E 'go1\.(7|8|9)\.'))
-test:: staticcheck
+test:: lint
 endif
