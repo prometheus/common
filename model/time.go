@@ -14,6 +14,7 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"regexp"
@@ -261,4 +262,19 @@ func (d *Duration) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 	*d = dur
 	return nil
+}
+
+func (d *Duration) UnmarshalJSON(data []byte) error {
+	var s string
+	json.Unmarshal(data, &s)
+	dur, err := ParseDuration(s)
+	if err != nil {
+		return err
+	}
+	*d = dur
+	return nil
+}
+
+func (d Duration) MarshalJSON() ([]byte, error) {
+	return json.Marshal(d.String())
 }
