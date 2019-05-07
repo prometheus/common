@@ -18,26 +18,24 @@ import (
 	"path/filepath"
 )
 
+var mimeTypes = map[string]string{
+	".js":  "application/javascript",
+	".css": "text/css",
+	".png": "image/png",
+	".jpg": "image/jpeg",
+	".gif": "image/gif",
+}
+
 func StaticFileServer(root http.FileSystem) http.Handler {
-	return &staticFileHandler{
-		root: root,
-	}
-}
+	return http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			fileExt := filepath.Ext(r.URL.Path)
 
-type staticFileHandler struct {
-	root http.FileSystem
-}
+			if t, ok := mimeTypes[fileExt]; ok {
+				w.Header().Set("Content-Type", t)
+			}
 
-func (h *staticFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	fileExt := filepath.Ext(r.URL.Path)
-
-	switch fileExt {
-	case ".js":
-		w.Header().Set("Content-Type", "application/javascript")
-	case ".css":
-		w.Header().Set("Content-Type", "text/css")
-	}
-
-	fs := http.FileServer(h.root)
-	fs.ServeHTTP(w, r)
+			http.FileServer(root).ServeHTTP(w, r)
+		},
+	)
 }

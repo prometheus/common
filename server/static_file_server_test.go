@@ -38,13 +38,28 @@ func TestServeHttp(t *testing.T) {
 		},
 		{
 			name:        "javascript",
-			path:        "index.js",
+			path:        "test.js",
 			contentType: "application/javascript",
 		},
 		{
 			name:        "css",
-			path:        "index.css",
+			path:        "test.css",
 			contentType: "text/css",
+		},
+		{
+			name:        "png",
+			path:        "test.png",
+			contentType: "image/png",
+		},
+		{
+			name:        "jpg",
+			path:        "test.jpg",
+			contentType: "image/jpeg",
+		},
+		{
+			name:        "gif",
+			path:        "test.gif",
+			contentType: "image/gif",
 		},
 	}
 
