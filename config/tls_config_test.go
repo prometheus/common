@@ -58,7 +58,7 @@ func TestValidTLSConfig(t *testing.T) {
 		}
 		// non-nil functions are never equal.
 		got.GetClientCertificate = nil
-		if !reflect.DeepEqual(*got, *cfg.config) {
+		if !reflect.DeepEqual(got, cfg.config) {
 			t.Fatalf("%v: unexpected config result: \n\n%v\n expected\n\n%v", cfg.filename, got, cfg.config)
 		}
 	}
