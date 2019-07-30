@@ -1,0 +1,48 @@
+# github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
+github.com/alecthomas/template
+github.com/alecthomas/template/parse
+# github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4
+github.com/alecthomas/units
+# github.com/beorn7/perks v1.0.0
+github.com/beorn7/perks/quantile
+# github.com/go-kit/kit v0.9.0
+github.com/go-kit/kit/log
+github.com/go-kit/kit/log/level
+# github.com/go-logfmt/logfmt v0.4.0
+github.com/go-logfmt/logfmt
+# github.com/golang/protobuf v1.3.2
+github.com/golang/protobuf/proto
+# github.com/julienschmidt/httprouter v1.2.0
+github.com/julienschmidt/httprouter
+# github.com/konsorten/go-windows-terminal-sequences v1.0.1
+github.com/konsorten/go-windows-terminal-sequences
+# github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515
+github.com/kr/logfmt
+# github.com/matttproud/golang_protobuf_extensions v1.0.1
+github.com/matttproud/golang_protobuf_extensions/pbutil
+# github.com/mwitkow/go-conntrack v0.0.0-20161129095857-cc309e4a2223
+github.com/mwitkow/go-conntrack
+# github.com/pkg/errors v0.8.1
+github.com/pkg/errors
+# github.com/prometheus/client_golang v1.0.0
+github.com/prometheus/client_golang/prometheus
+github.com/prometheus/client_golang/prometheus/internal
+# github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
+github.com/prometheus/client_model/go
+# github.com/prometheus/procfs v0.0.2
+github.com/prometheus/procfs
+github.com/prometheus/procfs/internal/fs
+# github.com/sirupsen/logrus v1.4.2
+github.com/sirupsen/logrus
+# golang.org/x/net v0.0.0-20190613194153-d28f0bde5980
+golang.org/x/net/trace
+golang.org/x/net/internal/timeseries
+# golang.org/x/sys v0.0.0-20190422165155-953cdadca894
+golang.org/x/sys/windows/svc/eventlog
+golang.org/x/sys/unix
+golang.org/x/sys/windows
+golang.org/x/sys/windows/registry
+# gopkg.in/alecthomas/kingpin.v2 v2.2.6
+gopkg.in/alecthomas/kingpin.v2
+# gopkg.in/yaml.v2 v2.2.2
+gopkg.in/yaml.v2
