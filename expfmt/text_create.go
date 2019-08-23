@@ -14,9 +14,10 @@
 package expfmt
 
 import (
-	"bytes"
+	"bufio"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math"
 	"strconv"
 	"strings"
@@ -27,7 +28,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 )
 
-// enhancedWriter has all the enhanced write functions needed here. bytes.Buffer
+// enhancedWriter has all the enhanced write functions needed here. bufio.Writer
 // implements it.
 type enhancedWriter interface {
 	io.Writer
@@ -44,7 +45,7 @@ const (
 var (
 	bufPool = sync.Pool{
 		New: func() interface{} {
-			return bytes.NewBuffer(make([]byte, 0, initialBufSize))
+			return bufio.NewWriterSize(ioutil.Discard, initialBufSize)
 		},
 	}
 	numBufPool = sync.Pool{
@@ -75,16 +76,15 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (written int, err e
 	}
 
 	// Try the interface upgrade. If it doesn't work, we'll use a
-	// bytes.Buffer from the sync.Pool and write out its content to out in a
+	// bufio.Writer from the sync.Pool and write out its content to out in a
 	// single go in the end.
 	w, ok := out.(enhancedWriter)
 	if !ok {
-		b := bufPool.Get().(*bytes.Buffer)
-		b.Reset()
+		b := bufPool.Get().(*bufio.Writer)
+		b.Reset(out)
 		w = b
 		defer func() {
-			bWritten, bErr := out.Write(b.Bytes())
-			written = bWritten
+			bErr := b.Flush()
 			if err == nil {
 				err = bErr
 			}
