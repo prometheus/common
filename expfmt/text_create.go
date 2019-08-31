@@ -38,14 +38,13 @@ type enhancedWriter interface {
 }
 
 const (
-	initialBufSize    = 512
 	initialNumBufSize = 24
 )
 
 var (
 	bufPool = sync.Pool{
 		New: func() interface{} {
-			return bufio.NewWriterSize(ioutil.Discard, initialBufSize)
+			return bufio.NewWriter(ioutil.Discard)
 		},
 	}
 	numBufPool = sync.Pool{
@@ -76,8 +75,7 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (written int, err e
 	}
 
 	// Try the interface upgrade. If it doesn't work, we'll use a
-	// bufio.Writer from the sync.Pool and write out its content to out in a
-	// single go in the end.
+	// bufio.Writer from the sync.Pool.
 	w, ok := out.(enhancedWriter)
 	if !ok {
 		b := bufPool.Get().(*bufio.Writer)
