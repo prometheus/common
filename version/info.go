@@ -34,8 +34,8 @@ var (
 )
 
 // NewCollector returns a collector which exports metrics about current version information.
-func NewCollector(program string) *prometheus.GaugeVec {
-	buildInfo := prometheus.NewGaugeVec(
+func NewCollector(program string) prometheus.Collector {
+	return prometheus.NewGaugeFunc(
 		prometheus.GaugeOpts{
 			Namespace: program,
 			Name:      "build_info",
@@ -43,11 +43,15 @@ func NewCollector(program string) *prometheus.GaugeVec {
 				"A metric with a constant '1' value labeled by version, revision, branch, and goversion from which %s was built.",
 				program,
 			),
+			ConstLabels: prometheus.Labels{
+				"version":   Version,
+				"revision":  Revision,
+				"branch":    Branch,
+				"goversion": GoVersion,
+			},
 		},
-		[]string{"version", "revision", "branch", "goversion"},
+		func() float64 { return 1 },
 	)
-	buildInfo.WithLabelValues(Version, Revision, Branch, GoVersion).Set(1)
-	return buildInfo
 }
 
 // versionInfoTmpl contains the template used by Info.
