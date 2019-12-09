@@ -33,7 +33,8 @@ var (
 	GoVersion = runtime.Version()
 )
 
-// NewCollector returns a collector which exports metrics about current version information.
+// NewCollector returns a collector that exports metrics about current version
+// information.
 func NewCollector(program string) prometheus.Collector {
 	return prometheus.NewGaugeFunc(
 		prometheus.GaugeOpts{
