@@ -17,6 +17,7 @@
 package promlog
 
 import (
+	"io"
 	"os"
 	"time"
 
@@ -90,17 +91,31 @@ type Config struct {
 	Format *AllowedFormat
 }
 
-// New returns a new leveled oklog logger. Each logged line will be annotated
-// with a timestamp. The output always goes to stderr.
-func New(config *Config) log.Logger {
+func newLogger(config *Config, w io.Writer) log.Logger {
 	var l log.Logger
 	if config.Format.s == "logfmt" {
-		l = log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
+		l = log.NewLogfmtLogger(log.NewSyncWriter(w))
 	} else {
-		l = log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+		l = log.NewJSONLogger(log.NewSyncWriter(w))
 	}
 
 	l = level.NewFilter(l, config.Level.o)
 	l = log.With(l, "ts", timestampFormat, "caller", log.DefaultCaller)
 	return l
+}
+
+// New returns a new leveled oklog logger. Each logged line will be annotated
+// with a timestamp. The output always goes to stderr.
+func New(config *Config) log.Logger {
+	return newLogger(config, os.Stderr)
+}
+
+// NewLoggerToFile returns a new leveled oklog logger. Each logged line will be
+// annotated with a timestamp. The output goes to the file passed in parameter.
+func NewLoggerToFile(config *Config, file string) (log.Logger, error) {
+	f, err := os.OpenFile(file, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return nil, err
+	}
+	return newLogger(config, f), nil
 }
