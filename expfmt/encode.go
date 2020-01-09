@@ -36,26 +36,41 @@ func (e encoder) Encode(v *dto.MetricFamily) error {
 	return e(v)
 }
 
-// Negotiate returns the Content-Type based on the given Accept header.
-// If no appropriate accepted type is found, FmtText is returned.
-func Negotiate(h http.Header) Format {
+// Negotiate returns the Content-Type based on the given Accept header.  If no
+// appropriate accepted type is found, FmtText is returned (which is the
+// Prometheus text format). Formats can be optionally blacklisted by providing
+// them as blacklisted parameters.
+func Negotiate(h http.Header, blacklisted ...Format) Format {
+	blacklist := map[Format]struct{}{}
+	for _, format := range blacklisted {
+		blacklist[format] = struct{}{}
+	}
+
 	for _, ac := range goautoneg.ParseAccept(h.Get(hdrAccept)) {
-		// Check for protocol buffer
+		var format Format
+		ver := ac.Params["version"]
 		if ac.Type+"/"+ac.SubType == ProtoType && ac.Params["proto"] == ProtoProtocol {
 			switch ac.Params["encoding"] {
 			case "delimited":
-				return FmtProtoDelim
+				format = FmtProtoDelim
 			case "text":
-				return FmtProtoText
+				format = FmtProtoText
 			case "compact-text":
-				return FmtProtoCompact
+				format = FmtProtoCompact
+			default:
+				continue
 			}
+		} else if ac.Type == "text" && ac.SubType == "plain" && (ver == TextVersion || ver == "") {
+			format = FmtText
+		} else if ac.Type+"/"+ac.SubType == OpenMetricsType && (ver == OpenMetricsVersion || ver == "") {
+			format = FmtOpenMetrics
+		} else {
+			continue
 		}
-		// Check for text format.
-		ver := ac.Params["version"]
-		if ac.Type == "text" && ac.SubType == "plain" && (ver == TextVersion || ver == "") {
-			return FmtText
+		if _, listed := blacklist[format]; listed {
+			continue
 		}
+		return format
 	}
 	return FmtText
 }
@@ -83,6 +98,11 @@ func NewEncoder(w io.Writer, format Format) Encoder {
 			_, err := MetricFamilyToText(w, v)
 			return err
 		})
+	case FmtOpenMetrics:
+		return encoder(func(v *dto.MetricFamily) error {
+			_, err := MetricFamilyToOpenMetrics(w, v)
+			return err
+		})
 	}
-	panic("expfmt.NewEncoder: unknown format")
+	panic(fmt.Errorf("expfmt.NewEncoder: unknown format %q", format))
 }
