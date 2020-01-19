@@ -41,8 +41,7 @@ import (
 // Note that OpenMetrics requires a final `# EOF` line. Since this function acts
 // on individual metric families, it is the responsibility of the caller to
 // append this line to 'out' once all metric families have been written.
-// TODO(beorn7): Make this better by adding a 'Close' method to the 'Encoder'
-// interface.
+// Conveniently, this can be done by calling FinalizeOpenMetrics.
 //
 // The output should be fully OpenMetrics compliant. However, there are a few
 // missing features and peculiarities to avoid complications when switching from
@@ -284,6 +283,11 @@ func MetricFamilyToOpenMetrics(out io.Writer, in *dto.MetricFamily) (written int
 		}
 	}
 	return
+}
+
+// FinalizeOpenMetrics writes the final `# EOF\n` line required by OpenMetrics.
+func FinalizeOpenMetrics(w io.Writer) (written int, err error) {
+	return w.Write([]byte("# EOF\n"))
 }
 
 // writeOpenMetricsSample writes a single sample in OpenMetrics text format to
