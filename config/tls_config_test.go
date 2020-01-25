@@ -17,6 +17,7 @@ package config
 
 import (
 	"crypto/tls"
+	"fmt"
 	"io/ioutil"
 	"reflect"
 	"testing"
@@ -37,20 +38,29 @@ func LoadTLSConfig(filename string) (*tls.Config, error) {
 	return NewTLSConfig(&cfg)
 }
 
-var expectedTLSConfigs = []struct {
-	filename string
-	config   *tls.Config
-}{
-	{
-		filename: "tls_config.empty.good.yml",
-		config:   &tls.Config{},
-	}, {
-		filename: "tls_config.insecure.good.yml",
-		config:   &tls.Config{InsecureSkipVerify: true},
-	},
-}
-
 func TestValidTLSConfig(t *testing.T) {
+	var expectedTLSConfigs = []struct {
+		filename string
+		config   *tls.Config
+	}{
+		{
+			filename: "tls_config.empty.good.yml",
+			config:   &tls.Config{},
+		}, {
+			filename: "tls_config.insecure.good.yml",
+			config:   &tls.Config{InsecureSkipVerify: true},
+		}, {
+			filename: "tls_config.renegotiate.never.yml",
+			config:   &tls.Config{Renegotiation: tls.RenegotiateNever},
+		}, {
+			filename: "tls_config.renegotiate.once.yml",
+			config:   &tls.Config{Renegotiation: tls.RenegotiateOnceAsClient},
+		}, {
+			filename: "tls_config.renegotiate.freely.yml",
+			config:   &tls.Config{Renegotiation: tls.RenegotiateFreelyAsClient},
+		},
+	}
+
 	for _, cfg := range expectedTLSConfigs {
 		got, err := LoadTLSConfig("testdata/" + cfg.filename)
 		if err != nil {
@@ -60,6 +70,27 @@ func TestValidTLSConfig(t *testing.T) {
 		got.GetClientCertificate = nil
 		if !reflect.DeepEqual(got, cfg.config) {
 			t.Fatalf("%v: unexpected config result: \n\n%v\n expected\n\n%v", cfg.filename, got, cfg.config)
+		}
+	}
+}
+
+func TestInvalidTLSConfig(t *testing.T) {
+	var expectedTLSConfigs = []struct {
+		filename string
+		err      error
+	}{
+		{
+			filename: "tls_config.renegotiate.bad.yml",
+			err:      fmt.Errorf("unsupported tls renegotiation support bad"),
+		},
+	}
+	for _, cfg := range expectedTLSConfigs {
+		_, err := LoadTLSConfig("testdata/" + cfg.filename)
+		if err == nil {
+			t.Fatalf("Success parsing %s", cfg.filename)
+		}
+		if err.Error() != cfg.err.Error() {
+			t.Fatalf("%v: unexpected error: \n\n%v\n expected\n\n%v", cfg.filename, err, cfg.err)
 		}
 	}
 }

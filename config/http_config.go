@@ -291,7 +291,15 @@ func cloneRequest(r *http.Request) *http.Request {
 
 // NewTLSConfig creates a new tls.Config from the given TLSConfig.
 func NewTLSConfig(cfg *TLSConfig) (*tls.Config, error) {
-	tlsConfig := &tls.Config{InsecureSkipVerify: cfg.InsecureSkipVerify}
+	renegotiation, err := cfg.Renegotiation.ToRenegotiationSupport()
+	if err != nil {
+		return nil, err
+	}
+
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: cfg.InsecureSkipVerify,
+		Renegotiation:      renegotiation,
+	}
 
 	// If a CA cert is provided then let's read it in so we can validate the
 	// scrape target's certificate properly.
@@ -324,6 +332,21 @@ func NewTLSConfig(cfg *TLSConfig) (*tls.Config, error) {
 	return tlsConfig, nil
 }
 
+type renegotiation string
+
+func (r *renegotiation) ToRenegotiationSupport() (tls.RenegotiationSupport, error) {
+	switch *r {
+	case "", "never":
+		return tls.RenegotiateNever, nil
+	case "once":
+		return tls.RenegotiateOnceAsClient, nil
+	case "freely":
+		return tls.RenegotiateFreelyAsClient, nil
+	default:
+		return tls.RenegotiateNever, fmt.Errorf("unsupported tls renegotiation support %s", *r)
+	}
+}
+
 // TLSConfig configures the options for TLS connections.
 type TLSConfig struct {
 	// The CA cert to use for the targets.
@@ -336,6 +359,9 @@ type TLSConfig struct {
 	ServerName string `yaml:"server_name,omitempty"`
 	// Disable target certificate validation.
 	InsecureSkipVerify bool `yaml:"insecure_skip_verify"`
+	// Configure what kind of TLS renegotiation are supported. Value supported:
+	// never (default), once, freely.
+	Renegotiation renegotiation `yaml:"renegotiation,omitempty"`
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
