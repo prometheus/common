@@ -186,7 +186,7 @@ var durationRE = regexp.MustCompile("^([0-9]+)(y|w|d|h|m|s|ms)$")
 // ParseDuration parses a string into a time.Duration, assuming that a year
 // always has 365d, a week always has 7d, and a day always has 24h.
 func ParseDuration(durationStr string) (Duration, error) {
-	// Special case: if we receive a "0" string we can directly return a zero value without further processing.
+	// Allow 0 without a unit.
 	if durationStr == "0" {
 		return 0, nil
 	}
