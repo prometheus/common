@@ -90,8 +90,14 @@ func TestParseDuration(t *testing.T) {
 	var cases = []struct {
 		in  string
 		out time.Duration
+
+		expectedString string
 	}{
 		{
+			in:             "0",
+			out:            0,
+			expectedString: "0s",
+		}, {
 			in:  "0s",
 			out: 0,
 		}, {
@@ -126,7 +132,11 @@ func TestParseDuration(t *testing.T) {
 		if time.Duration(d) != c.out {
 			t.Errorf("Expected %v but got %v", c.out, d)
 		}
-		if d.String() != c.in {
+		expectedString := c.expectedString
+		if c.expectedString == "" {
+			expectedString = c.in
+		}
+		if d.String() != expectedString {
 			t.Errorf("Expected duration string %q but got %q", c.in, d.String())
 		}
 	}
