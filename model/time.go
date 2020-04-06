@@ -279,7 +279,7 @@ func (d Duration) MarshalJSON() ([]byte, error) {
 	return json.Marshal(d.String())
 }
 
-// UnmarshalJSON implements the json.Marshaler interface for Duration.
+// UnmarshalJSON implements the json.Unmarshaler interface for Duration.
 func (d *Duration) UnmarshalJSON(data []byte) error {
 	var s string
 	err := json.Unmarshal(data, &s)
@@ -290,6 +290,6 @@ func (d *Duration) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	d = &dur
+	*d = dur
 	return nil
 }
