@@ -14,6 +14,7 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"regexp"
@@ -263,6 +264,26 @@ func (d Duration) MarshalYAML() (interface{}, error) {
 func (d *Duration) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var s string
 	if err := unmarshal(&s); err != nil {
+		return err
+	}
+	dur, err := ParseDuration(s)
+	if err != nil {
+		return err
+	}
+	*d = dur
+	return nil
+}
+
+// MarshalJSON implements the json.Marshaler interface for Duration.
+func (d Duration) MarshalJSON() ([]byte, error) {
+	return json.Marshal(d.String())
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface for Duration.
+func (d *Duration) UnmarshalJSON(data []byte) error {
+	var s string
+	err := json.Unmarshal(data, &s)
+	if err != nil {
 		return err
 	}
 	dur, err := ParseDuration(s)
