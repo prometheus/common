@@ -2,7 +2,8 @@
 [![Build Status](https://travis-ci.org/prometheus/common.svg)](https://travis-ci.org/prometheus/common)
 
 This repository contains Go libraries that are shared across Prometheus
-components and libraries.
+components and libraries. They are considered internal to Prometheus, without
+any stability guarantees for external usage.
 
 * **config**: Common configuration structures
 * **expfmt**: Decoding and encoding for the exposition format
