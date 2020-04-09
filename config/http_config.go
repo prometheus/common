@@ -48,6 +48,15 @@ type URL struct {
 	*url.URL
 }
 
+func (u *URL) Set(value string) error {
+	urlp, err := url.Parse(value)
+	if err != nil {
+		return err
+	}
+	u.URL = urlp
+	return nil
+}
+
 // UnmarshalYAML implements the yaml.Unmarshaler interface for URLs.
 func (u *URL) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var s string
