@@ -97,7 +97,6 @@ func newTestServer(handler func(w http.ResponseWriter, r *http.Request)) (*httpt
 		ClientAuth:   tls.RequireAndVerifyClientCert,
 		ClientCAs:    rootCAs}
 	testServer.TLS.Certificates[0] = serverCertificate
-	testServer.TLS.BuildNameToCertificate()
 
 	testServer.StartTLS()
 
