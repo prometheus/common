@@ -15,10 +15,13 @@ package expfmt
 
 import (
 	"bytes"
-	"github.com/golang/protobuf/proto"
-	dto "github.com/prometheus/client_model/go"
+	"fmt"
+	"io"
 	"net/http"
 	"testing"
+
+	"github.com/golang/protobuf/proto"
+	dto "github.com/prometheus/client_model/go"
 )
 
 func TestNegotiate(t *testing.T) {
@@ -131,5 +134,33 @@ func TestEncode(t *testing.T) {
 
 	if string(out) != expected {
 		t.Errorf("expected TextEncoder to return %s, but got %s instead", expected, string(out))
+	}
+}
+
+func TestNewEncoderCreator(t *testing.T) {
+	// Prepare the EncoderCreator.
+	formatCustomText := Format("custom text")
+	customEncoder := EncoderImplementation{
+		EncodeFormat: formatCustomText,
+		EncodeWriterFunc: func(w io.Writer) func(v *dto.MetricFamily) error {
+			return func(v *dto.MetricFamily) error {
+				_, err := fmt.Fprintln(w, "this is the awesome content of custom metrics writer")
+				return err
+			}
+		},
+	}
+	creator := NewEncoderCreator(customEncoder)
+	// Encode the metrics using encoder produced by EncoderCreator.
+	var buff bytes.Buffer
+	textEncoder := creator.NewEncoder(&buff, formatCustomText)
+	err := textEncoder.Encode(&dto.MetricFamily{})
+	if err != nil {
+		t.Errorf("unexpected error during encode: %s", err.Error())
+	}
+	// Check if output from encoder is the same as expected.
+	expected := "this is the awesome content of custom metrics writer\n"
+	out := buff.String()
+	if out != expected {
+		t.Errorf("expected TextEncoder to return %q, but got %q instead", expected, string(out))
 	}
 }
