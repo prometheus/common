@@ -35,6 +35,30 @@ var (
 	)
 )
 
+type logger struct {
+	log.Logger
+	debug log.Logger
+	info  log.Logger
+	warn  log.Logger
+	err   log.Logger
+}
+
+func (l *logger) Debug(keyvals ...interface{}) error {
+	return l.debug.Log(keyvals...)
+}
+
+func (l *logger) Info(keyvals ...interface{}) error {
+	return l.info.Log(keyvals...)
+}
+
+func (l *logger) Warn(keyvals ...interface{}) error {
+	return l.warn.Log(keyvals...)
+}
+
+func (l *logger) Err(keyvals ...interface{}) error {
+	return l.err.Log(keyvals...)
+}
+
 // AllowedLevel is a settable identifier for the minimum level a log entry
 // must be have.
 type AllowedLevel struct {
@@ -92,7 +116,7 @@ type Config struct {
 
 // New returns a new leveled oklog logger. Each logged line will be annotated
 // with a timestamp. The output always goes to stderr.
-func New(config *Config) log.Logger {
+func New(config *Config) *logger {
 	var l log.Logger
 	if config.Format != nil && config.Format.s == "json" {
 		l = log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
@@ -104,5 +128,5 @@ func New(config *Config) log.Logger {
 		l = level.NewFilter(l, config.Level.o)
 	}
 	l = log.With(l, "ts", timestampFormat, "caller", log.DefaultCaller)
-	return l
+	return &logger{Logger: l, debug: level.Debug(l), info: level.Info(l), warn: level.Warn(l), err: level.Error(l)}
 }
