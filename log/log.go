@@ -349,6 +349,14 @@ func Fatalf(format string, args ...interface{}) {
 	baseLogger.sourced().Fatalf(format, args...)
 }
 
+func SetFormat(format string) error {
+	return baseLogger.SetFormat(format)
+}
+
+func SetLevel(level string) error {
+	return baseLogger.SetLevel(level)
+}
+
 // AddHook adds hook to Prometheus' original logger.
 func AddHook(hook logrus.Hook) {
 	origLogger.Hooks.Add(hook)
