@@ -86,9 +86,13 @@ func TestDynamic(t *testing.T) {
 	logger := NewDynamic(&Config{})
 
 	debugLevel := &AllowedLevel{}
-	debugLevel.Set("debug")
+	if err := debugLevel.Set("debug"); err != nil {
+		t.Fatal(err)
+	}
 	infoLevel := &AllowedLevel{}
-	infoLevel.Set("info")
+	if err := infoLevel.Set("info"); err != nil {
+		t.Fatal(err)
+	}
 
 	recorder := &recordKeyvalLogger{}
 	logger.base = recorder

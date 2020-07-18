@@ -167,7 +167,7 @@ func (l *logger) SetLevel(lvl *AllowedLevel) {
 	defer l.mtx.Unlock()
 	if lvl != nil {
 		if l.currentLevel != nil && l.currentLevel.s != lvl.s {
-			l.base.Log("msg", "Log level changed", "prev", l.currentLevel, "current", lvl)
+			_ = l.base.Log("msg", "Log level changed", "prev", l.currentLevel, "current", lvl)
 		}
 		l.currentLevel = lvl
 	}
