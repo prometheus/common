@@ -1,6 +1,7 @@
 module github.com/prometheus/common
 
 require (
+	github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d // indirect
 	github.com/go-kit/kit v0.10.0
 	github.com/golang/protobuf v1.4.2
 	github.com/jpillora/backoff v1.0.0 // indirect
