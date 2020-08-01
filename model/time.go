@@ -191,8 +191,7 @@ func ParseDuration(durationStr string) (Duration, error) {
 		return 0, nil
 	}
 	matches := durationRE.FindStringSubmatch(durationStr)
-	fmt.Printf("%v", len(matches))
-	if len(matches) != 15 {
+	if matches == nil {
 		return 0, fmt.Errorf("not a valid duration string: %q", durationStr)
 	}
 	var dur time.Duration
