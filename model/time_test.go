@@ -130,8 +130,9 @@ func TestParseDuration(t *testing.T) {
 			in:  "3w",
 			out: 3 * 7 * 24 * time.Hour,
 		}, {
-			in:  "3w2d1h",
-			out: 3*7*24*time.Hour + 2*24*time.Hour + time.Hour,
+			in:             "3w2d1h",
+			out:            3*7*24*time.Hour + 2*24*time.Hour + time.Hour,
+			expectedString: "23d1h",
 		}, {
 			in:  "10y",
 			out: 10 * 365 * 24 * time.Hour,
