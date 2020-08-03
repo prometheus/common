@@ -98,6 +98,10 @@ func TestParseDuration(t *testing.T) {
 			out:            0,
 			expectedString: "0s",
 		}, {
+			in:             "0w",
+			out:            0,
+			expectedString: "0s",
+		}, {
 			in:  "0s",
 			out: 0,
 		}, {
@@ -116,8 +120,19 @@ func TestParseDuration(t *testing.T) {
 			in:  "4d",
 			out: 4 * 24 * time.Hour,
 		}, {
+			in:  "4d1h",
+			out: 4*24*time.Hour + time.Hour,
+		}, {
+			in:             "14d",
+			out:            14 * 24 * time.Hour,
+			expectedString: "2w",
+		}, {
 			in:  "3w",
 			out: 3 * 7 * 24 * time.Hour,
+		}, {
+			in:             "3w2d1h",
+			out:            3*7*24*time.Hour + 2*24*time.Hour + time.Hour,
+			expectedString: "23d1h",
 		}, {
 			in:  "10y",
 			out: 10 * 365 * 24 * time.Hour,
@@ -139,6 +154,23 @@ func TestParseDuration(t *testing.T) {
 		if d.String() != expectedString {
 			t.Errorf("Expected duration string %q but got %q", c.in, d.String())
 		}
+	}
+}
+
+func TestParseBadDuration(t *testing.T) {
+	var cases = []string{
+		"1",
+		"1y1m1d",
+		"-1w",
+		"1.5d",
+	}
+
+	for _, c := range cases {
+		_, err := ParseDuration(c)
+		if err == nil {
+			t.Errorf("Expected error on input %s", c)
+		}
+
 	}
 }
 
