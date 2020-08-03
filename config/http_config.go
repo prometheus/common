@@ -84,6 +84,9 @@ type HTTPClientConfig struct {
 	ProxyURL URL `yaml:"proxy_url,omitempty"`
 	// TLSConfig to use to connect to the targets.
 	TLSConfig TLSConfig `yaml:"tls_config,omitempty"`
+	// EnableHTTP2 enables HTTP2 transport. Not exposed via Yaml to users, as it
+	// should only be used without persistent connections.
+	EnableHTTP2 bool `yaml:"-"`
 }
 
 // Validate validates the HTTPClientConfig to check only one of BearerToken,
@@ -154,10 +157,12 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, disableKeepAli
 				conntrack.DialWithName(name),
 			),
 		}
-		// TODO: use ForceAttemptHTTP2 when we move to Go 1.13+.
-		err := http2.ConfigureTransport(rt.(*http.Transport))
-		if err != nil {
-			return nil, err
+		if cfg.EnableHTTP2 {
+			// TODO: use ForceAttemptHTTP2 when we move to Go 1.13+.
+			err := http2.ConfigureTransport(rt.(*http.Transport))
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		// If a bearer token is provided, create a round tripper that will set the
