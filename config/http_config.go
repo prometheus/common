@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -37,11 +38,28 @@ type closeIdler interface {
 	CloseIdleConnections()
 }
 
+// JoinDir returns path relative to dir.
+// If path is empty or absolute, it is return unchanged.
+func JoinDir(dir, path string) string {
+	if path == "" || filepath.IsAbs(path) {
+		return path
+	}
+	return filepath.Join(dir, path)
+}
+
 // BasicAuth contains basic HTTP authentication credentials.
 type BasicAuth struct {
 	Username     string `yaml:"username"`
 	Password     Secret `yaml:"password,omitempty"`
 	PasswordFile string `yaml:"password_file,omitempty"`
+}
+
+// SetDirectory sets filepaths to be relative to dir.
+func (a *BasicAuth) SetDirectory(dir string) {
+	if a == nil {
+		return
+	}
+	a.PasswordFile = JoinDir(dir, a.PasswordFile)
 }
 
 // URL is a custom URL type that allows validation at configuration load time.
@@ -84,6 +102,16 @@ type HTTPClientConfig struct {
 	ProxyURL URL `yaml:"proxy_url,omitempty"`
 	// TLSConfig to use to connect to the targets.
 	TLSConfig TLSConfig `yaml:"tls_config,omitempty"`
+}
+
+// SetDirectory sets filepaths to be relative to dir.
+func (c *HTTPClientConfig) SetDirectory(dir string) {
+	if c == nil {
+		return
+	}
+	c.TLSConfig.SetDirectory(dir)
+	c.BasicAuth.SetDirectory(dir)
+	c.BearerTokenFile = JoinDir(dir, c.BearerTokenFile)
 }
 
 // Validate validates the HTTPClientConfig to check only one of BearerToken,
@@ -342,6 +370,16 @@ type TLSConfig struct {
 	ServerName string `yaml:"server_name,omitempty"`
 	// Disable target certificate validation.
 	InsecureSkipVerify bool `yaml:"insecure_skip_verify"`
+}
+
+// SetDirectory sets filepaths to be relative to dir.
+func (c *TLSConfig) SetDirectory(dir string) {
+	if c == nil {
+		return
+	}
+	c.CAFile = JoinDir(dir, c.CAFile)
+	c.CertFile = JoinDir(dir, c.CertFile)
+	c.KeyFile = JoinDir(dir, c.KeyFile)
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
