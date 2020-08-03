@@ -163,6 +163,8 @@ func TestParseBadDuration(t *testing.T) {
 		"1y1m1d",
 		"-1w",
 		"1.5d",
+		"d",
+		"",
 	}
 
 	for _, c := range cases {
