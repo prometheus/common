@@ -196,6 +196,8 @@ func ParseDuration(durationStr string) (Duration, error) {
 	}
 	var dur time.Duration
 
+	// Parse the match at pos `pos` in the regex and use `mult` to turn that
+	// into ms, then add that value to the total parsed duration.
 	m := func(pos int, mult time.Duration) {
 		if matches[pos] == "" {
 			return
@@ -205,13 +207,13 @@ func ParseDuration(durationStr string) (Duration, error) {
 		dur += d * mult
 	}
 
-	m(2, 1000*60*60*24*365)
-	m(4, 1000*60*60*24*7)
-	m(6, 1000*60*60*24)
-	m(8, 1000*60*60)
-	m(10, 1000*60)
-	m(12, 1000)
-	m(14, 1)
+	m(2, 1000*60*60*24*365) // y
+	m(4, 1000*60*60*24*7)   // w
+	m(6, 1000*60*60*24)     // d
+	m(8, 1000*60*60)        // h
+	m(10, 1000*60)          // m
+	m(12, 1000)             // s
+	m(14, 1)                // ms
 
 	return Duration(dur), nil
 }
