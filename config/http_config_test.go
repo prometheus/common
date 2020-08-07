@@ -205,7 +205,7 @@ func TestNewClientFromConfig(t *testing.T) {
 		}
 		defer testServer.Close()
 
-		client, err := NewClientFromConfig(validConfig.clientConfig, "test", false)
+		client, err := NewClientFromConfig(validConfig.clientConfig, "test", false, true)
 		if err != nil {
 			t.Errorf("Can't create a client from this config: %+v", validConfig.clientConfig)
 			continue
@@ -255,7 +255,7 @@ func TestNewClientFromInvalidConfig(t *testing.T) {
 	}
 
 	for _, invalidConfig := range newClientInvalidConfig {
-		client, err := NewClientFromConfig(invalidConfig.clientConfig, "test", false)
+		client, err := NewClientFromConfig(invalidConfig.clientConfig, "test", false, true)
 		if client != nil {
 			t.Errorf("A client instance was returned instead of nil using this config: %+v", invalidConfig.clientConfig)
 		}
@@ -294,7 +294,7 @@ func TestMissingBearerAuthFile(t *testing.T) {
 	}
 	defer testServer.Close()
 
-	client, err := NewClientFromConfig(cfg, "test", false)
+	client, err := NewClientFromConfig(cfg, "test", false, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -483,7 +483,7 @@ func TestBasicAuthNoPassword(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error loading HTTP client config: %v", err)
 	}
-	client, err := NewClientFromConfig(*cfg, "test", false)
+	client, err := NewClientFromConfig(*cfg, "test", false, true)
 	if err != nil {
 		t.Fatalf("Error creating HTTP Client: %v", err)
 	}
@@ -509,7 +509,7 @@ func TestBasicAuthNoUsername(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error loading HTTP client config: %v", err)
 	}
-	client, err := NewClientFromConfig(*cfg, "test", false)
+	client, err := NewClientFromConfig(*cfg, "test", false, true)
 	if err != nil {
 		t.Fatalf("Error creating HTTP Client: %v", err)
 	}
@@ -535,7 +535,7 @@ func TestBasicAuthPasswordFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error loading HTTP client config: %v", err)
 	}
-	client, err := NewClientFromConfig(*cfg, "test", false)
+	client, err := NewClientFromConfig(*cfg, "test", false, true)
 	if err != nil {
 		t.Fatalf("Error creating HTTP Client: %v", err)
 	}
@@ -686,7 +686,7 @@ func TestTLSRoundTripper(t *testing.T) {
 			writeCertificate(bs, tc.cert, cert)
 			writeCertificate(bs, tc.key, key)
 			if c == nil {
-				c, err = NewClientFromConfig(cfg, "test", false)
+				c, err = NewClientFromConfig(cfg, "test", false, true)
 				if err != nil {
 					t.Fatalf("Error creating HTTP Client: %v", err)
 				}
@@ -758,7 +758,7 @@ func TestTLSRoundTripperRaces(t *testing.T) {
 	writeCertificate(bs, TLSCAChainPath, ca)
 	writeCertificate(bs, ClientCertificatePath, cert)
 	writeCertificate(bs, ClientKeyNoPassPath, key)
-	c, err = NewClientFromConfig(cfg, "test", false)
+	c, err = NewClientFromConfig(cfg, "test", false, true)
 	if err != nil {
 		t.Fatalf("Error creating HTTP Client: %v", err)
 	}

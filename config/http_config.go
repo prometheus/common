@@ -84,9 +84,6 @@ type HTTPClientConfig struct {
 	ProxyURL URL `yaml:"proxy_url,omitempty"`
 	// TLSConfig to use to connect to the targets.
 	TLSConfig TLSConfig `yaml:"tls_config,omitempty"`
-	// EnableHTTP2 enables HTTP2 transport. Not exposed via Yaml to users, as it
-	// should only be used without persistent connections.
-	EnableHTTP2 bool `yaml:"-"`
 }
 
 // Validate validates the HTTPClientConfig to check only one of BearerToken,
@@ -126,8 +123,8 @@ func newClient(rt http.RoundTripper) *http.Client {
 
 // NewClientFromConfig returns a new HTTP client configured for the
 // given config.HTTPClientConfig. The name is used as go-conntrack metric label.
-func NewClientFromConfig(cfg HTTPClientConfig, name string, disableKeepAlives bool) (*http.Client, error) {
-	rt, err := NewRoundTripperFromConfig(cfg, name, disableKeepAlives)
+func NewClientFromConfig(cfg HTTPClientConfig, name string, disableKeepAlives, enableHTTP2 bool) (*http.Client, error) {
+	rt, err := NewRoundTripperFromConfig(cfg, name, disableKeepAlives, enableHTTP2)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +133,7 @@ func NewClientFromConfig(cfg HTTPClientConfig, name string, disableKeepAlives bo
 
 // NewRoundTripperFromConfig returns a new HTTP RoundTripper configured for the
 // given config.HTTPClientConfig. The name is used as go-conntrack metric label.
-func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, disableKeepAlives bool) (http.RoundTripper, error) {
+func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, disableKeepAlives, enableHTTP2 bool) (http.RoundTripper, error) {
 	newRT := func(tlsConfig *tls.Config) (http.RoundTripper, error) {
 		// The only timeout we care about is the configured scrape timeout.
 		// It is applied on request. So we leave out any timings here.
@@ -157,7 +154,7 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, disableKeepAli
 				conntrack.DialWithName(name),
 			),
 		}
-		if cfg.EnableHTTP2 {
+		if enableHTTP2 {
 			// TODO: use ForceAttemptHTTP2 when we move to Go 1.13+.
 			err := http2.ConfigureTransport(rt.(*http.Transport))
 			if err != nil {
