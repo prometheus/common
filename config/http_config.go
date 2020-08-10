@@ -155,6 +155,12 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, disableKeepAli
 			),
 		}
 		if enableHTTP2 {
+			// HTTP/2 support is golang has many problematic cornercases where
+			// dead connections would be kept and used in connection pools.
+			// https://github.com/golang/go/issues/32388
+			// https://github.com/golang/go/issues/39337
+			// https://github.com/golang/go/issues/39750
+			// TODO: Re-Enable HTTP/2 once upstream issue is fixed.
 			// TODO: use ForceAttemptHTTP2 when we move to Go 1.13+.
 			err := http2.ConfigureTransport(rt.(*http.Transport))
 			if err != nil {
