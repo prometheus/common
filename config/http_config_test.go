@@ -56,6 +56,8 @@ const (
 	ExpectedBearer         = "Bearer " + BearerToken
 	ExpectedUsername       = "arthurdent"
 	ExpectedPassword       = "42"
+	ExpectedHeader         = "slartibartfast"
+	ExpectedHeaderValue    = "fjords"
 )
 
 var invalidHTTPClientConfigs = []struct {
@@ -74,6 +76,13 @@ var invalidHTTPClientConfigs = []struct {
 		httpClientConfigFile: "testdata/http.conf.basic-auth.too-much.bad.yaml",
 		errMsg:               "at most one of basic_auth password & password_file must be configured",
 	},
+}
+
+type roundTripperFunc func(req *http.Request) (*http.Response, error)
+
+// RoundTrip implements the RoundTripper interface.
+func (rt roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return rt(r)
 }
 
 func newTestServer(handler func(w http.ResponseWriter, r *http.Request)) (*httptest.Server, error) {
@@ -104,6 +113,14 @@ func newTestServer(handler func(w http.ResponseWriter, r *http.Request)) (*httpt
 }
 
 func TestNewClientFromConfig(t *testing.T) {
+	wrapper := func(rt http.RoundTripper) http.RoundTripper {
+		return roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			req.Header.Add(ExpectedHeader, ExpectedHeaderValue)
+
+			return rt.RoundTrip(req)
+		})
+	}
+
 	var newClientValidConfig = []struct {
 		clientConfig HTTPClientConfig
 		handler      func(w http.ResponseWriter, r *http.Request)
@@ -172,25 +189,19 @@ func TestNewClientFromConfig(t *testing.T) {
 			},
 		}, {
 			clientConfig: HTTPClientConfig{
-				BasicAuth: &BasicAuth{
-					Username: ExpectedUsername,
-					Password: ExpectedPassword,
-				},
 				TLSConfig: TLSConfig{
-					CAFile:             TLSCAChainPath,
+					CAFile:             "",
 					CertFile:           ClientCertificatePath,
 					KeyFile:            ClientKeyNoPassPath,
 					ServerName:         "",
-					InsecureSkipVerify: false},
+					InsecureSkipVerify: true},
+				WrapBaseRoundTripper: wrapper,
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
-				username, password, ok := r.BasicAuth()
-				if !ok {
-					fmt.Fprintf(w, "The Authorization header wasn't set")
-				} else if ExpectedUsername != username {
-					fmt.Fprintf(w, "The expected username (%s) differs from the obtained username (%s).", ExpectedUsername, username)
-				} else if ExpectedPassword != password {
-					fmt.Fprintf(w, "The expected password (%s) differs from the obtained password (%s).", ExpectedPassword, password)
+				val := r.Header.Get(ExpectedHeader)
+				if val != ExpectedHeaderValue {
+					fmt.Fprintf(w, "The expected Header Value (%s) differs from the obtained Header Value (%s)",
+						ExpectedHeaderValue, val)
 				} else {
 					fmt.Fprint(w, ExpectedMessage)
 				}
