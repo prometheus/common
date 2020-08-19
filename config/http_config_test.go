@@ -189,6 +189,31 @@ func TestNewClientFromConfig(t *testing.T) {
 			},
 		}, {
 			clientConfig: HTTPClientConfig{
+				BasicAuth: &BasicAuth{
+					Username: ExpectedUsername,
+					Password: ExpectedPassword,
+				},
+				TLSConfig: TLSConfig{
+					CAFile:             TLSCAChainPath,
+					CertFile:           ClientCertificatePath,
+					KeyFile:            ClientKeyNoPassPath,
+					ServerName:         "",
+					InsecureSkipVerify: false},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				username, password, ok := r.BasicAuth()
+				if !ok {
+					fmt.Fprintf(w, "The Authorization header wasn't set")
+				} else if ExpectedUsername != username {
+					fmt.Fprintf(w, "The expected username (%s) differs from the obtained username (%s).", ExpectedUsername, username)
+				} else if ExpectedPassword != password {
+					fmt.Fprintf(w, "The expected password (%s) differs from the obtained password (%s).", ExpectedPassword, password)
+				} else {
+					fmt.Fprint(w, ExpectedMessage)
+				}
+			},
+		}, {
+			clientConfig: HTTPClientConfig{
 				TLSConfig: TLSConfig{
 					CAFile:             "",
 					CertFile:           ClientCertificatePath,
