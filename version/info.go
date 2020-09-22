@@ -74,7 +74,7 @@ func Print(program string) string {
 		"buildUser": BuildUser,
 		"buildDate": BuildDate,
 		"goVersion": GoVersion,
-		"platform": runtime.GOOS + "/" + runtime.GOARCH,
+		"platform":  runtime.GOOS + "/" + runtime.GOARCH,
 	}
 	t := template.Must(template.New("version").Parse(versionInfoTmpl))
 
