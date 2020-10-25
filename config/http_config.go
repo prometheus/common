@@ -141,8 +141,8 @@ func newClient(rt http.RoundTripper) *http.Client {
 
 // NewClientFromConfig returns a new HTTP client configured for the
 // given config.HTTPClientConfig. The name is used as go-conntrack metric label.
-func NewClientFromConfig(cfg HTTPClientConfig, name string, disableKeepAlives, enableHTTP2 bool) (*http.Client, error) {
-	rt, err := NewRoundTripperFromConfig(cfg, name, disableKeepAlives, enableHTTP2)
+func NewClientFromConfig(cfg HTTPClientConfig, name string, disableKeepAlives bool) (*http.Client, error) {
+	rt, err := NewRoundTripperFromConfig(cfg, name, disableKeepAlives)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +151,7 @@ func NewClientFromConfig(cfg HTTPClientConfig, name string, disableKeepAlives, e
 
 // NewRoundTripperFromConfig returns a new HTTP RoundTripper configured for the
 // given config.HTTPClientConfig. The name is used as go-conntrack metric label.
-func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, disableKeepAlives, enableHTTP2 bool) (http.RoundTripper, error) {
+func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, disableKeepAlives bool) (http.RoundTripper, error) {
 	newRT := func(tlsConfig *tls.Config) (http.RoundTripper, error) {
 		// The only timeout we care about is the configured scrape timeout.
 		// It is applied on request. So we leave out any timings here.
@@ -172,19 +172,18 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, disableKeepAli
 				conntrack.DialWithName(name),
 			),
 		}
-		if enableHTTP2 {
-			// HTTP/2 support is golang has many problematic cornercases where
-			// dead connections would be kept and used in connection pools.
-			// https://github.com/golang/go/issues/32388
-			// https://github.com/golang/go/issues/39337
-			// https://github.com/golang/go/issues/39750
-			// TODO: Re-Enable HTTP/2 once upstream issue is fixed.
-			// TODO: use ForceAttemptHTTP2 when we move to Go 1.13+.
-			err := http2.ConfigureTransport(rt.(*http.Transport))
-			if err != nil {
-				return nil, err
-			}
+		// TODO: use ForceAttemptHTTP2 when we move to Go 1.13+.
+		rt2, err := http2.ConfigureTransports(rt.(*http.Transport))
+		if err != nil {
+			return nil, err
 		}
+		// ReadIdleTimeout is the timeout after which a health check using ping
+		// frame will be carried out if no frame is received on the
+		// connection. 5 minutes is above maximum sane scrape interval,
+		// we should not have this small overhead on the scrape connections.
+		// For other cases, this is used to validate that the connection can
+		// still be used.
+		rt2.ReadIdleTimeout = 5 * time.Minute
 
 		// If a bearer token is provided, create a round tripper that will set the
 		// Authorization header correctly on each request.
