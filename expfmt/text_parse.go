@@ -300,22 +300,15 @@ func (p *TextParser) startLabelName() stateFn {
 		return nil
 	}
 	// Check for duplicate label names.
-	if len(p.currentMetric.Label) > 1 {
-		labelCount := make(map[string]int)
-		for _, l := range p.currentMetric.Label {
-			lName := l.GetName()
-			_, exist := labelCount[lName]
-			if !exist {
-				labelCount[lName] = 1
-			} else {
-				labelCount[lName] += 1
-			}
-		}
-		for _, count := range labelCount {
-			if count > 1 {
-				p.parseError(fmt.Sprintf("duplicate label names for metric %q", p.currentMF.GetName()))
-				return nil
-			}
+	labels := make(map[string]struct{})
+	for _, l := range p.currentMetric.Label {
+		lName := l.GetName()
+		_, exist := labels[lName]
+		if !exist {
+			labels[lName] = struct{}{}
+		} else {
+			p.parseError(fmt.Sprintf("duplicate label names for metric %q", p.currentMF.GetName()))
+			return nil
 		}
 	}
 	return p.startLabelValue
