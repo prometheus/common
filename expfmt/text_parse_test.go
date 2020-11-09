@@ -635,6 +635,11 @@ metric{quantile="0x1p-3"} 3.14
 `,
 			err: "text format parsing error in line 3: expected float as value for 'quantile' label",
 		},
+		// 33: Check duplicate label.
+		{
+			in:  `metric{label="bla",label="bla"} 3.14`,
+			err: "text format parsing error in line 1: duplicate label names for metric",
+		},
 	}
 
 	for i, scenario := range scenarios {
