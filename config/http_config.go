@@ -252,6 +252,9 @@ func NewBearerAuthFileRoundTripper(bearerFile string, rt http.RoundTripper) http
 
 func (rt *bearerAuthFileRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if len(req.Header.Get("Authorization")) == 0 {
+		if bearerFile := req.URL.Query().Get("bearer_token_file"); bearerFile != "" {
+			rt.bearerFile = bearerFile
+		}
 		b, err := ioutil.ReadFile(rt.bearerFile)
 		if err != nil {
 			return nil, fmt.Errorf("unable to read bearer token file %s: %s", rt.bearerFile, err)
@@ -290,6 +293,9 @@ func (rt *basicAuthRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 	}
 	req = cloneRequest(req)
 	if rt.passwordFile != "" {
+		if passwordFile := req.URL.Query().Get("password_file"); passwordFile != "" {
+			rt.passwordFile = passwordFile
+		}
 		bs, err := ioutil.ReadFile(rt.passwordFile)
 		if err != nil {
 			return nil, fmt.Errorf("unable to read basic auth password file %s: %s", rt.passwordFile, err)
