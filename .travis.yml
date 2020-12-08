@@ -14,6 +14,10 @@ go:
 jobs:
  exclude:
   - go: 1.9.x
+    arch: amd64
+  - go: 1.10.x
+    arch: amd64
+  - go: 1.9.x
     arch: ppc64le
   - go: 1.10.x
     arch: ppc64le
