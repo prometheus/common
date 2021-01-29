@@ -1,1 +1,1 @@
-* Brian Brazil <brian.brazil@robustperception.io>
+* Julien Pivotto <roidelapluie@prometheus.io> @roidelapluie
