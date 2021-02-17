@@ -111,9 +111,6 @@ type HTTPClientConfig struct {
 	ProxyURL URL `yaml:"proxy_url,omitempty"`
 	// TLSConfig to use to connect to the targets.
 	TLSConfig TLSConfig `yaml:"tls_config,omitempty"`
-	// Used to make sure that the configuration is valid and that BearerToken to
-	// Authorization.Credentials change has been handled.
-	valid bool
 }
 
 // SetDirectory joins any relative file paths with dir.
@@ -169,8 +166,6 @@ func (c *HTTPClientConfig) Validate() error {
 			c.BearerTokenFile = ""
 		}
 	}
-
-	c.valid = true
 	return nil
 }
 
@@ -207,12 +202,6 @@ func NewClientFromConfig(cfg HTTPClientConfig, name string, disableKeepAlives, e
 // NewRoundTripperFromConfig returns a new HTTP RoundTripper configured for the
 // given config.HTTPClientConfig. The name is used as go-conntrack metric label.
 func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, disableKeepAlives, enableHTTP2 bool) (http.RoundTripper, error) {
-	// Make sure that the configuration is valid.
-	if !cfg.valid {
-		if err := cfg.Validate(); err != nil {
-			return nil, err
-		}
-	}
 	newRT := func(tlsConfig *tls.Config) (http.RoundTripper, error) {
 		// The only timeout we care about is the configured scrape timeout.
 		// It is applied on request. So we leave out any timings here.
@@ -253,6 +242,13 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, disableKeepAli
 			rt = NewAuthorizationCredentialsRoundTripper(cfg.Authorization.Type, cfg.Authorization.Credentials, rt)
 		} else if cfg.Authorization != nil && len(cfg.Authorization.CredentialsFile) > 0 {
 			rt = NewAuthorizationCredentialsFileRoundTripper(cfg.Authorization.Type, cfg.Authorization.CredentialsFile, rt)
+		}
+		// Backwards compatibility, be nice with importers who would not have
+		// called Validate().
+		if len(cfg.BearerToken) > 0 {
+			rt = NewAuthorizationCredentialsRoundTripper("Bearer", cfg.BearerToken, rt)
+		} else if len(cfg.BearerTokenFile) > 0 {
+			rt = NewAuthorizationCredentialsFileRoundTripper("Bearer", cfg.BearerTokenFile, rt)
 		}
 
 		if cfg.BasicAuth != nil {
