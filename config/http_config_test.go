@@ -306,6 +306,10 @@ func TestNewClientFromConfig(t *testing.T) {
 		}
 		defer testServer.Close()
 
+		err = validConfig.clientConfig.Validate()
+		if err != nil {
+			t.Fatal(err.Error())
+		}
 		client, err := NewClientFromConfig(validConfig.clientConfig, "test", false, true)
 		if err != nil {
 			t.Errorf("Can't create a client from this config: %+v", validConfig.clientConfig)
