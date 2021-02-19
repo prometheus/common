@@ -1,2 +1,2 @@
-authorization:
+authentication:
   type: Basic

@@ -52,15 +52,15 @@ func (a *BasicAuth) SetDirectory(dir string) {
 	a.PasswordFile = JoinDir(dir, a.PasswordFile)
 }
 
-// Authorization contains HTTP authorization credentials.
-type Authorization struct {
+// Authentication contains HTTP authentication credentials.
+type Authentication struct {
 	Type            string `yaml:"type,omitempty"`
 	Credentials     Secret `yaml:"credentials,omitempty"`
 	CredentialsFile string `yaml:"credentials_file,omitempty"`
 }
 
 // SetDirectory joins any relative file paths with dir.
-func (a *Authorization) SetDirectory(dir string) {
+func (a *Authentication) SetDirectory(dir string) {
 	if a == nil {
 		return
 	}
@@ -99,13 +99,13 @@ func (u URL) MarshalYAML() (interface{}, error) {
 type HTTPClientConfig struct {
 	// The HTTP basic authentication credentials for the targets.
 	BasicAuth *BasicAuth `yaml:"basic_auth,omitempty"`
-	// The HTTP authorization credentials for the targets.
-	Authorization *Authorization `yaml:"authorization,omitempty"`
+	// The HTTP authentication credentials for the targets.
+	Authentication *Authentication `yaml:"authentication,omitempty"`
 	// The bearer token for the targets. Deprecated in favour of
-	// Authorization.Credentials.
+	// Authentication.Credentials.
 	BearerToken Secret `yaml:"bearer_token,omitempty"`
 	// The bearer token file for the targets. Deprecated in favour of
-	// Authorization.CredentialsFile.
+	// Authentication.CredentialsFile.
 	BearerTokenFile string `yaml:"bearer_token_file,omitempty"`
 	// HTTP proxy server to use to connect to the targets.
 	ProxyURL URL `yaml:"proxy_url,omitempty"`
@@ -120,7 +120,7 @@ func (c *HTTPClientConfig) SetDirectory(dir string) {
 	}
 	c.TLSConfig.SetDirectory(dir)
 	c.BasicAuth.SetDirectory(dir)
-	c.Authorization.SetDirectory(dir)
+	c.Authentication.SetDirectory(dir)
 	c.BearerTokenFile = JoinDir(dir, c.BearerTokenFile)
 }
 
@@ -137,32 +137,32 @@ func (c *HTTPClientConfig) Validate() error {
 	if c.BasicAuth != nil && (string(c.BasicAuth.Password) != "" && c.BasicAuth.PasswordFile != "") {
 		return fmt.Errorf("at most one of basic_auth password & password_file must be configured")
 	}
-	if c.Authorization != nil {
+	if c.Authentication != nil {
 		if len(c.BearerToken) > 0 || len(c.BearerTokenFile) > 0 {
-			return fmt.Errorf("authorization is not compatible with bearer_token & bearer_token_file")
+			return fmt.Errorf("authentication is not compatible with bearer_token & bearer_token_file")
 		}
-		if string(c.Authorization.Credentials) != "" && c.Authorization.CredentialsFile != "" {
-			return fmt.Errorf("at most one of authorization credentials & credentials_file must be configured")
+		if string(c.Authentication.Credentials) != "" && c.Authentication.CredentialsFile != "" {
+			return fmt.Errorf("at most one of authentication credentials & credentials_file must be configured")
 		}
-		c.Authorization.Type = strings.TrimSpace(c.Authorization.Type)
-		if len(c.Authorization.Type) == 0 {
-			c.Authorization.Type = "Bearer"
+		c.Authentication.Type = strings.TrimSpace(c.Authentication.Type)
+		if len(c.Authentication.Type) == 0 {
+			c.Authentication.Type = "Bearer"
 		}
-		if strings.ToLower(c.Authorization.Type) == "basic" {
-			return fmt.Errorf(`authorization type cannot be set to "basic", use "basic_auth" instead`)
+		if strings.ToLower(c.Authentication.Type) == "basic" {
+			return fmt.Errorf(`authentication type cannot be set to "basic", use "basic_auth" instead`)
 		}
 		if c.BasicAuth != nil {
-			return fmt.Errorf("at most one of basic_auth & authorization must be configured")
+			return fmt.Errorf("at most one of basic_auth & authentication must be configured")
 		}
 	} else {
 		if len(c.BearerToken) > 0 {
-			c.Authorization = &Authorization{Credentials: c.BearerToken}
-			c.Authorization.Type = "Bearer"
+			c.Authentication = &Authentication{Credentials: c.BearerToken}
+			c.Authentication.Type = "Bearer"
 			c.BearerToken = ""
 		}
 		if len(c.BearerTokenFile) > 0 {
-			c.Authorization = &Authorization{CredentialsFile: c.BearerTokenFile}
-			c.Authorization.Type = "Bearer"
+			c.Authentication = &Authentication{CredentialsFile: c.BearerTokenFile}
+			c.Authentication.Type = "Bearer"
 			c.BearerTokenFile = ""
 		}
 	}
@@ -236,19 +236,19 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, disableKeepAli
 			}
 		}
 
-		// If a authorization_credentials is provided, create a round tripper that will set the
+		// If an authentication credentials is provided, create a round tripper that will set the
 		// Authorization header correctly on each request.
-		if cfg.Authorization != nil && len(cfg.Authorization.Credentials) > 0 {
-			rt = NewAuthorizationCredentialsRoundTripper(cfg.Authorization.Type, cfg.Authorization.Credentials, rt)
-		} else if cfg.Authorization != nil && len(cfg.Authorization.CredentialsFile) > 0 {
-			rt = NewAuthorizationCredentialsFileRoundTripper(cfg.Authorization.Type, cfg.Authorization.CredentialsFile, rt)
+		if cfg.Authentication != nil && len(cfg.Authentication.Credentials) > 0 {
+			rt = NewAuthenticationCredentialsRoundTripper(cfg.Authentication.Type, cfg.Authentication.Credentials, rt)
+		} else if cfg.Authentication != nil && len(cfg.Authentication.CredentialsFile) > 0 {
+			rt = NewAuthenticationCredentialsFileRoundTripper(cfg.Authentication.Type, cfg.Authentication.CredentialsFile, rt)
 		}
 		// Backwards compatibility, be nice with importers who would not have
 		// called Validate().
 		if len(cfg.BearerToken) > 0 {
-			rt = NewAuthorizationCredentialsRoundTripper("Bearer", cfg.BearerToken, rt)
+			rt = NewAuthenticationCredentialsRoundTripper("Bearer", cfg.BearerToken, rt)
 		} else if len(cfg.BearerTokenFile) > 0 {
-			rt = NewAuthorizationCredentialsFileRoundTripper("Bearer", cfg.BearerTokenFile, rt)
+			rt = NewAuthenticationCredentialsFileRoundTripper("Bearer", cfg.BearerTokenFile, rt)
 		}
 
 		if cfg.BasicAuth != nil {
@@ -271,19 +271,19 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, disableKeepAli
 	return newTLSRoundTripper(tlsConfig, cfg.TLSConfig.CAFile, newRT)
 }
 
-type authorizationCredentialsRoundTripper struct {
+type authenticationCredentialsRoundTripper struct {
 	authType        string
 	authCredentials Secret
 	rt              http.RoundTripper
 }
 
-// NewAuthorizationCredentialsRoundTripper adds the provided credentials to a
-// request unless the authorization header has already been set.
-func NewAuthorizationCredentialsRoundTripper(authType string, authCredentials Secret, rt http.RoundTripper) http.RoundTripper {
-	return &authorizationCredentialsRoundTripper{authType, authCredentials, rt}
+// NewAuthenticationCredentialsRoundTripper adds the provided credentials to a
+// request unless the authentication header has already been set.
+func NewAuthenticationCredentialsRoundTripper(authType string, authCredentials Secret, rt http.RoundTripper) http.RoundTripper {
+	return &authenticationCredentialsRoundTripper{authType, authCredentials, rt}
 }
 
-func (rt *authorizationCredentialsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+func (rt *authenticationCredentialsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if len(req.Header.Get("Authorization")) == 0 {
 		req = cloneRequest(req)
 		req.Header.Set("Authorization", fmt.Sprintf("%s %s", rt.authType, string(rt.authCredentials)))
@@ -291,30 +291,30 @@ func (rt *authorizationCredentialsRoundTripper) RoundTrip(req *http.Request) (*h
 	return rt.rt.RoundTrip(req)
 }
 
-func (rt *authorizationCredentialsRoundTripper) CloseIdleConnections() {
+func (rt *authenticationCredentialsRoundTripper) CloseIdleConnections() {
 	if ci, ok := rt.rt.(closeIdler); ok {
 		ci.CloseIdleConnections()
 	}
 }
 
-type authorizationCredentialsFileRoundTripper struct {
+type authenticationCredentialsFileRoundTripper struct {
 	authType            string
 	authCredentialsFile string
 	rt                  http.RoundTripper
 }
 
-// NewAuthorizationCredentialsFileRoundTripper adds the authorization
-// credentials read from the provided file to a request unless the authorization
+// NewAuthenticationCredentialsFileRoundTripper adds the authentication
+// credentials read from the provided file to a request unless the authentication
 // header has already been set. This file is read for every request.
-func NewAuthorizationCredentialsFileRoundTripper(authType, authCredentialsFile string, rt http.RoundTripper) http.RoundTripper {
-	return &authorizationCredentialsFileRoundTripper{authType, authCredentialsFile, rt}
+func NewAuthenticationCredentialsFileRoundTripper(authType, authCredentialsFile string, rt http.RoundTripper) http.RoundTripper {
+	return &authenticationCredentialsFileRoundTripper{authType, authCredentialsFile, rt}
 }
 
-func (rt *authorizationCredentialsFileRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+func (rt *authenticationCredentialsFileRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if len(req.Header.Get("Authorization")) == 0 {
 		b, err := ioutil.ReadFile(rt.authCredentialsFile)
 		if err != nil {
-			return nil, fmt.Errorf("unable to read authorization credentials file %s: %s", rt.authCredentialsFile, err)
+			return nil, fmt.Errorf("unable to read authentication credentials file %s: %s", rt.authCredentialsFile, err)
 		}
 		authCredentials := strings.TrimSpace(string(b))
 
@@ -325,7 +325,7 @@ func (rt *authorizationCredentialsFileRoundTripper) RoundTrip(req *http.Request)
 	return rt.rt.RoundTrip(req)
 }
 
-func (rt *authorizationCredentialsFileRoundTripper) CloseIdleConnections() {
+func (rt *authenticationCredentialsFileRoundTripper) CloseIdleConnections() {
 	if ci, ok := rt.rt.(closeIdler); ok {
 		ci.CloseIdleConnections()
 	}
