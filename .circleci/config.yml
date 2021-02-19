@@ -66,5 +66,8 @@ workflows:
     - test:
         name: go-1-15
         go_version: "1.15"
+    - test:
+        name: go-1-16
+        go_version: "1.16"
         # Style is only checked against the latest supported Go version.
         run_style: true

@@ -513,8 +513,17 @@ func TestTLSConfig(t *testing.T) {
 		t.Fatalf("Unexpected client certificate result: \n\n%+v\n expected\n\n%+v", cert, clientCertificate)
 	}
 
-	// non-nil functions are never equal.
+	// tlsConfig.rootCAs.LazyCerts contains functions getCert() in go 1.16, which are
+	// never equal. Compare the Subjects instead.
+	if !reflect.DeepEqual(tlsConfig.RootCAs.Subjects(), expectedTLSConfig.RootCAs.Subjects()) {
+		t.Fatalf("Unexpected RootCAs result: \n\n%+v\n expected\n\n%+v", tlsConfig.RootCAs.Subjects(), expectedTLSConfig.RootCAs.Subjects())
+	}
+	tlsConfig.RootCAs = nil
+	expectedTLSConfig.RootCAs = nil
+
+	// Non-nil functions are never equal.
 	tlsConfig.GetClientCertificate = nil
+
 	if !reflect.DeepEqual(tlsConfig, expectedTLSConfig) {
 		t.Fatalf("Unexpected TLS Config result: \n\n%+v\n expected\n\n%+v", tlsConfig, expectedTLSConfig)
 	}
