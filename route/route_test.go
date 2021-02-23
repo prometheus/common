@@ -120,9 +120,9 @@ func TestInstrumentation(t *testing.T) {
 			router: New(),
 			want:   "",
 		}, {
-			router: New().WithInstrumentation(func(handlerName string, handler http.Handler) http.Handler {
+			router: New().WithInstrumentation(func(handlerName string, handler http.Handler) http.HandlerFunc {
 				got = handlerName
-				return handler
+				return handler.ServeHTTP
 			}),
 			want: "/foo",
 		},
@@ -154,19 +154,19 @@ func TestInstrumentations(t *testing.T) {
 		}, {
 			router: New().
 				WithInstrumentation(
-					func(handlerName string, handler http.Handler) http.Handler {
+					func(handlerName string, handler http.Handler) http.HandlerFunc {
 						got = append(got, "1"+handlerName)
-						return handler
+						return handler.ServeHTTP
 					}).
 				WithInstrumentation(
-					func(handlerName string, handler http.Handler) http.Handler {
+					func(handlerName string, handler http.Handler) http.HandlerFunc {
 						got = append(got, "2"+handlerName)
-						return handler
+						return handler.ServeHTTP
 					}).
 				WithInstrumentation(
-					func(handlerName string, handler http.Handler) http.Handler {
+					func(handlerName string, handler http.Handler) http.HandlerFunc {
 						got = append(got, "3"+handlerName)
-						return handler
+						return handler.ServeHTTP
 					}),
 			want: []string{"1/foo", "2/foo", "3/foo"},
 		},

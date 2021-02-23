@@ -41,7 +41,7 @@ func WithParam(ctx context.Context, p, v string) context.Context {
 type Router struct {
 	rtr    *httprouter.Router
 	prefix string
-	instrh func(handlerName string, handler http.Handler) http.Handler
+	instrh func(handlerName string, handler http.Handler) http.HandlerFunc
 }
 
 // New returns a new Router.
@@ -52,10 +52,10 @@ func New() *Router {
 }
 
 // WithInstrumentation returns a router with instrumentation support.
-func (r *Router) WithInstrumentation(instrh func(handlerName string, handler http.Handler) http.Handler) *Router {
+func (r *Router) WithInstrumentation(instrh func(handlerName string, handler http.Handler) http.HandlerFunc) *Router {
 	if r.instrh != nil {
 		newInstrh := instrh
-		instrh = func(handlerName string, handler http.Handler) http.Handler {
+		instrh = func(handlerName string, handler http.Handler) http.HandlerFunc {
 			return newInstrh(handlerName, r.instrh(handlerName, handler))
 		}
 	}
