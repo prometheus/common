@@ -41,13 +41,13 @@ func TestRedirect(t *testing.T) {
 
 func TestContext(t *testing.T) {
 	router := New()
-	router.Get("/test/:foo/", func(w http.ResponseWriter, r *http.Request) {
+	router.Get("/test/:foo/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		want := "bar"
 		got := Param(r.Context(), "foo")
 		if want != got {
 			t.Fatalf("Unexpected context value: want %q, got %q", want, got)
 		}
-	})
+	}))
 
 	r, err := http.NewRequest("GET", "http://localhost:9090/test/bar/", nil)
 	if err != nil {
@@ -58,7 +58,7 @@ func TestContext(t *testing.T) {
 
 func TestContextWithValue(t *testing.T) {
 	router := New()
-	router.Get("/test/:foo/", func(w http.ResponseWriter, r *http.Request) {
+	router.Get("/test/:foo/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		want := "bar"
 		got := Param(r.Context(), "foo")
 		if want != got {
@@ -74,7 +74,7 @@ func TestContextWithValue(t *testing.T) {
 		if want != got {
 			t.Fatalf("Unexpected context value: want %q, got %q", want, got)
 		}
-	})
+	}))
 
 	r, err := http.NewRequest("GET", "http://localhost:9090/test/bar/", nil)
 	if err != nil {
@@ -95,13 +95,13 @@ func TestContextWithValue(t *testing.T) {
 
 func TestContextWithoutValue(t *testing.T) {
 	router := New()
-	router.Get("/test", func(w http.ResponseWriter, r *http.Request) {
+	router.Get("/test", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		want := ""
 		got := Param(r.Context(), "foo")
 		if want != got {
 			t.Fatalf("Unexpected context value: want %q, got %q", want, got)
 		}
-	})
+	}))
 
 	r, err := http.NewRequest("GET", "http://localhost:9090/test", nil)
 	if err != nil {
@@ -120,7 +120,7 @@ func TestInstrumentation(t *testing.T) {
 			router: New(),
 			want:   "",
 		}, {
-			router: New().WithInstrumentation(func(handlerName string, handler http.HandlerFunc) http.HandlerFunc {
+			router: New().WithInstrumentation(func(handlerName string, handler http.Handler) http.Handler {
 				got = handlerName
 				return handler
 			}),
@@ -129,7 +129,7 @@ func TestInstrumentation(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c.router.Get("/foo", func(w http.ResponseWriter, r *http.Request) {})
+		c.router.Get("/foo", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 
 		r, err := http.NewRequest("GET", "http://localhost:9090/foo", nil)
 		if err != nil {
@@ -154,17 +154,17 @@ func TestInstrumentations(t *testing.T) {
 		}, {
 			router: New().
 				WithInstrumentation(
-					func(handlerName string, handler http.HandlerFunc) http.HandlerFunc {
+					func(handlerName string, handler http.Handler) http.Handler {
 						got = append(got, "1"+handlerName)
 						return handler
 					}).
 				WithInstrumentation(
-					func(handlerName string, handler http.HandlerFunc) http.HandlerFunc {
+					func(handlerName string, handler http.Handler) http.Handler {
 						got = append(got, "2"+handlerName)
 						return handler
 					}).
 				WithInstrumentation(
-					func(handlerName string, handler http.HandlerFunc) http.HandlerFunc {
+					func(handlerName string, handler http.Handler) http.Handler {
 						got = append(got, "3"+handlerName)
 						return handler
 					}),
@@ -173,7 +173,7 @@ func TestInstrumentations(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c.router.Get("/foo", func(w http.ResponseWriter, r *http.Request) {})
+		c.router.Get("/foo", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 
 		r, err := http.NewRequest("GET", "http://localhost:9090/foo", nil)
 		if err != nil {

@@ -41,7 +41,7 @@ func WithParam(ctx context.Context, p, v string) context.Context {
 type Router struct {
 	rtr    *httprouter.Router
 	prefix string
-	instrh func(handlerName string, handler http.HandlerFunc) http.HandlerFunc
+	instrh func(handlerName string, handler http.Handler) http.Handler
 }
 
 // New returns a new Router.
@@ -52,10 +52,10 @@ func New() *Router {
 }
 
 // WithInstrumentation returns a router with instrumentation support.
-func (r *Router) WithInstrumentation(instrh func(handlerName string, handler http.HandlerFunc) http.HandlerFunc) *Router {
+func (r *Router) WithInstrumentation(instrh func(handlerName string, handler http.Handler) http.Handler) *Router {
 	if r.instrh != nil {
 		newInstrh := instrh
-		instrh = func(handlerName string, handler http.HandlerFunc) http.HandlerFunc {
+		instrh = func(handlerName string, handler http.Handler) http.Handler {
 			return newInstrh(handlerName, r.instrh(handlerName, handler))
 		}
 	}
@@ -68,7 +68,7 @@ func (r *Router) WithPrefix(prefix string) *Router {
 }
 
 // handle turns a HandlerFunc into an httprouter.Handle.
-func (r *Router) handle(handlerName string, h http.HandlerFunc) httprouter.Handle {
+func (r *Router) handle(handlerName string, h http.Handler) httprouter.Handle {
 	if r.instrh != nil {
 		// This needs to be outside the closure to avoid data race when reading and writing to 'h'.
 		h = r.instrh(handlerName, h)
@@ -80,32 +80,32 @@ func (r *Router) handle(handlerName string, h http.HandlerFunc) httprouter.Handl
 		for _, p := range params {
 			ctx = context.WithValue(ctx, param(p.Key), p.Value)
 		}
-		h(w, req.WithContext(ctx))
+		h.ServeHTTP(w, req.WithContext(ctx))
 	}
 }
 
 // Get registers a new GET route.
-func (r *Router) Get(path string, h http.HandlerFunc) {
+func (r *Router) Get(path string, h http.Handler) {
 	r.rtr.GET(r.prefix+path, r.handle(path, h))
 }
 
 // Options registers a new OPTIONS route.
-func (r *Router) Options(path string, h http.HandlerFunc) {
+func (r *Router) Options(path string, h http.Handler) {
 	r.rtr.OPTIONS(r.prefix+path, r.handle(path, h))
 }
 
 // Del registers a new DELETE route.
-func (r *Router) Del(path string, h http.HandlerFunc) {
+func (r *Router) Del(path string, h http.Handler) {
 	r.rtr.DELETE(r.prefix+path, r.handle(path, h))
 }
 
 // Put registers a new PUT route.
-func (r *Router) Put(path string, h http.HandlerFunc) {
+func (r *Router) Put(path string, h http.Handler) {
 	r.rtr.PUT(r.prefix+path, r.handle(path, h))
 }
 
 // Post registers a new POST route.
-func (r *Router) Post(path string, h http.HandlerFunc) {
+func (r *Router) Post(path string, h http.Handler) {
 	r.rtr.POST(r.prefix+path, r.handle(path, h))
 }
 
