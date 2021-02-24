@@ -311,7 +311,9 @@ func TestNewClientFromConfig(t *testing.T) {
 				case "/redirected":
 					fmt.Fprintf(w, ExpectedMessage)
 				default:
-					http.Redirect(w, r, "/redirected", http.StatusFound)
+					w.Header().Set("Location", "/redirected")
+					w.WriteHeader(http.StatusFound)
+					fmt.Fprintf(w, "It should follow the redirect.")
 				}
 			},
 		}, {
@@ -329,9 +331,9 @@ func TestNewClientFromConfig(t *testing.T) {
 				case "/redirected":
 					fmt.Fprint(w, "The redirection was followed.")
 				default:
-					w.Header()["Content-Type"] = nil
-					http.Redirect(w, r, "/redirected", http.StatusFound)
-					fmt.Fprint(w, ExpectedMessage)
+					w.Header().Set("Location", "/redirected")
+					w.WriteHeader(http.StatusFound)
+					fmt.Fprintf(w, ExpectedMessage)
 				}
 			},
 		},
