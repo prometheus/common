@@ -1,5 +1,5 @@
 # Common
-[![Build Status](https://travis-ci.org/prometheus/common.svg)](https://travis-ci.org/prometheus/common)
+[![circleci](https://circleci.com/gh/prometheus/common/tree/master.svg?style=shield)][circleci]
 
 This repository contains Go libraries that are shared across Prometheus
 components and libraries. They are considered internal to Prometheus, without
