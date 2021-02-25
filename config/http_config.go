@@ -33,6 +33,11 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// DefaultHTTPClientConfig is the default HTTP client configuration.
+var DefaultHTTPClientConfig = HTTPClientConfig{
+	FollowRedirects: true,
+}
+
 type closeIdler interface {
 	CloseIdleConnections()
 }
@@ -111,7 +116,7 @@ type HTTPClientConfig struct {
 	ProxyURL URL `yaml:"proxy_url,omitempty"`
 	// TLSConfig to use to connect to the targets.
 	TLSConfig TLSConfig `yaml:"tls_config,omitempty"`
-	// FollowRedirects specifies wheter the client should follow the HTTP 3xx redirects.
+	// FollowRedirects specifies wheter the client should follow HTTP 3xx redirects.
 	// The omitempty flag is not set, because it would be hidden from the
 	// marshalled configuration when set to false.
 	FollowRedirects bool `yaml:"follow_redirects"`
@@ -176,9 +181,7 @@ func (c *HTTPClientConfig) Validate() error {
 // UnmarshalYAML implements the yaml.Unmarshaler interface
 func (c *HTTPClientConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type plain HTTPClientConfig
-	*c = HTTPClientConfig{
-		FollowRedirects: true,
-	}
+	*c = DefaultHTTPClientConfig
 	if err := unmarshal((*plain)(c)); err != nil {
 		return err
 	}
