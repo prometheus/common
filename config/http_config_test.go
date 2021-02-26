@@ -296,6 +296,46 @@ func TestNewClientFromConfig(t *testing.T) {
 					fmt.Fprint(w, ExpectedMessage)
 				}
 			},
+		}, {
+			clientConfig: HTTPClientConfig{
+				FollowRedirects: true,
+				TLSConfig: TLSConfig{
+					CAFile:             TLSCAChainPath,
+					CertFile:           ClientCertificatePath,
+					KeyFile:            ClientKeyNoPassPath,
+					ServerName:         "",
+					InsecureSkipVerify: false},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/redirected":
+					fmt.Fprintf(w, ExpectedMessage)
+				default:
+					w.Header().Set("Location", "/redirected")
+					w.WriteHeader(http.StatusFound)
+					fmt.Fprintf(w, "It should follow the redirect.")
+				}
+			},
+		}, {
+			clientConfig: HTTPClientConfig{
+				FollowRedirects: false,
+				TLSConfig: TLSConfig{
+					CAFile:             TLSCAChainPath,
+					CertFile:           ClientCertificatePath,
+					KeyFile:            ClientKeyNoPassPath,
+					ServerName:         "",
+					InsecureSkipVerify: false},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/redirected":
+					fmt.Fprint(w, "The redirection was followed.")
+				default:
+					w.Header().Set("Location", "/redirected")
+					w.WriteHeader(http.StatusFound)
+					fmt.Fprintf(w, ExpectedMessage)
+				}
+			},
 		},
 	}
 
@@ -317,7 +357,7 @@ func TestNewClientFromConfig(t *testing.T) {
 		}
 		response, err := client.Get(testServer.URL)
 		if err != nil {
-			t.Errorf("Can't connect to the test server using this config: %+v", validConfig.clientConfig)
+			t.Errorf("Can't connect to the test server using this config: %+v: %v", validConfig.clientConfig, err)
 			continue
 		}
 
@@ -938,6 +978,16 @@ func TestHideHTTPClientConfigSecrets(t *testing.T) {
 	s := c.String()
 	if strings.Contains(s, "mysecret") {
 		t.Fatal("http client config's String method reveals authentication credentials.")
+	}
+}
+
+func TestDefaultFollowRedirect(t *testing.T) {
+	cfg, _, err := LoadHTTPConfigFile("testdata/http.conf.good.yml")
+	if err != nil {
+		t.Errorf("Error loading HTTP client config: %v", err)
+	}
+	if !cfg.FollowRedirects {
+		t.Errorf("follow_redirects should be true")
 	}
 }
 
