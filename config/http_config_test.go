@@ -357,7 +357,7 @@ func TestNewClientFromConfig(t *testing.T) {
 		}
 		response, err := client.Get(testServer.URL)
 		if err != nil {
-			t.Errorf("Can't connect to the test server using this config: %+v %v", validConfig.clientConfig, err)
+			t.Errorf("Can't connect to the test server using this config: %+v: %v", validConfig.clientConfig, err)
 			continue
 		}
 
