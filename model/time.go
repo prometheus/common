@@ -262,13 +262,16 @@ func (d Duration) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
 func (d *Duration) UnmarshalJSON(bytes []byte) error {
-	var err error
 	var s string
 	if err := json.Unmarshal(bytes, &s); err != nil {
 		return err
 	}
-	*d, err = ParseDuration(s)
-	return err
+	dur, err := ParseDuration(s)
+	if err != nil {
+		return err
+	}
+	*d = dur
+	return nil
 }
 
 // MarshalText implements the encoding.TextMarshaler interface.
