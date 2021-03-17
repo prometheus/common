@@ -314,7 +314,7 @@ func TestParseBadDuration(t *testing.T) {
 		"-1w",
 		"1.5d",
 		"d",
-		"",
+		"300y",
 	}
 
 	for _, c := range cases {

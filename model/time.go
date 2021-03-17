@@ -211,6 +211,12 @@ func ParseDuration(durationStr string) (Duration, error) {
 		dur += d * mult
 	}
 
+	// Check if year range exceed 290 years
+	year, _ := strconv.Atoi(matches[2])
+	if year > 290 {
+		return 0, fmt.Errorf("Time range exceeds 290 years limit: %d", year)
+	}
+
 	m(2, 1000*60*60*24*365) // y
 	m(4, 1000*60*60*24*7)   // w
 	m(6, 1000*60*60*24)     // d
