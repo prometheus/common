@@ -17,11 +17,13 @@ package config
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -100,6 +102,40 @@ func (u URL) MarshalYAML() (interface{}, error) {
 	return nil, nil
 }
 
+// TCPAddr is a custom TCP address type that allows validation at configuration load time.
+type TCPAddr struct {
+	*net.TCPAddr
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface for TCP addresses.
+func (a TCPAddr) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	if err := unmarshal(&s); err != nil {
+		return err
+	}
+
+	if len(s) == 0 {
+		a.TCPAddr = nil
+	}
+
+	ip := net.ParseIP(s)
+	if ip == nil {
+		return fmt.Errorf("error parsing ip %q", s)
+	}
+
+	a.TCPAddr = &net.TCPAddr{IP: ip}
+
+	return nil
+}
+
+// MarshalYAML implements the yaml.Marshaler interface for TCP addresses.
+func (a TCPAddr) MarshalYAML() (interface{}, error) {
+	if a.TCPAddr != nil {
+		return a.TCPAddr.String(), nil
+	}
+	return nil, nil
+}
+
 // HTTPClientConfig configures an HTTP client.
 type HTTPClientConfig struct {
 	// The HTTP basic authentication credentials for the targets.
@@ -120,6 +156,8 @@ type HTTPClientConfig struct {
 	// The omitempty flag is not set, because it would be hidden from the
 	// marshalled configuration when set to false.
 	FollowRedirects bool `yaml:"follow_redirects"`
+	// SourceAddress specifies a source address to use for outgoing connections.
+	SourceAddress *TCPAddr `yaml:"source_address,omitempty"`
 }
 
 // SetDirectory joins any relative file paths with dir.
@@ -236,6 +274,13 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, disableKeepAli
 			DialContext: conntrack.NewDialContextFunc(
 				conntrack.DialWithTracing(),
 				conntrack.DialWithName(name),
+				conntrack.DialWithDialContextFunc(func(ctx context.Context, network string, address string) (net.Conn, error) {
+					dialer := &net.Dialer{}
+					if cfg.SourceAddress != nil {
+						dialer.LocalAddr = cfg.SourceAddress.TCPAddr
+					}
+					return dialer.DialContext(ctx, network, address)
+				}),
 			),
 		}
 		if enableHTTP2 {
