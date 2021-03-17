@@ -44,20 +44,6 @@ workflows:
     jobs:
     # Supported Go versions are synced with github.com/prometheus/client_golang.
     - test:
-        name: go-1-9
-        go_version: "1.9"
-        use_gomod_cache: false
-    - test:
-        name: go-1-10
-        go_version: "1.10"
-        use_gomod_cache: false
-    - test:
-        name: go-1-11
-        go_version: "1.11"
-    - test:
-        name: go-1-12
-        go_version: "1.12"
-    - test:
         name: go-1-13
         go_version: "1.13"
     - test:
