@@ -210,7 +210,7 @@ func ParseDuration(durationStr string) (Duration, error) {
 		}
 		n, _ := strconv.Atoi(matches[pos])
 
-		// Check if the provider duration overflows time.Duration (> ~ 290years).
+		// Check if the provided duration overflows time.Duration (> ~ 290years).
 		if n > int((1<<63-1)/mult/time.Millisecond) {
 			overflowErr = errors.New("duration out of range")
 		}
