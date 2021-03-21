@@ -212,13 +212,13 @@ func ParseDuration(durationStr string) (Duration, error) {
 
 		// Check if range overflow Time.duration ( > ~290years)
 		if n > int((1<<63-1)/mult/time.Millisecond) {
-			overflowErr = errors.New("Time range overflow: Query range exceeds 290 years limit)")
+			overflowErr = errors.New("duration out of range")
 		}
 		d := time.Duration(n) * time.Millisecond
 		dur += d * mult
 
 		if dur < 0 {
-			overflowErr = errors.New("Time range overflow: Query range exceeds 290 years limit)")
+			overflowErr = errors.New("duration out of range")
 		}
 	}
 
