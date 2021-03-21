@@ -282,6 +282,10 @@ func TestDuration_UnmarshalJSON(t *testing.T) {
 			in:  `"10y"`,
 			out: 10 * 365 * 24 * time.Hour,
 		},
+		{
+			in:  `"289y"`,
+			out: 289 * 365 * 24 * time.Hour,
+		},
 	}
 
 	for _, c := range cases {
@@ -314,6 +318,10 @@ func TestParseBadDuration(t *testing.T) {
 		"-1w",
 		"1.5d",
 		"d",
+		"294y",
+		"200y10400w",
+		"107675d",
+		"2584200h",
 		"",
 	}
 
