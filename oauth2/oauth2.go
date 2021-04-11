@@ -39,7 +39,7 @@ type Token struct {
 	ExpiresIn   int64
 	ExpiresAt   int64
 
-	// So we can refresh.
+	// So we can re-fetch.
 	config Config
 	lock   sync.Mutex
 }
