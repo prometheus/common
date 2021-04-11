@@ -82,7 +82,7 @@ func (config Config) GetAccessToken() (*Token, error) {
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if resp.StatusCode != 200 {
