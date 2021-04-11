@@ -139,7 +139,7 @@ func TestOAuth2(t *testing.T) {
 				t.Fatalf("Expected token '%v', recieved token '%v'", c.expectedToken, token)
 			}
 
-			if accessToken, _ := token.Get(); accessToken != token.AccessToken {
+			if accessToken, _, _ := token.Get(); accessToken != token.AccessToken {
 				t.Fatalf("Expected access token '%s' from token.Get(), recieved access token '%s'", token.AccessToken, accessToken)
 			}
 
@@ -163,7 +163,7 @@ func TestOAuth2(t *testing.T) {
 		t.Fatal("Expected token to be invalid")
 	}
 
-	accessToken, err := token.Get()
+	accessToken, _, err := token.Get()
 	if err != nil {
 		t.Fatalf("Expected no error, got error '%v'", err)
 	}
