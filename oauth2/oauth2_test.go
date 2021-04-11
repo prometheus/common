@@ -33,7 +33,7 @@ var expectedToken = Token{
 
 func TestOAuth2(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.ParseForm()
+		_ = r.ParseForm()
 		if grant := r.Form.Get("grant_type"); grant != "client_credentials" {
 			res, _ := json.Marshal(tokenErrorResponse{
 				Error: "unsupported_grant_type",
@@ -73,7 +73,7 @@ func TestOAuth2(t *testing.T) {
 			TokenType:   expectedToken.TokenType,
 			ExpiresIn:   expectedToken.ExpiresIn,
 		})
-		w.Write(res)
+		_, _ = w.Write(res)
 	}))
 	defer ts.Close()
 
