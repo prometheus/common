@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"golang.org/x/net/http/httpproxy"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -221,8 +222,11 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, disableKeepAli
 	newRT := func(tlsConfig *tls.Config) (http.RoundTripper, error) {
 		// The only timeout we care about is the configured scrape timeout.
 		// It is applied on request. So we leave out any timings here.
+
+		proxyFunc := decideProxy(cfg)
+
 		var rt http.RoundTripper = &http.Transport{
-			Proxy:               http.ProxyURL(cfg.ProxyURL.URL),
+			Proxy:               proxyFunc,
 			MaxIdleConns:        20000,
 			MaxIdleConnsPerHost: 1000, // see https://github.com/golang/go/issues/13801
 			DisableKeepAlives:   disableKeepAlives,
@@ -285,6 +289,24 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, disableKeepAli
 	}
 
 	return newTLSRoundTripper(tlsConfig, cfg.TLSConfig.CAFile, newRT)
+}
+
+func decideProxy(cfg HTTPClientConfig) func(*http.Request) (*url.URL, error) {
+	var proxyFunc func(*http.Request) (*url.URL, error)
+
+	// Check if the incoming client has any proxy configuration specified explicitly
+	if cfg.ProxyURL.URL == nil {
+		// If not, load proxy configuration from environment
+		envProxyConfig := httpproxy.FromEnvironment()
+		proxyFunc = func(request *http.Request) (*url.URL, error) {
+			return envProxyConfig.ProxyFunc()(request.URL)
+		}
+	} else {
+		// If it is, respect the configuration
+		proxyFunc = http.ProxyURL(cfg.ProxyURL.URL)
+	}
+
+	return proxyFunc
 }
 
 type authorizationCredentialsRoundTripper struct {
