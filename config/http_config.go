@@ -17,11 +17,13 @@ package config
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -120,6 +122,9 @@ type HTTPClientConfig struct {
 	// The omitempty flag is not set, because it would be hidden from the
 	// marshalled configuration when set to false.
 	FollowRedirects bool `yaml:"follow_redirects"`
+	// DialContext allows downstream projects to customize the dialer used by the
+	// HTTP client to open the network connection to the server.
+	DialContext func(ctx context.Context, network, addr string) (net.Conn, error) `yaml:"-"`
 }
 
 // SetDirectory joins any relative file paths with dir.
@@ -219,6 +224,19 @@ func NewClientFromConfig(cfg HTTPClientConfig, name string, disableKeepAlives, e
 // given config.HTTPClientConfig. The name is used as go-conntrack metric label.
 func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, disableKeepAlives, enableHTTP2 bool) (http.RoundTripper, error) {
 	newRT := func(tlsConfig *tls.Config) (http.RoundTripper, error) {
+		var dialContext func(ctx context.Context, network, addr string) (net.Conn, error)
+
+		if cfg.DialContext != nil {
+			dialContext = conntrack.NewDialContextFunc(
+				conntrack.DialWithDialContextFunc(cfg.DialContext),
+				conntrack.DialWithTracing(),
+				conntrack.DialWithName(name))
+		} else {
+			dialContext = conntrack.NewDialContextFunc(
+				conntrack.DialWithTracing(),
+				conntrack.DialWithName(name))
+		}
+
 		// The only timeout we care about is the configured scrape timeout.
 		// It is applied on request. So we leave out any timings here.
 		var rt http.RoundTripper = &http.Transport{
@@ -233,10 +251,7 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, disableKeepAli
 			IdleConnTimeout:       5 * time.Minute,
 			TLSHandshakeTimeout:   10 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
-			DialContext: conntrack.NewDialContextFunc(
-				conntrack.DialWithTracing(),
-				conntrack.DialWithName(name),
-			),
+			DialContext:           dialContext,
 		}
 		if enableHTTP2 {
 			// HTTP/2 support is golang has many problematic cornercases where
