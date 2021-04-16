@@ -16,10 +16,13 @@
 package config
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -50,6 +53,7 @@ const (
 	MissingKey            = "missing/secret.key"
 
 	ExpectedMessage                   = "I'm here to serve you!!!"
+	ExpectedError                     = "expected error"
 	AuthorizationCredentials          = "theanswertothegreatquestionoflifetheuniverseandeverythingisfortytwo"
 	AuthorizationCredentialsFile      = "testdata/bearer.token"
 	AuthorizationType                 = "APIKEY"
@@ -410,6 +414,23 @@ func TestNewClientFromInvalidConfig(t *testing.T) {
 		if !strings.Contains(err.Error(), invalidConfig.errorMsg) {
 			t.Errorf("Expected error %q does not contain %q", err.Error(), invalidConfig.errorMsg)
 		}
+	}
+}
+
+func TestCustomDialContextFunc(t *testing.T) {
+	dialFn := func(_ context.Context, _, _ string) (net.Conn, error) {
+		return nil, errors.New(ExpectedError)
+	}
+
+	cfg := HTTPClientConfig{}
+	client, err := NewClientFromConfig(cfg, "test", false, true, WithDialContextFunc(dialFn))
+	if err != nil {
+		t.Fatalf("Can't create a client from this config: %+v", cfg)
+	}
+
+	_, err = client.Get("http://localhost")
+	if err == nil || !strings.Contains(err.Error(), ExpectedError) {
+		t.Errorf("Expected error %q but got %q", ExpectedError, err)
 	}
 }
 
