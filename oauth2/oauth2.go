@@ -14,131 +14,55 @@
 package oauth2
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
-	"strings"
-	"sync"
-	"time"
+
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/clientcredentials"
 )
 
 // Config is the client configuration.
 type Config struct {
-	ClientID     string
-	ClientSecret string
-	Scopes       []string
-	TokenURL     string
+	ClientID       string            `yaml:"client_id"`
+	ClientSecret   string            `yaml:"client_secret"`
+	Scopes         []string          `yaml:"scopes,omitempty"`
+	TokenURL       string            `yaml:"token_url"`
+	EndpointParams map[string]string `yaml:"endpoint_params,omitempty"`
 }
 
-// Token is an OAuth2 access token and associated data.
-type Token struct {
-	AccessToken string
-	TokenType   string
-	ExpiresIn   int64
-	ExpiresAt   int64
-
-	// So we can re-fetch.
-	config Config
-	lock   sync.Mutex
-}
-
-type tokenResponse struct {
-	AccessToken string `json:"access_token"`
-	TokenType   string `json:"token_type"`
-	ExpiresIn   int64  `json:"expires_in"`
-}
-
-type tokenErrorResponse struct {
-	Error            string `json:"error"`
-	ErrorDescription string `json:"error_description"`
-	ErrorURI         string `json:"error_uri"`
-}
-
-// GetAccessToken gets an access token from the token URL using the client credentials.
-func (config Config) GetAccessToken() (*Token, error) {
-	values := url.Values{
-		"grant_type": {"client_credentials"},
-	}
-	if len(config.Scopes) > 0 {
-		values.Set("scope", strings.Join(config.Scopes, " "))
+// NewOAuth2RoundTripper returns a new http.RoundTripper that authenticates the request
+// with a token fetched using the provided configuration.
+func (c *Config) NewOAuth2RoundTripper(next http.RoundTripper) (http.RoundTripper, error) {
+	config := &clientcredentials.Config{
+		ClientID:       c.ClientID,
+		ClientSecret:   c.ClientSecret,
+		Scopes:         c.Scopes,
+		TokenURL:       c.TokenURL,
+		EndpointParams: mapToValues(c.EndpointParams),
 	}
 
-	req, err := http.NewRequest("POST", config.TokenURL, strings.NewReader(values.Encode()))
+	tokenSource := config.TokenSource(context.Background())
+
+	// Fetch the token now to see if the config is valid
+	// so we don't run into any errors later.
+	_, err := tokenSource.Token()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Error doing initial fetch of oauth2 access token: %v", err)
 	}
 
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	req.SetBasicAuth(url.QueryEscape(config.ClientID), url.QueryEscape(config.ClientSecret))
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != 200 {
-		var data tokenErrorResponse
-		err = json.Unmarshal(body, &data)
-		if err != nil {
-			return nil, err
-		}
-
-		return nil, fmt.Errorf("Error obtaining access token: %s %s %s", data.Error, data.ErrorDescription, data.ErrorURI)
-	}
-
-	var data tokenResponse
-	err = json.Unmarshal(body, &data)
-	if err != nil {
-		return nil, err
-	}
-
-	if data.AccessToken == "" {
-		return nil, fmt.Errorf("Missing fields in access token response: AccessToken: '%v'", data.AccessToken)
-	}
-
-	if data.TokenType == "" {
-		data.TokenType = "Bearer"
-	}
-
-	var expiresAt int64
-	if data.ExpiresIn != 0 {
-		expiresAt = time.Now().Unix() + data.ExpiresIn
-	}
-
-	return &Token{AccessToken: data.AccessToken, TokenType: data.TokenType, ExpiresIn: data.ExpiresIn, ExpiresAt: expiresAt}, nil
+	return &oauth2.Transport{
+		Base:   next,
+		Source: tokenSource,
+	}, nil
 }
 
-// Get checks if the access token is still valid, and if so re-fetches it before returning along with the token type.
-func (token *Token) Get() (string, string, error) {
-	if token.Valid() {
-		return token.AccessToken, token.TokenType, nil
+func mapToValues(m map[string]string) url.Values {
+	v := url.Values{}
+	for name, value := range m {
+		v.Set(name, value)
 	}
 
-	token.lock.Lock()
-	defer token.lock.Unlock()
-
-	t, err := token.config.GetAccessToken()
-	if err != nil {
-		return "", "", err
-	}
-
-	token = t
-	return token.AccessToken, token.TokenType, nil
-}
-
-// Valid checks if the token has expired.
-func (token *Token) Valid() bool {
-	token.lock.Lock()
-	defer token.lock.Unlock()
-
-	return token.ExpiresAt == 0 || token.ExpiresAt > time.Now().Unix()
+	return v
 }
