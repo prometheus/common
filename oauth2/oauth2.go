@@ -15,7 +15,6 @@ package oauth2
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
 
@@ -34,7 +33,7 @@ type Config struct {
 
 // NewOAuth2RoundTripper returns a new http.RoundTripper that authenticates the request
 // with a token fetched using the provided configuration.
-func (c *Config) NewOAuth2RoundTripper(next http.RoundTripper) (http.RoundTripper, error) {
+func (c *Config) NewOAuth2RoundTripper(ctx context.Context, next http.RoundTripper) (http.RoundTripper, error) {
 	config := &clientcredentials.Config{
 		ClientID:       c.ClientID,
 		ClientSecret:   c.ClientSecret,
@@ -43,14 +42,7 @@ func (c *Config) NewOAuth2RoundTripper(next http.RoundTripper) (http.RoundTrippe
 		EndpointParams: mapToValues(c.EndpointParams),
 	}
 
-	tokenSource := config.TokenSource(context.Background())
-
-	// Fetch the token now to see if the config is valid
-	// so we don't run into any errors later.
-	_, err := tokenSource.Token()
-	if err != nil {
-		return nil, fmt.Errorf("Error doing initial fetch of oauth2 access token: %v", err)
-	}
+	tokenSource := config.TokenSource(ctx)
 
 	return &oauth2.Transport{
 		Base:   next,

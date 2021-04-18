@@ -14,6 +14,7 @@
 package oauth2
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -67,7 +68,7 @@ endpoint_params:
 		t.Fatalf("Got unmarshalled config %q, expected %q", unmarshalledConfig, expectedConfig)
 	}
 
-	rt, err := expectedConfig.NewOAuth2RoundTripper(http.DefaultTransport)
+	rt, err := expectedConfig.NewOAuth2RoundTripper(context.Background(), http.DefaultTransport)
 	if err != nil {
 		t.Fatalf("Expected no error creating round tripper, got %v", err)
 	}
