@@ -116,7 +116,7 @@ type HTTPClientConfig struct {
 	// The HTTP authorization credentials for the targets.
 	Authorization *Authorization `yaml:"authorization,omitempty"`
 	// The OAuth2 client credentials used to fetch a token for the targets.
-	OAuth2 *oauth2.Config
+	OAuth2 *oauth2.Config `yaml:"oauth2,omitempty"`
 	// The bearer token for the targets. Deprecated in favour of
 	// Authorization.Credentials.
 	BearerToken Secret `yaml:"bearer_token,omitempty"`
