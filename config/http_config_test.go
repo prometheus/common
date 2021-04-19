@@ -76,7 +76,7 @@ var invalidHTTPClientConfigs = []struct {
 	},
 	{
 		httpClientConfigFile: "testdata/http.conf.empty.bad.yml",
-		errMsg:               "at most one of basic_auth, bearer_token & bearer_token_file must be configured",
+		errMsg:               "at most one of basic_auth, oauth2, bearer_token & bearer_token_file must be configured",
 	},
 	{
 		httpClientConfigFile: "testdata/http.conf.basic-auth.too-much.bad.yaml",
@@ -92,7 +92,11 @@ var invalidHTTPClientConfigs = []struct {
 	},
 	{
 		httpClientConfigFile: "testdata/http.conf.basic-auth-and-auth-creds.too-much.bad.yaml",
-		errMsg:               "at most one of basic_auth & authorization must be configured",
+		errMsg:               "at most one of basic_auth, oauth2 & authorization must be configured",
+	},
+	{
+		httpClientConfigFile: "testdata/http.conf.basic-auth-and-oauth2.too-much.bad.yaml",
+		errMsg:               "at most one of basic_auth, oauth2 & authorization must be configured",
 	},
 	{
 		httpClientConfigFile: "testdata/http.conf.auth-creds-no-basic.bad.yaml",

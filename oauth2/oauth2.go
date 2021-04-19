@@ -33,7 +33,7 @@ type Config struct {
 
 // NewOAuth2RoundTripper returns a new http.RoundTripper that authenticates the request
 // with a token fetched using the provided configuration.
-func (c *Config) NewOAuth2RoundTripper(ctx context.Context, next http.RoundTripper) (http.RoundTripper, error) {
+func (c *Config) NewOAuth2RoundTripper(ctx context.Context, next http.RoundTripper) http.RoundTripper {
 	config := &clientcredentials.Config{
 		ClientID:       c.ClientID,
 		ClientSecret:   c.ClientSecret,
@@ -47,7 +47,7 @@ func (c *Config) NewOAuth2RoundTripper(ctx context.Context, next http.RoundTripp
 	return &oauth2.Transport{
 		Base:   next,
 		Source: tokenSource,
-	}, nil
+	}
 }
 
 func mapToValues(m map[string]string) url.Values {
