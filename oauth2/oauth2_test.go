@@ -68,10 +68,7 @@ endpoint_params:
 		t.Fatalf("Got unmarshalled config %q, expected %q", unmarshalledConfig, expectedConfig)
 	}
 
-	rt, err := expectedConfig.NewOAuth2RoundTripper(context.Background(), http.DefaultTransport)
-	if err != nil {
-		t.Fatalf("Expected no error creating round tripper, got %v", err)
-	}
+	rt := expectedConfig.NewOAuth2RoundTripper(context.Background(), http.DefaultTransport)
 
 	client := http.Client{
 		Transport: rt,
