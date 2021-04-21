@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -1090,4 +1091,60 @@ func NewRoundTripCheckRequest(checkRequest func(*http.Request), theResponse *htt
 		roundTrip: roundTrip{
 			theResponse: theResponse,
 			theError:    theError}}
+}
+
+type testServerResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+}
+
+func TestOAuth2(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		res, _ := json.Marshal(testServerResponse{
+			AccessToken: "12345",
+			TokenType:   "Bearer",
+		})
+		w.Header().Add("Content-Type", "application/json")
+		_, _ = w.Write(res)
+	}))
+	defer ts.Close()
+
+	var yamlConfig = fmt.Sprintf(`
+client_id: 1
+client_secret: 2
+scopes:
+ - A
+ - B
+token_url: %s
+endpoint_params:
+ hi: hello
+`, ts.URL)
+	expectedConfig := OAuth2{
+		ClientID:       "1",
+		ClientSecret:   "2",
+		Scopes:         []string{"A", "B"},
+		EndpointParams: map[string]string{"hi": "hello"},
+		TokenURL:       ts.URL,
+	}
+
+	var unmarshalledConfig OAuth2
+	err := yaml.Unmarshal([]byte(yamlConfig), &unmarshalledConfig)
+	if err != nil {
+		t.Fatalf("Expected no error unmarshalling yaml, got %v", err)
+	}
+	if !reflect.DeepEqual(unmarshalledConfig, expectedConfig) {
+		t.Fatalf("Got unmarshalled config %q, expected %q", unmarshalledConfig, expectedConfig)
+	}
+
+	rt := expectedConfig.NewOAuth2RoundTripper(context.Background(), http.DefaultTransport)
+
+	client := http.Client{
+		Transport: rt,
+	}
+	resp, _ := client.Get(ts.URL)
+
+	authorization := resp.Request.Header.Get("Authorization")
+	if authorization != "Bearer 12345" {
+		t.Fatalf("Expected authorization header to be 'Bearer 12345', got '%s'", authorization)
+	}
 }

@@ -31,8 +31,9 @@ import (
 	"time"
 
 	"github.com/mwitkow/go-conntrack"
-	"github.com/prometheus/common/oauth2"
 	"golang.org/x/net/http2"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/clientcredentials"
 	"gopkg.in/yaml.v2"
 )
 
@@ -109,6 +110,15 @@ func (u URL) MarshalYAML() (interface{}, error) {
 	return nil, nil
 }
 
+// OAuth2 is the oauth2 client configuration.
+type OAuth2 struct {
+	ClientID       string            `yaml:"client_id"`
+	ClientSecret   Secret            `yaml:"client_secret"`
+	Scopes         []string          `yaml:"scopes,omitempty"`
+	TokenURL       string            `yaml:"token_url"`
+	EndpointParams map[string]string `yaml:"endpoint_params,omitempty"`
+}
+
 // HTTPClientConfig configures an HTTP client.
 type HTTPClientConfig struct {
 	// The HTTP basic authentication credentials for the targets.
@@ -116,7 +126,7 @@ type HTTPClientConfig struct {
 	// The HTTP authorization credentials for the targets.
 	Authorization *Authorization `yaml:"authorization,omitempty"`
 	// The OAuth2 client credentials used to fetch a token for the targets.
-	OAuth2 *oauth2.Config `yaml:"oauth2,omitempty"`
+	OAuth2 *OAuth2 `yaml:"oauth2,omitempty"`
 	// The bearer token for the targets. Deprecated in favour of
 	// Authorization.Credentials.
 	BearerToken Secret `yaml:"bearer_token,omitempty"`
@@ -450,6 +460,32 @@ func (rt *basicAuthRoundTripper) CloseIdleConnections() {
 	if ci, ok := rt.rt.(closeIdler); ok {
 		ci.CloseIdleConnections()
 	}
+}
+
+func (c *OAuth2) NewOAuth2RoundTripper(ctx context.Context, next http.RoundTripper) http.RoundTripper {
+	config := &clientcredentials.Config{
+		ClientID:       c.ClientID,
+		ClientSecret:   string(c.ClientSecret),
+		Scopes:         c.Scopes,
+		TokenURL:       c.TokenURL,
+		EndpointParams: mapToValues(c.EndpointParams),
+	}
+
+	tokenSource := config.TokenSource(ctx)
+
+	return &oauth2.Transport{
+		Base:   next,
+		Source: tokenSource,
+	}
+}
+
+func mapToValues(m map[string]string) url.Values {
+	v := url.Values{}
+	for name, value := range m {
+		v.Set(name, value)
+	}
+
+	return v
 }
 
 // cloneRequest returns a clone of the provided *http.Request.
