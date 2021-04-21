@@ -16,10 +16,13 @@
 package config
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -50,6 +53,7 @@ const (
 	MissingKey            = "missing/secret.key"
 
 	ExpectedMessage                   = "I'm here to serve you!!!"
+	ExpectedError                     = "expected error"
 	AuthorizationCredentials          = "theanswertothegreatquestionoflifetheuniverseandeverythingisfortytwo"
 	AuthorizationCredentialsFile      = "testdata/bearer.token"
 	AuthorizationType                 = "APIKEY"
@@ -350,7 +354,7 @@ func TestNewClientFromConfig(t *testing.T) {
 		if err != nil {
 			t.Fatal(err.Error())
 		}
-		client, err := NewClientFromConfig(validConfig.clientConfig, "test", false, true)
+		client, err := NewClientFromConfig(validConfig.clientConfig, "test")
 		if err != nil {
 			t.Errorf("Can't create a client from this config: %+v", validConfig.clientConfig)
 			continue
@@ -400,7 +404,7 @@ func TestNewClientFromInvalidConfig(t *testing.T) {
 	}
 
 	for _, invalidConfig := range newClientInvalidConfig {
-		client, err := NewClientFromConfig(invalidConfig.clientConfig, "test", false, true)
+		client, err := NewClientFromConfig(invalidConfig.clientConfig, "test")
 		if client != nil {
 			t.Errorf("A client instance was returned instead of nil using this config: %+v", invalidConfig.clientConfig)
 		}
@@ -410,6 +414,23 @@ func TestNewClientFromInvalidConfig(t *testing.T) {
 		if !strings.Contains(err.Error(), invalidConfig.errorMsg) {
 			t.Errorf("Expected error %q does not contain %q", err.Error(), invalidConfig.errorMsg)
 		}
+	}
+}
+
+func TestCustomDialContextFunc(t *testing.T) {
+	dialFn := func(_ context.Context, _, _ string) (net.Conn, error) {
+		return nil, errors.New(ExpectedError)
+	}
+
+	cfg := HTTPClientConfig{}
+	client, err := NewClientFromConfig(cfg, "test", WithDialContextFunc(dialFn))
+	if err != nil {
+		t.Fatalf("Can't create a client from this config: %+v", cfg)
+	}
+
+	_, err = client.Get("http://localhost")
+	if err == nil || !strings.Contains(err.Error(), ExpectedError) {
+		t.Errorf("Expected error %q but got %q", ExpectedError, err)
 	}
 }
 
@@ -439,7 +460,7 @@ func TestMissingBearerAuthFile(t *testing.T) {
 	}
 	defer testServer.Close()
 
-	client, err := NewClientFromConfig(cfg, "test", false, true)
+	client, err := NewClientFromConfig(cfg, "test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -637,7 +658,7 @@ func TestBasicAuthNoPassword(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error loading HTTP client config: %v", err)
 	}
-	client, err := NewClientFromConfig(*cfg, "test", false, true)
+	client, err := NewClientFromConfig(*cfg, "test")
 	if err != nil {
 		t.Fatalf("Error creating HTTP Client: %v", err)
 	}
@@ -663,7 +684,7 @@ func TestBasicAuthNoUsername(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error loading HTTP client config: %v", err)
 	}
-	client, err := NewClientFromConfig(*cfg, "test", false, true)
+	client, err := NewClientFromConfig(*cfg, "test")
 	if err != nil {
 		t.Fatalf("Error creating HTTP Client: %v", err)
 	}
@@ -689,7 +710,7 @@ func TestBasicAuthPasswordFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error loading HTTP client config: %v", err)
 	}
-	client, err := NewClientFromConfig(*cfg, "test", false, true)
+	client, err := NewClientFromConfig(*cfg, "test")
 	if err != nil {
 		t.Fatalf("Error creating HTTP Client: %v", err)
 	}
@@ -840,7 +861,7 @@ func TestTLSRoundTripper(t *testing.T) {
 			writeCertificate(bs, tc.cert, cert)
 			writeCertificate(bs, tc.key, key)
 			if c == nil {
-				c, err = NewClientFromConfig(cfg, "test", false, true)
+				c, err = NewClientFromConfig(cfg, "test")
 				if err != nil {
 					t.Fatalf("Error creating HTTP Client: %v", err)
 				}
@@ -912,7 +933,7 @@ func TestTLSRoundTripperRaces(t *testing.T) {
 	writeCertificate(bs, TLSCAChainPath, ca)
 	writeCertificate(bs, ClientCertificatePath, cert)
 	writeCertificate(bs, ClientKeyNoPassPath, key)
-	c, err = NewClientFromConfig(cfg, "test", false, true)
+	c, err = NewClientFromConfig(cfg, "test")
 	if err != nil {
 		t.Fatalf("Error creating HTTP Client: %v", err)
 	}
