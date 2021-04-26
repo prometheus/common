@@ -197,8 +197,13 @@ func (c *HTTPClientConfig) Validate() error {
 			c.BearerTokenFile = ""
 		}
 	}
-	if c.BasicAuth != nil && c.OAuth2 != nil {
-		return fmt.Errorf("at most one of basic_auth, oauth2 & authorization must be configured")
+	if c.OAuth2 != nil {
+		if c.BasicAuth != nil {
+			return fmt.Errorf("at most one of basic_auth, oauth2 & authorization must be configured")
+		}
+		if len(c.OAuth2.ClientSecret) > 0 && len(c.OAuth2.ClientSecretFile) > 0 {
+			return fmt.Errorf("at most one of oauth2 client_secret & client_secret_file must be configured")
+		}
 	}
 	return nil
 }
@@ -489,8 +494,10 @@ func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 		if err != nil {
 			return nil, fmt.Errorf("unable to read oauth2 client secret file %s: %s", rt.config.ClientSecretFile, err)
 		}
-		secret = string(data)
+		secret = strings.TrimSpace(string(data))
+		rt.mtx.RLock()
 		changed = secret != rt.secret
+		rt.mtx.RUnlock()
 	}
 
 	if changed || rt.rt == nil {
