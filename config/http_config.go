@@ -120,6 +120,14 @@ type OAuth2 struct {
 	EndpointParams   map[string]string `yaml:"endpoint_params,omitempty"`
 }
 
+// SetDirectory joins any relative file paths with dir.
+func (a *OAuth2) SetDirectory(dir string) {
+	if a == nil {
+		return
+	}
+	a.ClientSecretFile = JoinDir(dir, a.ClientSecretFile)
+}
+
 // HTTPClientConfig configures an HTTP client.
 type HTTPClientConfig struct {
 	// The HTTP basic authentication credentials for the targets.
@@ -152,6 +160,7 @@ func (c *HTTPClientConfig) SetDirectory(dir string) {
 	c.TLSConfig.SetDirectory(dir)
 	c.BasicAuth.SetDirectory(dir)
 	c.Authorization.SetDirectory(dir)
+	c.OAuth2.SetDirectory(dir)
 	c.BearerTokenFile = JoinDir(dir, c.BearerTokenFile)
 }
 
