@@ -103,6 +103,10 @@ var invalidHTTPClientConfigs = []struct {
 		httpClientConfigFile: "testdata/http.conf.auth-creds-no-basic.bad.yaml",
 		errMsg:               `authorization type cannot be set to "basic", use "basic_auth" instead`,
 	},
+	{
+		httpClientConfigFile: "testdata/http.conf.oauth2-secret-and-file-set.bad.yml",
+		errMsg:               "at most one of oauth2 client_secret & client_secret_file must be configured",
+	},
 }
 
 func newTestServer(handler func(w http.ResponseWriter, r *http.Request)) (*httptest.Server, error) {
@@ -1136,7 +1140,7 @@ endpoint_params:
 		t.Fatalf("Got unmarshalled config %q, expected %q", unmarshalledConfig, expectedConfig)
 	}
 
-	rt := expectedConfig.NewOAuth2RoundTripper(context.Background(), http.DefaultTransport)
+	rt := NewOAuth2RoundTripper(&expectedConfig, http.DefaultTransport)
 
 	client := http.Client{
 		Transport: rt,
@@ -1144,6 +1148,118 @@ endpoint_params:
 	resp, _ := client.Get(ts.URL)
 
 	authorization := resp.Request.Header.Get("Authorization")
+	if authorization != "Bearer 12345" {
+		t.Fatalf("Expected authorization header to be 'Bearer 12345', got '%s'", authorization)
+	}
+}
+
+func TestOAuth2WithFile(t *testing.T) {
+	var expectedAuth *string
+	var previousAuth string
+	tokenTS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auth := r.Header.Get("Authorization")
+		if auth != *expectedAuth {
+			t.Fatalf("bad auth, expected %s, got %s", *expectedAuth, auth)
+		}
+		if auth == previousAuth {
+			t.Fatal("token endpoint called twice")
+		}
+		previousAuth = auth
+		res, _ := json.Marshal(testServerResponse{
+			AccessToken: "12345",
+			TokenType:   "Bearer",
+		})
+		w.Header().Add("Content-Type", "application/json")
+		_, _ = w.Write(res)
+	}))
+	defer tokenTS.Close()
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auth := r.Header.Get("Authorization")
+		if auth != "Bearer 12345" {
+			t.Fatalf("bad auth, expected %s, got %s", "Bearer 12345", auth)
+		}
+		fmt.Fprintln(w, "Hello, client")
+	}))
+	defer ts.Close()
+
+	secretFile, err := ioutil.TempFile("", "oauth2_secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(secretFile.Name())
+
+	var yamlConfig = fmt.Sprintf(`
+client_id: 1
+client_secret_file: %s
+scopes:
+ - A
+ - B
+token_url: %s
+endpoint_params:
+ hi: hello
+`, secretFile.Name(), tokenTS.URL)
+	expectedConfig := OAuth2{
+		ClientID:         "1",
+		ClientSecretFile: secretFile.Name(),
+		Scopes:           []string{"A", "B"},
+		EndpointParams:   map[string]string{"hi": "hello"},
+		TokenURL:         tokenTS.URL,
+	}
+
+	var unmarshalledConfig OAuth2
+	err = yaml.Unmarshal([]byte(yamlConfig), &unmarshalledConfig)
+	if err != nil {
+		t.Fatalf("Expected no error unmarshalling yaml, got %v", err)
+	}
+	if !reflect.DeepEqual(unmarshalledConfig, expectedConfig) {
+		t.Fatalf("Got unmarshalled config %q, expected %q", unmarshalledConfig, expectedConfig)
+	}
+
+	rt := NewOAuth2RoundTripper(&expectedConfig, http.DefaultTransport)
+
+	client := http.Client{
+		Transport: rt,
+	}
+
+	tk := "Basic MToxMjM0NTY="
+	expectedAuth = &tk
+	if _, err := secretFile.Write([]byte("123456")); err != nil {
+		t.Fatal(err)
+	}
+	resp, err := client.Get(ts.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	authorization := resp.Request.Header.Get("Authorization")
+	if authorization != "Bearer 12345" {
+		t.Fatalf("Expected authorization header to be 'Bearer 12345', got '%s'", authorization)
+	}
+
+	// Making a second request with the same file content should not re-call the token API.
+	resp, err = client.Get(ts.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tk = "Basic MToxMjM0NTY3"
+	expectedAuth = &tk
+	if _, err := secretFile.Write([]byte("7")); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = client.Get(ts.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Making a second request with the same file content should not re-call the token API.
+	_, err = client.Get(ts.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	authorization = resp.Request.Header.Get("Authorization")
 	if authorization != "Bearer 12345" {
 		t.Fatalf("Expected authorization header to be 'Bearer 12345', got '%s'", authorization)
 	}
