@@ -93,7 +93,7 @@ var invalidHTTPClientConfigs = []struct {
 	},
 	{
 		httpClientConfigFile: "testdata/http.conf.basic-auth-and-auth-creds.too-much.bad.yaml",
-		errMsg:               `at most one of basic_auth, oauth2 & authorization must be configured`,
+		errMsg:               "at most one of basic_auth, oauth2 & authorization must be configured",
 	},
 	{
 		httpClientConfigFile: "testdata/http.conf.basic-auth-and-oauth2.too-much.bad.yaml",
@@ -105,7 +105,7 @@ var invalidHTTPClientConfigs = []struct {
 	},
 	{
 		httpClientConfigFile: "testdata/http.conf.oauth2-secret-and-file-set.bad.yml",
-		errMsg:               `at most one of oauth2 client_secret & client_secret_file must be configured`,
+		errMsg:               "at most one of oauth2 client_secret & client_secret_file must be configured",
 	},
 }
 
