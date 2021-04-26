@@ -112,11 +112,12 @@ func (u URL) MarshalYAML() (interface{}, error) {
 
 // OAuth2 is the oauth2 client configuration.
 type OAuth2 struct {
-	ClientID       string            `yaml:"client_id"`
-	ClientSecret   Secret            `yaml:"client_secret"`
-	Scopes         []string          `yaml:"scopes,omitempty"`
-	TokenURL       string            `yaml:"token_url"`
-	EndpointParams map[string]string `yaml:"endpoint_params,omitempty"`
+	ClientID         string            `yaml:"client_id"`
+	ClientSecret     Secret            `yaml:"client_secret"`
+	ClientSecretFile string            `yaml:"client_secret_file"`
+	Scopes           []string          `yaml:"scopes,omitempty"`
+	TokenURL         string            `yaml:"token_url"`
+	EndpointParams   map[string]string `yaml:"endpoint_params,omitempty"`
 }
 
 // HTTPClientConfig configures an HTTP client.
@@ -347,7 +348,7 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, optFuncs ...HT
 		}
 
 		if cfg.OAuth2 != nil {
-			rt = cfg.OAuth2.NewOAuth2RoundTripper(context.Background(), rt)
+			rt = NewOAuth2RoundTripper(cfg.OAuth2, rt)
 		}
 		// Return a new configured RoundTripper.
 		return rt, nil
@@ -462,20 +463,70 @@ func (rt *basicAuthRoundTripper) CloseIdleConnections() {
 	}
 }
 
-func (c *OAuth2) NewOAuth2RoundTripper(ctx context.Context, next http.RoundTripper) http.RoundTripper {
-	config := &clientcredentials.Config{
-		ClientID:       c.ClientID,
-		ClientSecret:   string(c.ClientSecret),
-		Scopes:         c.Scopes,
-		TokenURL:       c.TokenURL,
-		EndpointParams: mapToValues(c.EndpointParams),
+type oauth2RoundTripper struct {
+	config *OAuth2
+	rt     http.RoundTripper
+	next   http.RoundTripper
+	secret string
+	mtx    sync.RWMutex
+}
+
+func NewOAuth2RoundTripper(config *OAuth2, next http.RoundTripper) http.RoundTripper {
+	return &oauth2RoundTripper{
+		config: config,
+		next:   next,
+	}
+}
+
+func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	var (
+		secret  string
+		changed bool
+	)
+
+	if rt.config.ClientSecretFile != "" {
+		data, err := ioutil.ReadFile(rt.config.ClientSecretFile)
+		if err != nil {
+			return nil, fmt.Errorf("unable to read oauth2 client secret file %s: %s", rt.config.ClientSecretFile, err)
+		}
+		secret = string(data)
+		changed = secret != rt.secret
 	}
 
-	tokenSource := config.TokenSource(ctx)
+	if changed || rt.rt == nil {
+		if rt.config.ClientSecret != "" {
+			secret = string(rt.config.ClientSecret)
+		}
 
-	return &oauth2.Transport{
-		Base:   next,
-		Source: tokenSource,
+		config := &clientcredentials.Config{
+			ClientID:       rt.config.ClientID,
+			ClientSecret:   secret,
+			Scopes:         rt.config.Scopes,
+			TokenURL:       rt.config.TokenURL,
+			EndpointParams: mapToValues(rt.config.EndpointParams),
+		}
+
+		tokenSource := config.TokenSource(context.Background())
+
+		rt.mtx.Lock()
+		rt.secret = secret
+		rt.rt = &oauth2.Transport{
+			Base:   rt.next,
+			Source: tokenSource,
+		}
+		rt.mtx.Unlock()
+	}
+
+	rt.mtx.RLock()
+	currentRT := rt.rt
+	rt.mtx.RUnlock()
+	return currentRT.RoundTrip(req)
+}
+
+func (rt *oauth2RoundTripper) CloseIdleConnections() {
+	// OAuth2 RT does not support CloseIdleConnections() but the next RT might.
+	if ci, ok := rt.next.(closeIdler); ok {
+		ci.CloseIdleConnections()
 	}
 }
 

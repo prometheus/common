@@ -1136,7 +1136,7 @@ endpoint_params:
 		t.Fatalf("Got unmarshalled config %q, expected %q", unmarshalledConfig, expectedConfig)
 	}
 
-	rt := expectedConfig.NewOAuth2RoundTripper(context.Background(), http.DefaultTransport)
+	rt := NewOAuth2RoundTripper(&expectedConfig, http.DefaultTransport)
 
 	client := http.Client{
 		Transport: rt,
