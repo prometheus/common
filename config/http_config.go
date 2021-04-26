@@ -32,6 +32,8 @@ import (
 
 	"github.com/mwitkow/go-conntrack"
 	"golang.org/x/net/http2"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/clientcredentials"
 	"gopkg.in/yaml.v2"
 )
 
@@ -108,12 +110,23 @@ func (u URL) MarshalYAML() (interface{}, error) {
 	return nil, nil
 }
 
+// OAuth2 is the oauth2 client configuration.
+type OAuth2 struct {
+	ClientID       string            `yaml:"client_id"`
+	ClientSecret   Secret            `yaml:"client_secret"`
+	Scopes         []string          `yaml:"scopes,omitempty"`
+	TokenURL       string            `yaml:"token_url"`
+	EndpointParams map[string]string `yaml:"endpoint_params,omitempty"`
+}
+
 // HTTPClientConfig configures an HTTP client.
 type HTTPClientConfig struct {
 	// The HTTP basic authentication credentials for the targets.
 	BasicAuth *BasicAuth `yaml:"basic_auth,omitempty"`
 	// The HTTP authorization credentials for the targets.
 	Authorization *Authorization `yaml:"authorization,omitempty"`
+	// The OAuth2 client credentials used to fetch a token for the targets.
+	OAuth2 *OAuth2 `yaml:"oauth2,omitempty"`
 	// The bearer token for the targets. Deprecated in favour of
 	// Authorization.Credentials.
 	BearerToken Secret `yaml:"bearer_token,omitempty"`
@@ -148,8 +161,8 @@ func (c *HTTPClientConfig) Validate() error {
 	if len(c.BearerToken) > 0 && len(c.BearerTokenFile) > 0 {
 		return fmt.Errorf("at most one of bearer_token & bearer_token_file must be configured")
 	}
-	if c.BasicAuth != nil && (len(c.BearerToken) > 0 || len(c.BearerTokenFile) > 0) {
-		return fmt.Errorf("at most one of basic_auth, bearer_token & bearer_token_file must be configured")
+	if (c.BasicAuth != nil || c.OAuth2 != nil) && (len(c.BearerToken) > 0 || len(c.BearerTokenFile) > 0) {
+		return fmt.Errorf("at most one of basic_auth, oauth2, bearer_token & bearer_token_file must be configured")
 	}
 	if c.BasicAuth != nil && (string(c.BasicAuth.Password) != "" && c.BasicAuth.PasswordFile != "") {
 		return fmt.Errorf("at most one of basic_auth password & password_file must be configured")
@@ -168,8 +181,8 @@ func (c *HTTPClientConfig) Validate() error {
 		if strings.ToLower(c.Authorization.Type) == "basic" {
 			return fmt.Errorf(`authorization type cannot be set to "basic", use "basic_auth" instead`)
 		}
-		if c.BasicAuth != nil {
-			return fmt.Errorf("at most one of basic_auth & authorization must be configured")
+		if c.BasicAuth != nil || c.OAuth2 != nil {
+			return fmt.Errorf("at most one of basic_auth, oauth2 & authorization must be configured")
 		}
 	} else {
 		if len(c.BearerToken) > 0 {
@@ -182,6 +195,9 @@ func (c *HTTPClientConfig) Validate() error {
 			c.Authorization.Type = "Bearer"
 			c.BearerTokenFile = ""
 		}
+	}
+	if c.BasicAuth != nil && c.OAuth2 != nil {
+		return fmt.Errorf("at most one of basic_auth, oauth2 & authorization must be configured")
 	}
 	return nil
 }
@@ -329,6 +345,10 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, optFuncs ...HT
 		if cfg.BasicAuth != nil {
 			rt = NewBasicAuthRoundTripper(cfg.BasicAuth.Username, cfg.BasicAuth.Password, cfg.BasicAuth.PasswordFile, rt)
 		}
+
+		if cfg.OAuth2 != nil {
+			rt = cfg.OAuth2.NewOAuth2RoundTripper(context.Background(), rt)
+		}
 		// Return a new configured RoundTripper.
 		return rt, nil
 	}
@@ -440,6 +460,32 @@ func (rt *basicAuthRoundTripper) CloseIdleConnections() {
 	if ci, ok := rt.rt.(closeIdler); ok {
 		ci.CloseIdleConnections()
 	}
+}
+
+func (c *OAuth2) NewOAuth2RoundTripper(ctx context.Context, next http.RoundTripper) http.RoundTripper {
+	config := &clientcredentials.Config{
+		ClientID:       c.ClientID,
+		ClientSecret:   string(c.ClientSecret),
+		Scopes:         c.Scopes,
+		TokenURL:       c.TokenURL,
+		EndpointParams: mapToValues(c.EndpointParams),
+	}
+
+	tokenSource := config.TokenSource(ctx)
+
+	return &oauth2.Transport{
+		Base:   next,
+		Source: tokenSource,
+	}
+}
+
+func mapToValues(m map[string]string) url.Values {
+	v := url.Values{}
+	for name, value := range m {
+		v.Set(name, value)
+	}
+
+	return v
 }
 
 // cloneRequest returns a clone of the provided *http.Request.
