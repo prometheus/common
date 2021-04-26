@@ -1226,15 +1226,21 @@ endpoint_params:
 	if _, err := secretFile.Write([]byte("123456")); err != nil {
 		t.Fatal(err)
 	}
-	resp, _ := client.Get(ts.URL)
+	resp, err := client.Get(ts.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	authorization := resp.Request.Header.Get("Authorization")
 	if authorization != "Bearer 12345" {
 		t.Fatalf("Expected authorization header to be 'Bearer 12345', got '%s'", authorization)
 	}
 
-	// Calling it again should not re-call the token API.
-	resp, _ = client.Get(ts.URL)
+	// Making a second request with the same file content should not re-call the token API.
+	resp, err = client.Get(ts.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	tk = "Basic MToxMjM0NTY3"
 	expectedAuth = &tk
@@ -1242,8 +1248,16 @@ endpoint_params:
 		t.Fatal(err)
 	}
 
-	_, _ = client.Get(ts.URL)
-	_, _ = client.Get(ts.URL)
+	_, err = client.Get(ts.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Making a second request with the same file content should not re-call the token API.
+	_, err = client.Get(ts.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	authorization = resp.Request.Header.Get("Authorization")
 	if authorization != "Bearer 12345" {
