@@ -107,6 +107,14 @@ var invalidHTTPClientConfigs = []struct {
 		httpClientConfigFile: "testdata/http.conf.oauth2-secret-and-file-set.bad.yml",
 		errMsg:               "at most one of oauth2 client_secret & client_secret_file must be configured",
 	},
+	{
+		httpClientConfigFile: "testdata/http.conf.oauth2-no-client-id.bad.yaml",
+		errMsg:               "the oauth2 client_id and either the client_secret or client_secret_file must be configured",
+	},
+	{
+		httpClientConfigFile: "testdata/http.conf.oauth2-no-client-secret.bad.yaml",
+		errMsg:               "the oauth2 client_id and either the client_secret or client_secret_file must be configured",
+	},
 }
 
 func newTestServer(handler func(w http.ResponseWriter, r *http.Request)) (*httptest.Server, error) {
