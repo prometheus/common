@@ -210,8 +210,11 @@ func (c *HTTPClientConfig) Validate() error {
 		if c.BasicAuth != nil {
 			return fmt.Errorf("at most one of basic_auth, oauth2 & authorization must be configured")
 		}
-		if len(c.OAuth2.ClientID) < 1 || (len(c.OAuth2.ClientSecret) < 1 || len(c.OAuth2.ClientSecretFile) < 1) {
+		if len(c.OAuth2.ClientID) < 1 || (len(c.OAuth2.ClientSecret) < 1 && len(c.OAuth2.ClientSecretFile) < 1) {
 			return fmt.Errorf("the oauth2 client_id and either the client_secret or client_secret_file must be configured")
+		}
+		if len(c.OAuth2.TokenURL) < 1 {
+			return fmt.Errorf("the oauth2 token_url must be configured")
 		}
 		if len(c.OAuth2.ClientSecret) > 0 && len(c.OAuth2.ClientSecretFile) > 0 {
 			return fmt.Errorf("at most one of oauth2 client_secret & client_secret_file must be configured")
