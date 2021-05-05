@@ -21,6 +21,7 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -106,6 +107,28 @@ func (u *URL) UnmarshalYAML(unmarshal func(interface{}) error) error {
 func (u URL) MarshalYAML() (interface{}, error) {
 	if u.URL != nil {
 		return u.String(), nil
+	}
+	return nil, nil
+}
+
+// UnmarshalJSON implements the json.Marshaler interface for URL.
+func (u *URL) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	urlp, err := url.Parse(s)
+	if err != nil {
+		return err
+	}
+	u.URL = urlp
+	return nil
+}
+
+// MarshalJSON implements the json.Marshaler interface for URL.
+func (u URL) MarshalJSON() ([]byte, error) {
+	if u.URL != nil {
+		return json.Marshal(u.URL.String())
 	}
 	return nil, nil
 }
@@ -231,6 +254,16 @@ func (c *HTTPClientConfig) UnmarshalYAML(unmarshal func(interface{}) error) erro
 	type plain HTTPClientConfig
 	*c = DefaultHTTPClientConfig
 	if err := unmarshal((*plain)(c)); err != nil {
+		return err
+	}
+	return c.Validate()
+}
+
+// UnmarshalJSON implements the json.Marshaler interface for URL.
+func (c *HTTPClientConfig) UnmarshalJSON(data []byte) error {
+	type plain HTTPClientConfig
+	*c = DefaultHTTPClientConfig
+	if err := json.Unmarshal(data, (*plain)(c)); err != nil {
 		return err
 	}
 	return c.Validate()
