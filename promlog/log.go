@@ -154,14 +154,14 @@ type logger struct {
 	mtx          sync.Mutex
 }
 
-// l implements logger.Log
+// Log implements logger.Log.
 func (l *logger) Log(keyvals ...interface{}) error {
 	l.mtx.Lock()
 	defer l.mtx.Unlock()
 	return l.leveled.Log(keyvals...)
 }
 
-// SetLevel allows changing the level
+// SetLevel changes the log level.
 func (l *logger) SetLevel(lvl *AllowedLevel) {
 	l.mtx.Lock()
 	defer l.mtx.Unlock()
