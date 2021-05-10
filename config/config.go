@@ -42,6 +42,9 @@ func (s *Secret) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 // MarshalJSON implements the json.Marshaler interface for Secret.
 func (s Secret) MarshalJSON() ([]byte, error) {
+	if len(s) == 0 {
+		return json.Marshal("")
+	}
 	return json.Marshal(secretToken)
 }
 

@@ -23,18 +23,33 @@ import (
 )
 
 func TestJSONMarshalSecret(t *testing.T) {
-	test := struct {
+	type tmp struct {
 		S Secret
+	}
+	for _, tc := range []struct {
+		desc     string
+		data     tmp
+		expected string
 	}{
-		S: Secret("test"),
+		{
+			desc: "inhabited",
+			// u003c -> "<"
+			// u003e -> ">"
+			data:     tmp{"test"},
+			expected: "{\"S\":\"\\u003csecret\\u003e\"}",
+		},
+		{
+			desc:     "empty",
+			data:     tmp{},
+			expected: "{\"S\":\"\"}",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			c, err := json.Marshal(tc.data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			require.Equal(t, tc.expected, string(c), "Secret not properly elided.")
+		})
 	}
-
-	c, err := json.Marshal(test)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// u003c -> "<"
-	// u003e -> ">"
-	require.Equal(t, "{\"S\":\"\\u003csecret\\u003e\"}", string(c), "Secret not properly elided.")
 }
