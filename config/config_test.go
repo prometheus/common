@@ -18,8 +18,6 @@ package config
 import (
 	"encoding/json"
 	"testing"
-
-	"github.com/stretchr/testify/require"
 )
 
 func TestJSONMarshalSecret(t *testing.T) {
@@ -49,7 +47,9 @@ func TestJSONMarshalSecret(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			require.Equal(t, tc.expected, string(c), "Secret not properly elided.")
+			if tc.expected != string(c) {
+				t.Fatalf("Secret not marshaled correctly, got '%s'", string(c))
+			}
 		})
 	}
 }
