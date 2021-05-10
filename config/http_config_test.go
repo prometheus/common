@@ -26,6 +26,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -1274,5 +1275,50 @@ endpoint_params:
 	authorization = resp.Request.Header.Get("Authorization")
 	if authorization != "Bearer 12345" {
 		t.Fatalf("Expected authorization header to be 'Bearer 12345', got '%s'", authorization)
+	}
+}
+
+func TestMarshalURL(t *testing.T) {
+	urlp, err := url.Parse("http://example.com/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	u := &URL{urlp}
+
+	c, err := json.Marshal(u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(c) != "\"http://example.com/\"" {
+		t.Fatalf("URL not properly marshaled in JSON got '%s'", string(c))
+	}
+
+	c, err = yaml.Marshal(u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(c) != "http://example.com/\n" {
+		t.Fatalf("URL not properly marshaled in YAML got '%s'", string(c))
+	}
+}
+
+func TestUnmarshalURL(t *testing.T) {
+	b := []byte(`"http://example.com/a b"`)
+	var u URL
+
+	err := json.Unmarshal(b, &u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.String() != "http://example.com/a%20b" {
+		t.Fatalf("URL not properly unmarshaled in JSON, got '%s'", u.String())
+	}
+
+	err = yaml.Unmarshal(b, &u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.String() != "http://example.com/a%20b" {
+		t.Fatalf("URL not properly unmarshaled in YAML, got '%s'", u.String())
 	}
 }
