@@ -108,12 +108,10 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (written int, err e
 	if err != nil {
 		return
 	}
-	if in.Help != nil {
-		n, err = writeEscapedString(w, *in.Help, false)
-		written += n
-		if err != nil {
-			return
-		}
+	n, err = writeEscapedString(w, in.GetHelp(), false)
+	written += n
+	if err != nil {
+		return
 	}
 	err = w.WriteByte('\n')
 	written++
