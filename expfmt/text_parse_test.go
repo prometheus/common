@@ -24,8 +24,8 @@ import (
 
 func testTextParse(t testing.TB) {
 	var scenarios = []struct {
-		in   string
-		out  []*dto.MetricFamily
+		in  string
+		out []*dto.MetricFamily
 	}{
 		// 0: Empty lines as input.
 		{
@@ -378,49 +378,6 @@ request_duration_microseconds_count 2693
 										CumulativeCount: proto.Uint64(2693),
 									},
 								},
-							},
-						},
-					},
-				},
-			},
-		},
-		// 5: Empty help string results in an empty string for metric family.
-		{
-			in: `
-# HELP empty_help_string 
-# TYPE empty_help_string counter
-empty_help_string 0
-`,
-			out: []*dto.MetricFamily{
-				{
-					Name: proto.String("empty_help_string"),
-					Help: proto.String(""),
-					Type: dto.MetricType_COUNTER.Enum(),
-					Metric: []*dto.Metric{
-						{
-							Counter: &dto.Counter{
-								Value: proto.Float64(0),
-							},
-						},
-					},
-				},
-			},
-		},
-		// 6: Omitting help string produces nil help for metric family
-		{
-			in: `
-# TYPE no_help_string counter
-no_help_string 0
-`,
-			out: []*dto.MetricFamily{
-				{
-					Name: proto.String("no_help_string "),
-					Help: proto.String(""),
-					Type: dto.MetricType_COUNTER.Enum(),
-					Metric: []*dto.Metric{
-						{
-							Counter: &dto.Counter{
-								Value: proto.Float64(0),
 							},
 						},
 					},
