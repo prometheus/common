@@ -19,7 +19,6 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-
 	dto "github.com/prometheus/client_model/go"
 )
 
@@ -128,8 +127,7 @@ func TestEncode(t *testing.T) {
 		t.Errorf("expected the output bytes buffer to be non-empty")
 	}
 
-	expected := "# HELP foo_metric \n" +
-		"# TYPE foo_metric untyped\n" +
+	expected := "# TYPE foo_metric untyped\n" +
 		"foo_metric 1.234\n"
 
 	if string(out) != expected {
