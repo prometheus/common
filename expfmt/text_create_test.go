@@ -26,13 +26,11 @@ import (
 
 func TestCreate(t *testing.T) {
 	var scenarios = []struct {
-		name string
-		in   *dto.MetricFamily
-		out  string
+		in  *dto.MetricFamily
+		out string
 	}{
 		// 0: Counter, NaN as value, timestamp given.
 		{
-			name: "Counter, NaN as value, timestamp given",
 			in: &dto.MetricFamily{
 				Name: proto.String("name"),
 				Help: proto.String("two-line\n doc  str\\ing"),
@@ -79,7 +77,6 @@ name{labelname="val2",basename="basevalue"} 0.23 1234567890
 		},
 		// 1: Gauge, some escaping required, +Inf as value, multi-byte characters in label values.
 		{
-			name: "Gauge, some escaping required, +Inf as value, multi-byte characters in label values",
 			in: &dto.MetricFamily{
 				Name: proto.String("gauge_name"),
 				Help: proto.String("gauge\ndoc\nstr\"ing"),
@@ -125,7 +122,6 @@ gauge_name{name_1="Björn",name_2="佖佥"} 3.14e+42
 		},
 		// 2: Untyped, no help, one sample with no labels and -Inf as value, another sample with one label.
 		{
-			name: "Untyped, no help, one sample with no labels and -Inf as value, another sample with one label",
 			in: &dto.MetricFamily{
 				Name: proto.String("untyped_name"),
 				Type: dto.MetricType_UNTYPED.Enum(),
@@ -148,15 +144,13 @@ gauge_name{name_1="Björn",name_2="佖佥"} 3.14e+42
 					},
 				},
 			},
-			out: `# HELP untyped_name 
-# TYPE untyped_name untyped
+			out: `# TYPE untyped_name untyped
 untyped_name -Inf
 untyped_name{name_1="value 1"} -1.23e-45
 `,
 		},
 		// 3: Summary.
 		{
-			name: "Summary",
 			in: &dto.MetricFamily{
 				Name: proto.String("summary_name"),
 				Help: proto.String("summary docstring"),
@@ -230,7 +224,6 @@ summary_name_count{name_1="value 1",name_2="value 2"} 4711
 		},
 		// 4: Histogram
 		{
-			name: "Histogram",
 			in: &dto.MetricFamily{
 				Name: proto.String("request_duration_microseconds"),
 				Help: proto.String("The response latency."),
@@ -279,7 +272,6 @@ request_duration_microseconds_count 2693
 		},
 		// 5: Histogram with missing +Inf bucket.
 		{
-			name: "Histogram with missing +Inf bucket",
 			in: &dto.MetricFamily{
 				Name: proto.String("request_duration_microseconds"),
 				Help: proto.String("The response latency."),
@@ -324,7 +316,6 @@ request_duration_microseconds_count 2693
 		},
 		// 6: No metric type, should result in default type Counter.
 		{
-			name: "Histogram with missing +Inf bucket",
 			in: &dto.MetricFamily{
 				Name: proto.String("name"),
 				Help: proto.String("doc string"),
@@ -341,49 +332,29 @@ request_duration_microseconds_count 2693
 name -Inf
 `,
 		},
-		// 7: Nil help string should write out metric name as help
-		{
-			name: "Nil help string should write out metric name as help",
-			in: &dto.MetricFamily{
-				Name: proto.String("name"),
-				Help: nil,
-				Metric: []*dto.Metric{
-					&dto.Metric{
-						Counter: &dto.Counter{
-							Value: proto.Float64(math.Inf(-1)),
-						},
-					},
-				},
-			},
-			out: `# HELP name 
-# TYPE name counter
-name -Inf
-`,
-		},
 	}
 
 	for i, scenario := range scenarios {
-		t.Run(scenario.name, func(tt *testing.T) {
-			out := bytes.NewBuffer(make([]byte, 0, len(scenario.out)))
-			n, err := MetricFamilyToText(out, scenario.in)
-			if err != nil {
-				tt.Errorf("%d. error: %s", i, err)
-				return
-			}
-			if expected, got := len(scenario.out), n; expected != got {
-				tt.Errorf(
-					"%d. expected %d bytes written, got %d",
-					i, expected, got,
-				)
-			}
-			if expected, got := scenario.out, out.String(); expected != got {
-				tt.Errorf(
-					"%d. expected out=%q, got %q",
-					i, expected, got,
-				)
-			}
-		})
+		out := bytes.NewBuffer(make([]byte, 0, len(scenario.out)))
+		n, err := MetricFamilyToText(out, scenario.in)
+		if err != nil {
+			t.Errorf("%d. error: %s", i, err)
+			continue
+		}
+		if expected, got := len(scenario.out), n; expected != got {
+			t.Errorf(
+				"%d. expected %d bytes written, got %d",
+				i, expected, got,
+			)
+		}
+		if expected, got := scenario.out, out.String(); expected != got {
+			t.Errorf(
+				"%d. expected out=%q, got %q",
+				i, expected, got,
+			)
+		}
 	}
+
 }
 
 func BenchmarkCreate(b *testing.B) {

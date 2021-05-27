@@ -93,30 +93,32 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (written int, err e
 	var n int
 
 	// Comments, first HELP, then TYPE.
-	n, err = w.WriteString("# HELP ")
-	written += n
-	if err != nil {
-		return
-	}
-	n, err = w.WriteString(name)
-	written += n
-	if err != nil {
-		return
-	}
-	err = w.WriteByte(' ')
-	written++
-	if err != nil {
-		return
-	}
-	n, err = writeEscapedString(w, in.GetHelp(), false)
-	written += n
-	if err != nil {
-		return
-	}
-	err = w.WriteByte('\n')
-	written++
-	if err != nil {
-		return
+	if in.Help != nil {
+		n, err = w.WriteString("# HELP ")
+		written += n
+		if err != nil {
+			return
+		}
+		n, err = w.WriteString(name)
+		written += n
+		if err != nil {
+			return
+		}
+		err = w.WriteByte(' ')
+		written++
+		if err != nil {
+			return
+		}
+		n, err = writeEscapedString(w, *in.Help, false)
+		written += n
+		if err != nil {
+			return
+		}
+		err = w.WriteByte('\n')
+		written++
+		if err != nil {
+			return
+		}
 	}
 	n, err = w.WriteString("# TYPE ")
 	written += n
