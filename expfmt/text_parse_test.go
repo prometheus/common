@@ -90,8 +90,8 @@ name{labelname="val1",basename="basevalue"} NaN
 name {labelname="val2",basename="base\"v\\al\nue"} 0.23 1234567890
 # HELP name two-line\n doc  str\\ing
 
- # HELP  name2  	doc str"ing 2
-  #    TYPE    name2 gauge
+# HELP  name2  	doc str"ing 2
+ #    TYPE    name2 gauge
 name2{labelname="val2"	,basename   =   "basevalue2"		} +Inf 54321
 name2{ labelname = "val1" , }-Inf
 `,
@@ -187,13 +187,13 @@ my_summary_count{n2="val2",n1="val1"} 5 5
 another_summary{n1="val1",n2="val2",quantile=".3"} -1.2
 my_summary_sum{n1="val2"} 08 15
 my_summary{n1="val3", quantile="0.2"} 4711
-  my_summary{n1="val1",n2="val2",quantile="-12.34",} NaN
+ my_summary{n1="val1",n2="val2",quantile="-12.34",} NaN
 # some
 # funny comments
-# HELP 
+# HELP
 # HELP
 # HELP my_summary
-# HELP my_summary 
+# HELP my_summary
 `,
 			out: []*dto.MetricFamily{
 				&dto.MetricFamily{
@@ -228,6 +228,7 @@ my_summary{n1="val3", quantile="0.2"} 4711
 				&dto.MetricFamily{
 					Name: proto.String("my_summary"),
 					Type: dto.MetricType_SUMMARY.Enum(),
+					Help: proto.String(""),
 					Metric: []*dto.Metric{
 						&dto.Metric{
 							Label: []*dto.LabelPair{
@@ -378,6 +379,50 @@ request_duration_microseconds_count 2693
 										CumulativeCount: proto.Uint64(2693),
 									},
 								},
+							},
+						},
+					},
+				},
+			},
+		},
+
+		// 5: Help string present but empty will result in empty help for metric family
+		{
+			in: `
+# HELP empty_help_string
+# TYPE empty_help_string counter
+empty_help_string 0
+`,
+			out: []*dto.MetricFamily{
+				{
+					Name: proto.String("empty_help_string"),
+					Help: proto.String(""),
+					Type: dto.MetricType_COUNTER.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Counter: &dto.Counter{
+								Value: proto.Float64(0),
+							},
+						},
+					},
+				},
+			},
+		},
+		// 6: Omitting help string produces nil help for metric family
+		{
+			in: `
+# TYPE no_help_string counter
+no_help_string 0
+`,
+			out: []*dto.MetricFamily{
+				{
+					Name: proto.String("no_help_string"),
+					Help: nil,
+					Type: dto.MetricType_COUNTER.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Counter: &dto.Counter{
+								Value: proto.Float64(0),
 							},
 						},
 					},

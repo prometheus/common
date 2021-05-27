@@ -34,6 +34,11 @@ import (
 // by nil.
 type stateFn func() stateFn
 
+const (
+	KeywordHelp = "HELP"
+	KeywordType = "TYPE"
+)
+
 // ParseError signals errors while parsing the simple and flat text-based
 // exchange format.
 type ParseError struct {
@@ -174,7 +179,7 @@ func (p *TextParser) startComment() stateFn {
 		return p.startOfLine
 	}
 	keyword := p.currentToken.String()
-	if keyword != "HELP" && keyword != "TYPE" {
+	if keyword != KeywordHelp && keyword != KeywordType {
 		// Generic comment, ignore by fast forwarding to end of line.
 		for p.currentByte != '\n' {
 			if p.currentByte, p.err = p.buf.ReadByte(); p.err != nil {
@@ -190,28 +195,38 @@ func (p *TextParser) startComment() stateFn {
 	if p.readTokenAsMetricName(); p.err != nil {
 		return nil // Unexpected end of input.
 	}
-	if p.currentByte == '\n' {
+	p.setOrCreateCurrentMF()
+
+	// In case we are parsing a HELP comment but no value has been
+	// supplied we make sure that we set the string to empty
+	if keyword == KeywordHelp && p.currentMF.Help == nil {
+		p.currentMF.Help = proto.String("")
+	}
+
+	if isNewline(p.currentByte) {
 		// At the end of the line already.
 		// Again, this is not considered a syntax error.
 		return p.startOfLine
 	}
+
 	if !isBlankOrTab(p.currentByte) {
 		p.parseError("invalid metric name in comment")
 		return nil
 	}
-	p.setOrCreateCurrentMF()
+
 	if p.skipBlankTab(); p.err != nil {
 		return nil // Unexpected end of input.
 	}
-	if p.currentByte == '\n' {
+	if isNewline(p.currentByte) {
 		// At the end of the line already.
 		// Again, this is not considered a syntax error.
 		return p.startOfLine
 	}
+
 	switch keyword {
-	case "HELP":
+	case KeywordHelp:
 		return p.readingHelp
-	case "TYPE":
+	case KeywordType:
 		return p.readingType
 	}
 	panic(fmt.Sprintf("code error: unexpected keyword %q", keyword))
@@ -492,7 +507,7 @@ func (p *TextParser) startTimestamp() stateFn {
 // readingHelp represents the state where the last byte read (now in
 // p.currentByte) is the first byte of the docstring after 'HELP'.
 func (p *TextParser) readingHelp() stateFn {
-	if p.currentMF.Help != nil {
+	if p.currentMF.GetHelp() != "" {
 		p.parseError(fmt.Sprintf("second HELP line for metric name %q", p.currentMF.GetName()))
 		return nil
 	}
@@ -729,6 +744,10 @@ func isValidMetricNameContinuation(b byte) bool {
 
 func isBlankOrTab(b byte) bool {
 	return b == ' ' || b == '\t'
+}
+
+func isNewline(b byte) bool {
+	return b == '\n'
 }
 
 func isCount(name string) bool {
