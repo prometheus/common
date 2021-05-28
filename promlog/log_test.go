@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/kit/level"
 	"gopkg.in/yaml.v2"
 )
 

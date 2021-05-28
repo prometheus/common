@@ -19,4 +19,6 @@ require (
 	gopkg.in/yaml.v2 v2.3.0
 )
 
+replace github.com/go-kit/kit => github.com/go-kit/log v0.0.1-alpha
+
 go 1.11
