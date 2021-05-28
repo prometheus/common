@@ -21,8 +21,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-kit/kit"
-	"github.com/go-kit/kit/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
 )
 
