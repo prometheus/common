@@ -35,8 +35,8 @@ import (
 type stateFn func() stateFn
 
 const (
-	KeywordHelp = "HELP"
-	KeywordType = "TYPE"
+	keywordHelp = "HELP"
+	keywordType = "TYPE"
 )
 
 // ParseError signals errors while parsing the simple and flat text-based
@@ -179,7 +179,7 @@ func (p *TextParser) startComment() stateFn {
 		return p.startOfLine
 	}
 	keyword := p.currentToken.String()
-	if keyword != KeywordHelp && keyword != KeywordType {
+	if keyword != keywordHelp && keyword != keywordType {
 		// Generic comment, ignore by fast forwarding to end of line.
 		for p.currentByte != '\n' {
 			if p.currentByte, p.err = p.buf.ReadByte(); p.err != nil {
@@ -196,19 +196,16 @@ func (p *TextParser) startComment() stateFn {
 		return nil // Unexpected end of input.
 	}
 	p.setOrCreateCurrentMF()
-
 	// In case we are parsing a HELP comment but no value has been
 	// supplied we make sure that we set the string to empty
-	if keyword == KeywordHelp && p.currentMF.Help == nil {
+	if keyword == keywordHelp && p.currentMF.Help == nil {
 		p.currentMF.Help = proto.String("")
 	}
-
 	if isNewline(p.currentByte) {
 		// At the end of the line already.
 		// Again, this is not considered a syntax error.
 		return p.startOfLine
 	}
-
 	if !isBlankOrTab(p.currentByte) {
 		p.parseError("invalid metric name in comment")
 		return nil
@@ -222,11 +219,10 @@ func (p *TextParser) startComment() stateFn {
 		// Again, this is not considered a syntax error.
 		return p.startOfLine
 	}
-
 	switch keyword {
-	case KeywordHelp:
+	case keywordHelp:
 		return p.readingHelp
-	case KeywordType:
+	case keywordType:
 		return p.readingType
 	}
 	panic(fmt.Sprintf("code error: unexpected keyword %q", keyword))
