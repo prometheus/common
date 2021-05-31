@@ -210,7 +210,6 @@ func (p *TextParser) startComment() stateFn {
 		p.parseError("invalid metric name in comment")
 		return nil
 	}
-
 	if p.skipBlankTab(); p.err != nil {
 		return nil // Unexpected end of input.
 	}
