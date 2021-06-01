@@ -429,6 +429,29 @@ no_help_string 0
 				},
 			},
 		},
+		// 7: Two Help strings present but empty will overwritten
+		{
+			in: `
+# HELP should_not_be_empty_help_string
+# HELP should_not_be_empty_help_string not empty
+# TYPE should_not_be_empty_help_string counter
+should_not_be_empty_help_string 0
+`,
+			out: []*dto.MetricFamily{
+				{
+					Name: proto.String("should_not_be_empty_help_string"),
+					Help: proto.String("not empty"),
+					Type: dto.MetricType_COUNTER.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Counter: &dto.Counter{
+								Value: proto.Float64(0),
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for i, scenario := range scenarios {
@@ -684,6 +707,15 @@ metric{quantile="0x1p-3"} 3.14
 		{
 			in:  `metric{label="bla",label="bla"} 3.14`,
 			err: "text format parsing error in line 1: duplicate label names for metric",
+		},
+		// 34: Empty help string allowed but fails on none empty
+		{
+			in: `
+# HELP metric
+# HELP metric one
+# HELP metric two
+`,
+			err: "text format parsing error in line 4: second HELP line for metric name",
 		},
 	}
 

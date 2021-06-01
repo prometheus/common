@@ -197,7 +197,7 @@ func (p *TextParser) startComment() stateFn {
 	}
 	p.setOrCreateCurrentMF()
 	// In case we are parsing a HELP comment but no value has been
-	// supplied we make sure that we set the string to empty
+	// supplied we make sure that we set the string to empty.
 	if keyword == keywordHelp && p.currentMF.Help == nil {
 		p.currentMF.Help = proto.String("")
 	}
