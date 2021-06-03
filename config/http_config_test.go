@@ -1302,6 +1302,83 @@ func TestMarshalURL(t *testing.T) {
 	}
 }
 
+func TestMarshalURLWrapperWithNilValue(t *testing.T) {
+	u := &URL{}
+
+	c, err := json.Marshal(u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(c) != "null" {
+		t.Fatalf("URL with nil value not properly marshaled into JSON, got %q", c)
+	}
+
+	c, err = yaml.Marshal(u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(c) != "null\n" {
+		t.Fatalf("URL with nil value not properly marshaled into JSON, got %q", c)
+	}
+}
+
+func TestUnmarshalNullURL(t *testing.T) {
+	b := []byte(`null`)
+
+	{
+		var u URL
+		err := json.Unmarshal(b, &u)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !isEmptyNonNilURL(u.URL) {
+			t.Fatalf("`null` literal not properly unmarshaled from JSON as URL, got %#v", u.URL)
+		}
+	}
+
+	{
+		var u URL
+		err := yaml.Unmarshal(b, &u)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if u.URL != nil { // UnmarshalYAML is not called when parsing null literal.
+			t.Fatalf("`null` literal not properly unmarshaled from YAML as URL, got %#v", u.URL)
+		}
+	}
+}
+
+func TestUnmarshalEmptyURL(t *testing.T) {
+	b := []byte(`""`)
+
+	{
+		var u URL
+		err := json.Unmarshal(b, &u)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !isEmptyNonNilURL(u.URL) {
+			t.Fatalf("empty string not properly unmarshaled from JSON as URL, got %#v", u.URL)
+		}
+	}
+
+	{
+		var u URL
+		err := yaml.Unmarshal(b, &u)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !isEmptyNonNilURL(u.URL) {
+			t.Fatalf("empty string not properly unmarshaled from YAML as URL, got %#v", u.URL)
+		}
+	}
+}
+
+// checks if u equals to &url.URL{}
+func isEmptyNonNilURL(u *url.URL) bool {
+	return u != nil && *u == url.URL{}
+}
+
 func TestUnmarshalURL(t *testing.T) {
 	b := []byte(`"http://example.com/a b"`)
 	var u URL
