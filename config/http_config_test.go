@@ -456,6 +456,25 @@ func TestCustomDialContextFunc(t *testing.T) {
 	}
 }
 
+func TestCustomIdleConnTimeout(t *testing.T) {
+	timeout := time.Second * 5
+
+	cfg := HTTPClientConfig{}
+	rt, err := NewRoundTripperFromConfig(cfg, "test", WithIdleConnTimeout(timeout))
+	if err != nil {
+		t.Fatalf("Can't create a round-tripper from this config: %+v", cfg)
+	}
+
+	transport, ok := rt.(*http.Transport)
+	if !ok {
+		t.Fatalf("Unexpected transport: %+v", transport)
+	}
+
+	if transport.IdleConnTimeout != timeout {
+		t.Fatalf("Unexpected idle connection timeout: %+v", timeout)
+	}
+}
+
 func TestMissingBearerAuthFile(t *testing.T) {
 	cfg := HTTPClientConfig{
 		BearerTokenFile: MissingBearerTokenFile,
