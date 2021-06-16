@@ -1,0 +1,3 @@
+region: us-east-2
+profile: profile
+role_arn: blah:role/arn
