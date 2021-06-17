@@ -11,19 +11,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package sigv4
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/prometheus/common/config"
+)
 
 // SigV4Config is the configuration for signing remote write requests with
 // AWS's SigV4 verification process. Empty values will be retrieved using the
 // AWS default credentials chain.
 type SigV4Config struct {
-	Region    string `yaml:"region,omitempty"`
-	AccessKey string `yaml:"access_key,omitempty"`
-	SecretKey Secret `yaml:"secret_key,omitempty"`
-	Profile   string `yaml:"profile,omitempty"`
-	RoleARN   string `yaml:"role_arn,omitempty"`
+	Region    string        `yaml:"region,omitempty"`
+	AccessKey string        `yaml:"access_key,omitempty"`
+	SecretKey config.Secret `yaml:"secret_key,omitempty"`
+	Profile   string        `yaml:"profile,omitempty"`
+	RoleARN   string        `yaml:"role_arn,omitempty"`
 }
 
 func (c *SigV4Config) Validate() error {
