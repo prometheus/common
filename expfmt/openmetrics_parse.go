@@ -28,7 +28,7 @@ import (
 	"github.com/prometheus/prometheus/pkg/textparse"
 )
 
-// OpenMetricsParser is wrapped around original openmetricsparse.
+// OpenMetricsParser is used to parse openmetricsparse text format.
 // zero value is ready to use.
 type OpenMetricsParser struct {
 	metricFamiliesByName map[string]*dto.MetricFamily
@@ -51,11 +51,7 @@ type OpenMetricsParser struct {
 // duplicate Metric proto messages. Similar is true for duplicate label
 // names. Checks for duplicates have to be performed separately, if required.
 // Also note that neither the metrics within each MetricFamily are sorted nor
-// the label pairs within each Metric. Sorting is not required for the most
-// frequent use of this method, which is sample ingestion in the Prometheus
-// server. However, for presentation purposes, you might want to sort the
-// metrics, and in some cases, you must sort the labels, e.g. for consumption by
-// the metric family injection hook of the Prometheus registry.
+// the label pairs within each Metric.
 //
 // - Can deal with Counter, Gauge, Histogram, Summary, Untyped metrics types.
 //
@@ -73,10 +69,6 @@ func (p *OpenMetricsParser) OpenMetricsToMetricFamilies(in io.Reader) (map[strin
 	}
 	var currentMF *dto.MetricFamily
 	var currentMetric *dto.Metric
-	currentIsSummaryCount := false
-	currentIsSummarySum := false
-	currentIsHistogramCount := false
-	currentIsHistogramSum := false
 	for {
 		e, err := p.p.Next()
 		if err == io.EOF {
@@ -91,7 +83,7 @@ func (p *OpenMetricsParser) OpenMetricsToMetricFamilies(in io.Reader) (map[strin
 		case textparse.EntryType:
 			n, t := p.p.Type()
 			if currentMF = p.metricFamiliesByName[string(n)]; currentMF != nil && currentMF.Type != nil {
-				return nil, fmt.Errorf("duplicate type for metric %q", currentMF.GetName())
+				return nil, fmt.Errorf("second TYPE line for metric name %q, or TYPE reported after samples", currentMF.GetName())
 			}
 			if currentMF == nil {
 				currentMF = &dto.MetricFamily{Name: proto.String(string(n))}
@@ -102,7 +94,7 @@ func (p *OpenMetricsParser) OpenMetricsToMetricFamilies(in io.Reader) (map[strin
 				switch strings.ToUpper(string(t)) {
 				case "COUNTER":
 					metricType = dto.MetricType_COUNTER
-					// Add counter type metric name with the suffix '_total'.
+					// Complete counter type metric name with the suffix '_total'.
 					if !strings.HasSuffix(currentMF.GetName(), "_total") {
 						currentMF.Name = proto.String(currentMF.GetName() + "_total")
 					}
@@ -122,7 +114,7 @@ func (p *OpenMetricsParser) OpenMetricsToMetricFamilies(in io.Reader) (map[strin
 		case textparse.EntryHelp:
 			n, h := p.p.Help()
 			if currentMF = p.metricFamiliesByName[string(n)]; currentMF != nil && currentMF.Help != nil {
-				return nil, fmt.Errorf("duplicate help for metric %q", currentMF.GetName())
+				return nil, fmt.Errorf("second TYPE line for metric name %q", currentMF.GetName())
 			}
 			if currentMF == nil {
 				currentMF = &dto.MetricFamily{Name: proto.String(string(n)), Help: proto.String(string(h))}
@@ -132,29 +124,28 @@ func (p *OpenMetricsParser) OpenMetricsToMetricFamilies(in io.Reader) (map[strin
 				currentMF.Help = proto.String(string(h))
 			}
 		case textparse.EntrySeries:
+			currentIsSummaryCount := false
+			currentIsSummarySum := false
+			currentIsHistogramCount := false
+			currentIsHistogramSum := false
 			lbs := labels.Labels{}
 			p.p.Metric(&lbs)
 			name := lbs.Get(model.MetricNameLabel)
 			m := make(map[string]struct{})
 			for _, lb := range lbs {
 				if _, exists := m[lb.Name]; exists {
-					return nil, fmt.Errorf("duplicate label name %q for metric %q", lb.Name, name)
+					return nil, fmt.Errorf("metric %q has duplicate label name", name)
 				}
 				m[lb.Name] = struct{}{}
 			}
 			_, ts, v := p.p.Series()
-			// Reset the status.
-			currentIsSummaryCount = false
-			currentIsSummarySum = false
-			currentIsHistogramCount = false
-			currentIsHistogramSum = false
 			counterName := openMetricsCounterName(name)
 			summaryName := summaryMetricName(name)
 			histogramName := histogramMetricName(name)
 			if currentMF = p.metricFamiliesByName[name]; currentMF != nil {
-				// Do nothing.
+				// Nothing to do.
 			} else if currentMF = p.metricFamiliesByName[counterName]; currentMF != nil && currentMF.GetType() == dto.MetricType_COUNTER {
-				// Do nothing.
+				// Nothing to do.
 			} else if currentMF = p.metricFamiliesByName[summaryName]; currentMF != nil && currentMF.GetType() == dto.MetricType_SUMMARY {
 				if isCount(name) {
 					currentIsSummaryCount = true
@@ -229,7 +220,7 @@ func (p *OpenMetricsParser) OpenMetricsToMetricFamilies(in io.Reader) (map[strin
 				if qs := lbs.Get(model.QuantileLabel); qs != "" {
 					quantile, err := parseFloat(qs)
 					if err != nil {
-						return nil, fmt.Errorf("parse metric %q quantile failed:%v", name, err)
+						return nil, fmt.Errorf("exepected float as quantile got:%q", qs)
 					}
 					currentMetric.Summary.Quantile = append(
 						currentMetric.Summary.Quantile,
@@ -272,7 +263,7 @@ func (p *OpenMetricsParser) OpenMetricsToMetricFamilies(in io.Reader) (map[strin
 				if bs := lbs.Get(model.BucketLabel); bs != "" {
 					bucket, err := parseFloat(bs)
 					if err != nil {
-						return nil, fmt.Errorf("parse metric %q quantile failed:%v", name, err)
+						return nil, fmt.Errorf("expected float as bucket bound got:%q", bs)
 					}
 					currentMetric.Histogram.Bucket = append(
 						currentMetric.Histogram.Bucket,

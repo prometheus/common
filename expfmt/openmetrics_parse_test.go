@@ -12,16 +12,6 @@ import (
 
 var openMetricParser OpenMetricsParser
 
-func TestOpenMetricsParse(t *testing.T) {
-	testOpenMetricsParse(t)
-}
-
-func BenchmarkOpenMetricsParse(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		testOpenMetricsParse(b)
-	}
-}
-
 func testOpenMetricsParse(t testing.TB) {
 	var scenarios = []struct {
 		in  string
@@ -335,5 +325,15 @@ foos_total 42.0
 				)
 			}
 		}
+	}
+}
+
+func TestOpenMetricsParse(t *testing.T) {
+	testOpenMetricsParse(t)
+}
+
+func BenchmarkOpenMetricsParse(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		testOpenMetricsParse(b)
 	}
 }
