@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/golang/protobuf/proto"
@@ -140,24 +141,24 @@ func (p *OpenMetricsParser) OpenMetricsToMetricFamilies(in io.Reader) (map[strin
 			}
 			_, ts, v := p.p.Series()
 			counterName := openMetricsCounterName(name)
-			summaryName := summaryMetricName(name)
-			histogramName := histogramMetricName(name)
+			summaryName := openMetricsSummaryName(name)
+			histogramName := openMetricsHistogramName(name)
 			if currentMF = p.metricFamiliesByName[name]; currentMF != nil {
 				// Nothing to do.
 			} else if currentMF = p.metricFamiliesByName[counterName]; currentMF != nil && currentMF.GetType() == dto.MetricType_COUNTER {
 				// Nothing to do.
 			} else if currentMF = p.metricFamiliesByName[summaryName]; currentMF != nil && currentMF.GetType() == dto.MetricType_SUMMARY {
-				if isCount(name) {
+				if openMetricsIsCount(name) {
 					currentIsSummaryCount = true
 				}
-				if isSum(name) {
+				if openMetricsIsSum(name) {
 					currentIsSummarySum = true
 				}
 			} else if currentMF = p.metricFamiliesByName[histogramName]; currentMF != nil && currentMF.GetType() == dto.MetricType_HISTOGRAM {
-				if isCount(name) {
+				if openMetricsIsCount(name) {
 					currentIsHistogramCount = true
 				}
-				if isSum(name) {
+				if openMetricsIsSum(name) {
 					currentIsHistogramSum = true
 				}
 			} else {
@@ -204,8 +205,7 @@ func (p *OpenMetricsParser) OpenMetricsToMetricFamilies(in io.Reader) (map[strin
 					lbs := labels.FromMap(m)
 					for _, lb := range lbs {
 						currentMetric.Label = append(currentMetric.Label,
-							&dto.LabelPair{Name: proto.String(lb.Name),
-								Value: proto.String(lb.Value)})
+							&dto.LabelPair{Name: proto.String(lb.Name), Value: proto.String(lb.Value)})
 					}
 				}
 				if currentMetric.Summary == nil {
@@ -218,12 +218,11 @@ func (p *OpenMetricsParser) OpenMetricsToMetricFamilies(in io.Reader) (map[strin
 					currentMetric.Summary.SampleSum = proto.Float64(v)
 				}
 				if qs := lbs.Get(model.QuantileLabel); qs != "" {
-					quantile, err := parseFloat(qs)
+					quantile, err := openMetricsParseFloat(qs)
 					if err != nil {
 						return nil, fmt.Errorf("exepected float as quantile got:%q", qs)
 					}
-					currentMetric.Summary.Quantile = append(
-						currentMetric.Summary.Quantile,
+					currentMetric.Summary.Quantile = append(currentMetric.Summary.Quantile,
 						&dto.Quantile{Quantile: proto.Float64(quantile), Value: proto.Float64(v)})
 				}
 				if ts != nil {
@@ -247,8 +246,7 @@ func (p *OpenMetricsParser) OpenMetricsToMetricFamilies(in io.Reader) (map[strin
 					lbs := labels.FromMap(m)
 					for _, lb := range lbs {
 						currentMetric.Label = append(currentMetric.Label,
-							&dto.LabelPair{Name: proto.String(lb.Name),
-								Value: proto.String(lb.Value)})
+							&dto.LabelPair{Name: proto.String(lb.Name), Value: proto.String(lb.Value)})
 					}
 				}
 				if currentMetric.Histogram == nil {
@@ -261,12 +259,11 @@ func (p *OpenMetricsParser) OpenMetricsToMetricFamilies(in io.Reader) (map[strin
 					currentMetric.Histogram.SampleSum = proto.Float64(v)
 				}
 				if bs := lbs.Get(model.BucketLabel); bs != "" {
-					bucket, err := parseFloat(bs)
+					bucket, err := openMetricsParseFloat(bs)
 					if err != nil {
 						return nil, fmt.Errorf("expected float as bucket bound got:%q", bs)
 					}
-					currentMetric.Histogram.Bucket = append(
-						currentMetric.Histogram.Bucket,
+					currentMetric.Histogram.Bucket = append(currentMetric.Histogram.Bucket,
 						&dto.Bucket{UpperBound: proto.Float64(bucket), CumulativeCount: proto.Uint64(uint64(v))})
 				}
 				if ts != nil {
@@ -325,4 +322,47 @@ func openMetricsCounterName(name string) string {
 		return name[:len(name)-6]
 	}
 	return name
+}
+
+func openMetricsIsCount(name string) bool {
+	return len(name) > 6 && name[len(name)-6:] == "_count"
+}
+
+func openMetricsIsSum(name string) bool {
+	return len(name) > 4 && name[len(name)-4:] == "_sum"
+}
+
+func openMetricsIsBucket(name string) bool {
+	return len(name) > 7 && name[len(name)-7:] == "_bucket"
+}
+
+func openMetricsSummaryName(name string) string {
+	switch {
+	case openMetricsIsCount(name):
+		return name[:len(name)-6]
+	case openMetricsIsSum(name):
+		return name[:len(name)-4]
+	default:
+		return name
+	}
+}
+
+func openMetricsHistogramName(name string) string {
+	switch {
+	case openMetricsIsCount(name):
+		return name[:len(name)-6]
+	case openMetricsIsSum(name):
+		return name[:len(name)-4]
+	case openMetricsIsBucket(name):
+		return name[:len(name)-7]
+	default:
+		return name
+	}
+}
+
+func openMetricsParseFloat(s string) (float64, error) {
+	if strings.ContainsAny(s, "pP_") {
+		return 0, fmt.Errorf("unsupported character in float")
+	}
+	return strconv.ParseFloat(s, 64)
 }
