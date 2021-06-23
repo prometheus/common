@@ -31,10 +31,19 @@ jobs:
         steps:
         - run: make style
     - when:
+        condition: << parameters.run_style >>
+        steps:
+          - run:
+              command: make style
+              working_directory: /go/src/github.com/prometheus/common/sigv4
+    - when:
         condition: << parameters.use_gomod_cache >>
         steps:
         - go/save-cache:
             key: v1-go<< parameters.go_version >>
+    - run:
+        command: make test
+        working_directory: /go/src/github.com/prometheus/common/sigv4
     - store_test_results:
         path: test-results
 

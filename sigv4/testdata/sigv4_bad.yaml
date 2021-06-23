@@ -1,0 +1,4 @@
+region: us-east-2
+access_key: AccessKey
+profile: profile
+role_arn: blah:role/arn
