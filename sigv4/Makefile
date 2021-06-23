@@ -13,7 +13,6 @@
 
 include ../Makefile.common
 
-
 .PHONY: test
 	@echo ">> Running sigv4 tests"
 	test:: deps check_license unused common-test
