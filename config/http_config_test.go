@@ -335,11 +335,11 @@ func TestNewClientFromConfig(t *testing.T) {
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				switch r.URL.Path {
 				case "/redirected":
-					fmt.Fprintf(w, ExpectedMessage)
+					fmt.Fprint(w, ExpectedMessage)
 				default:
 					w.Header().Set("Location", "/redirected")
 					w.WriteHeader(http.StatusFound)
-					fmt.Fprintf(w, "It should follow the redirect.")
+					fmt.Fprint(w, "It should follow the redirect.")
 				}
 			},
 		}, {
@@ -359,7 +359,7 @@ func TestNewClientFromConfig(t *testing.T) {
 				default:
 					w.Header().Set("Location", "/redirected")
 					w.WriteHeader(http.StatusFound)
-					fmt.Fprintf(w, ExpectedMessage)
+					fmt.Fprint(w, ExpectedMessage)
 				}
 			},
 		},
