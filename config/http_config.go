@@ -18,10 +18,10 @@ package config
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -424,12 +424,14 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, optFuncs ...HT
 		return nil, err
 	}
 
-	if len(cfg.TLSConfig.CAFile) == 0 {
+	if len(cfg.TLSConfig.getCAName()) == 0 {
 		// No need for a RoundTripper that reloads the CA file automatically.
 		return newRT(tlsConfig)
 	}
 
-	return NewTLSRoundTripper(tlsConfig, cfg.TLSConfig.CAFile, newRT)
+	certStore, _ := newCertStore(string(cfg.TLSConfig.CA), cfg.TLSConfig.CAFile)
+
+	return NewTLSRoundTripper(tlsConfig, certStore, newRT)
 }
 
 type authorizationCredentialsRoundTripper struct {
@@ -626,13 +628,11 @@ func NewTLSConfig(cfg *TLSConfig) (*tls.Config, error) {
 
 	// If a CA cert is provided then let's read it in so we can validate the
 	// scrape target's certificate properly.
-	if len(cfg.CAFile) > 0 {
-		b, err := readCAFile(cfg.CAFile)
-		if err != nil {
-			return nil, err
-		}
-		if !updateRootCA(tlsConfig, b) {
-			return nil, fmt.Errorf("unable to use specified CA cert %s", cfg.CAFile)
+	if ca, err := cfg.getCA(); err != nil {
+		return nil, fmt.Errorf("unable to get specified CA %s: %w", cfg.getCAName(), err)
+	} else if ca != nil {
+		if !updateRootCA(tlsConfig, ca) {
+			return nil, fmt.Errorf("unable to use specified CA %s", cfg.getCAName())
 		}
 	}
 
@@ -640,11 +640,11 @@ func NewTLSConfig(cfg *TLSConfig) (*tls.Config, error) {
 		tlsConfig.ServerName = cfg.ServerName
 	}
 	// If a client cert & key is provided then configure TLS config accordingly.
-	if len(cfg.CertFile) > 0 && len(cfg.KeyFile) == 0 {
-		return nil, fmt.Errorf("client cert file %q specified without client key file", cfg.CertFile)
-	} else if len(cfg.KeyFile) > 0 && len(cfg.CertFile) == 0 {
-		return nil, fmt.Errorf("client key file %q specified without client cert file", cfg.KeyFile)
-	} else if len(cfg.CertFile) > 0 && len(cfg.KeyFile) > 0 {
+	if certName, keyName := cfg.getCertName(), cfg.getKeyName(); len(certName) > 0 && len(keyName) == 0 {
+		return nil, fmt.Errorf("client cert file %q specified without client key file", certName)
+	} else if len(keyName) > 0 && len(certName) == 0 {
+		return nil, fmt.Errorf("client key file %q specified without client cert file", keyName)
+	} else if len(certName) > 0 && len(keyName) > 0 {
 		// Verify that client cert and key are valid.
 		if _, err := cfg.getClientCertificate(nil); err != nil {
 			return nil, err
@@ -658,9 +658,15 @@ func NewTLSConfig(cfg *TLSConfig) (*tls.Config, error) {
 // TLSConfig configures the options for TLS connections.
 type TLSConfig struct {
 	// The CA cert to use for the targets.
+	CA Secret `yaml:"ca,omitempty" json:"ca,omitempty"`
+	// The CA cert file to use for the targets.
 	CAFile string `yaml:"ca_file,omitempty" json:"ca_file,omitempty"`
+	// The client cert for the targets.
+	Cert Secret `yaml:"cert,omitempty" json:"cert,omitempty"`
 	// The client cert file for the targets.
 	CertFile string `yaml:"cert_file,omitempty" json:"cert_file,omitempty"`
+	// The client key for the targets.
+	Key Secret `yaml:"key,omitempty" json:"key,omitempty"`
 	// The client key file for the targets.
 	KeyFile string `yaml:"key_file,omitempty" json:"key_file,omitempty"`
 	// Used to verify the hostname for the targets.
@@ -674,9 +680,15 @@ func (c *TLSConfig) SetDirectory(dir string) {
 	if c == nil {
 		return
 	}
-	c.CAFile = JoinDir(dir, c.CAFile)
-	c.CertFile = JoinDir(dir, c.CertFile)
-	c.KeyFile = JoinDir(dir, c.KeyFile)
+	if len(c.CAFile) > 0 {
+		c.CAFile = JoinDir(dir, c.CAFile)
+	}
+	if len(c.CertFile) > 0 {
+		c.CertFile = JoinDir(dir, c.CertFile)
+	}
+	if len(c.KeyFile) > 0 {
+		c.KeyFile = JoinDir(dir, c.KeyFile)
+	}
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
@@ -685,20 +697,81 @@ func (c *TLSConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return unmarshal((*plain)(c))
 }
 
+func getCertificate(inline Secret, filename string) ([]byte, error) {
+	if len(inline) != 0 {
+		return []byte(inline), nil
+	}
+
+	if len(filename) != 0 {
+		return readCertificateFile(filename)
+	}
+
+	return nil, nil
+}
+
+func getCertificateName(inline Secret, filename string) string {
+	if len(inline) > 0 {
+		return "<inline>"
+	} else if len(filename) > 0 {
+		return filename
+	}
+
+	return ""
+}
+
+func (c *TLSConfig) getCA() ([]byte, error) {
+	return getCertificate(c.CA, c.CAFile)
+}
+
+func (c *TLSConfig) getCAName() string {
+	return getCertificateName(c.CA, c.CAFile)
+}
+
+func (c *TLSConfig) getCert() ([]byte, error) {
+	return getCertificate(c.Cert, c.CertFile)
+}
+
+func (c *TLSConfig) getCertName() string {
+	return getCertificateName(c.Cert, c.CertFile)
+}
+
+func (c *TLSConfig) getKey() ([]byte, error) {
+	return getCertificate(c.Key, c.KeyFile)
+}
+
+func (c *TLSConfig) getKeyName() string {
+	return getCertificateName(c.Key, c.KeyFile)
+}
+
 // getClientCertificate reads the pair of client cert and key from disk and returns a tls.Certificate.
 func (c *TLSConfig) getClientCertificate(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-	cert, err := tls.LoadX509KeyPair(c.CertFile, c.KeyFile)
+	var (
+		certBlob, keyBlob []byte
+		err               error
+	)
+
+	certBlob, err = c.getCert()
 	if err != nil {
-		return nil, fmt.Errorf("unable to use specified client cert (%s) & key (%s): %s", c.CertFile, c.KeyFile, err)
+		return nil, fmt.Errorf("unable to use specified client cert (%s) & key (%s): %s", c.getCertName(), c.getKeyName(), err)
+	}
+
+	keyBlob, err = c.getKey()
+	if err != nil {
+		return nil, fmt.Errorf("unable to use specified client cert (%s) & key (%s): %s", c.getCertName(), c.getKeyName(), err)
+	}
+
+	cert, err := tls.X509KeyPair(certBlob, keyBlob)
+	if err != nil {
+		return nil, fmt.Errorf("unable to use specified client cert (%s) & key (%s): %s", c.getCertName(), c.getKeyName(), err)
 	}
 	return &cert, nil
 }
 
-// readCAFile reads the CA cert file from disk.
-func readCAFile(f string) ([]byte, error) {
+// readCertificateFile reads the CA cert file from disk.
+func readCertificateFile(f string) ([]byte, error) {
 	data, err := ioutil.ReadFile(f)
 	if err != nil {
-		return nil, fmt.Errorf("unable to load specified CA cert %s: %s", f, err)
+		return nil, fmt.Errorf("unable to load specified certificate file %s: %s", f, err)
 	}
 	return data, nil
 }
@@ -713,26 +786,80 @@ func updateRootCA(cfg *tls.Config, b []byte) bool {
 	return true
 }
 
+// CertGetter defines how to access certificates.
+type CertGetter interface {
+	// GetCert returns the corresponding certificate, whether or not
+	// it's been updated, or an error if it's not possible to
+	// retrieve the certificate.
+	GetCert() (cert []byte, updated bool, err error)
+}
+
+// newCertStore creates a CertGetter that provides access to the
+// certificate stored in the specified filename or the inline
+// certificate cert.
+func newCertStore(cert, filename string) (CertGetter, error) {
+	if len(filename) > 0 {
+		return &fileCertStore{filename: filename}, nil
+	} else if len(cert) > 0 {
+		return inlineCertStore{cert: []byte(cert)}, nil
+	} else {
+		return nil, errors.New("invalid certificate inputs")
+	}
+}
+
+// inlineCertStore implements a CertGetter that never changes.
+type inlineCertStore struct {
+	cert []byte
+}
+
+func (s inlineCertStore) GetCert() ([]byte, bool, error) {
+	return s.cert, false, nil
+}
+
+// fileCertStore loads a certificate from a filename each time the
+// certificate is requested.
+type fileCertStore struct {
+	filename string
+	mtx      sync.Mutex // mtx protects accesses to cert
+	cert     []byte
+}
+
+func (s *fileCertStore) GetCert() ([]byte, bool, error) {
+	updated := false
+	newCert, err := readCertificateFile(s.filename)
+	if err != nil {
+		return nil, false, err
+	}
+
+	s.mtx.Lock()
+	if !bytes.Equal(s.cert, newCert) {
+		s.cert = newCert
+		updated = true
+	}
+	s.mtx.Unlock()
+
+	return newCert, updated, nil
+}
+
 // tlsRoundTripper is a RoundTripper that updates automatically its TLS
 // configuration whenever the content of the CA file changes.
 type tlsRoundTripper struct {
-	caFile string
+	certStore CertGetter
 	// newRT returns a new RoundTripper.
 	newRT func(*tls.Config) (http.RoundTripper, error)
 
-	mtx        sync.RWMutex
-	rt         http.RoundTripper
-	hashCAFile []byte
-	tlsConfig  *tls.Config
+	mtx       sync.RWMutex
+	rt        http.RoundTripper
+	tlsConfig *tls.Config
 }
 
 func NewTLSRoundTripper(
 	cfg *tls.Config,
-	caFile string,
+	certStore CertGetter,
 	newRT func(*tls.Config) (http.RoundTripper, error),
 ) (http.RoundTripper, error) {
 	t := &tlsRoundTripper{
-		caFile:    caFile,
+		certStore: certStore,
 		newRT:     newRT,
 		tlsConfig: cfg,
 	}
@@ -743,7 +870,7 @@ func NewTLSRoundTripper(
 	}
 	t.rt = rt
 
-	_, t.hashCAFile, err = t.getCAWithHash()
+	_, _, err = t.certStore.GetCert()
 	if err != nil {
 		return nil, err
 	}
@@ -751,28 +878,17 @@ func NewTLSRoundTripper(
 	return t, nil
 }
 
-func (t *tlsRoundTripper) getCAWithHash() ([]byte, []byte, error) {
-	b, err := readCAFile(t.caFile)
-	if err != nil {
-		return nil, nil, err
-	}
-	h := sha256.Sum256(b)
-	return b, h[:], nil
-
-}
-
 // RoundTrip implements the http.RoundTrip interface.
 func (t *tlsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	b, h, err := t.getCAWithHash()
+	b, updated, err := t.certStore.GetCert()
 	if err != nil {
 		return nil, err
 	}
 
 	t.mtx.RLock()
-	equal := bytes.Equal(h[:], t.hashCAFile)
 	rt := t.rt
 	t.mtx.RUnlock()
-	if equal {
+	if !updated {
 		// The CA cert hasn't changed, use the existing RoundTripper.
 		return rt.RoundTrip(req)
 	}
@@ -780,7 +896,7 @@ func (t *tlsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	// Create a new RoundTripper.
 	tlsConfig := t.tlsConfig.Clone()
 	if !updateRootCA(tlsConfig, b) {
-		return nil, fmt.Errorf("unable to use specified CA cert %s", t.caFile)
+		return nil, errors.New("unable to use specified CA cert")
 	}
 	rt, err = t.newRT(tlsConfig)
 	if err != nil {
@@ -790,7 +906,6 @@ func (t *tlsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	t.mtx.Lock()
 	t.rt = rt
-	t.hashCAFile = h[:]
 	t.mtx.Unlock()
 
 	return rt.RoundTrip(req)
