@@ -15,10 +15,11 @@ package expfmt
 
 import (
 	"bytes"
-	"github.com/golang/protobuf/proto"
-	dto "github.com/prometheus/client_model/go"
 	"net/http"
 	"testing"
+
+	"github.com/golang/protobuf/proto" //nolint:staticcheck // Ignore SA1019. Need to keep deprecated package for compatibility.
+	dto "github.com/prometheus/client_model/go"
 )
 
 func TestNegotiate(t *testing.T) {
