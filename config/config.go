@@ -18,6 +18,8 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"path/filepath"
 )
 
@@ -46,6 +48,15 @@ func (s Secret) MarshalJSON() ([]byte, error) {
 		return json.Marshal("")
 	}
 	return json.Marshal(secretToken)
+}
+
+func (s *Secret) LoadFromFile(filename string) error {
+	buf, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return fmt.Errorf("cannot read %s: %w", filename, err)
+	}
+	*s = Secret(buf)
+	return nil
 }
 
 // DirectorySetter is a config type that contains file paths that may
