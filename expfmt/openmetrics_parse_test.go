@@ -1311,7 +1311,7 @@ func compareOpenMetricFamily(omf1, omf2 *OpenMetricFamily) bool {
 	if omf1.GetSample() != omf2.GetSample() {
 		return false
 	}
-	for i, _ := range omf1.Samples {
+	for i := range omf1.Samples {
 		sample := omf1.Samples[i]
 		comparingSample := omf2.Samples[i]
 		if sample.Name != comparingSample.Name {
