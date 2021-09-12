@@ -414,21 +414,33 @@ func (a *BasicAuth) UnmarshalYAML(unmarshal func(interface{}) error) error {
 // by net.Dialer.
 type DialContextFunc func(context.Context, string, string) (net.Conn, error)
 
+// DialTLSContextFunc defines the signature of the DialContext() function implemented
+// by tls.Dialer.
+type DialTLSContextFunc func(context.Context, string, string) (net.Conn, error)
+
 type httpClientOptions struct {
-	dialContextFunc   DialContextFunc
-	keepAlivesEnabled bool
-	http2Enabled      bool
-	idleConnTimeout   time.Duration
-	userAgent         string
+	dialContextFunc    DialContextFunc
+	dialTLSContextFunc DialTLSContextFunc
+	keepAlivesEnabled  bool
+	http2Enabled       bool
+	idleConnTimeout    time.Duration
+	userAgent          string
 }
 
 // HTTPClientOption defines an option that can be applied to the HTTP client.
 type HTTPClientOption func(options *httpClientOptions)
 
-// WithDialContextFunc allows you to override func gets used for the actual dialing. The default is `net.Dialer.DialContext`.
+// WithDialContextFunc allows you to override the func that gets used for the actual dialing. The default is `net.Dialer.DialContext`.
 func WithDialContextFunc(fn DialContextFunc) HTTPClientOption {
 	return func(opts *httpClientOptions) {
 		opts.dialContextFunc = fn
+	}
+}
+
+// WithDialTLSContextFunc allows you to override the func that gets used for the actual dialing. The default is `tls.Dialer.DialContext`.
+func WithDialTLSContextFunc(fn DialTLSContextFunc) HTTPClientOption {
+	return func(opts *httpClientOptions) {
+		opts.dialTLSContextFunc = fn
 	}
 }
 
@@ -519,6 +531,7 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, optFuncs ...HT
 			TLSHandshakeTimeout:   10 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
 			DialContext:           dialContext,
+			DialTLSContext:        opts.dialTLSContextFunc,
 		}
 		if opts.http2Enabled && cfg.EnableHTTP2 {
 			// HTTP/2 support is golang had many problematic cornercases where
