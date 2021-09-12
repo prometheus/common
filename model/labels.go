@@ -53,6 +53,10 @@ const (
 	// timeout used to scrape a target.
 	ScrapeTimeoutLabel = "__scrape_timeout__"
 
+	// ServerNameLabel is the name of the label that holds the TLS server name
+	// used to scrape the target.
+	ServerNameLabel = "__server_name__"
+
 	// ReservedLabelPrefix is a prefix which is not legal in user-supplied
 	// label names.
 	ReservedLabelPrefix = "__"
