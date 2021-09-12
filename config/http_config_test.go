@@ -545,6 +545,23 @@ func TestCustomDialContextFunc(t *testing.T) {
 	}
 }
 
+func TestCustomDialTLSContextFunc(t *testing.T) {
+	dialFn := func(_ context.Context, _, _ string) (net.Conn, error) {
+		return nil, errors.New(ExpectedError)
+	}
+
+	cfg := HTTPClientConfig{}
+	client, err := NewClientFromConfig(cfg, "test", WithDialTLSContextFunc(dialFn))
+	if err != nil {
+		t.Fatalf("Can't create a client from this config: %+v", cfg)
+	}
+
+	_, err = client.Get("https://localhost")
+	if err == nil || !strings.Contains(err.Error(), ExpectedError) {
+		t.Errorf("Expected error %q but got %q", ExpectedError, err)
+	}
+}
+
 func TestCustomIdleConnTimeout(t *testing.T) {
 	timeout := time.Second * 5
 
