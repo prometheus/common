@@ -177,6 +177,8 @@ type HTTPClientConfig struct {
 	// The omitempty flag is not set, because it would be hidden from the
 	// marshalled configuration when set to false.
 	FollowRedirects bool `yaml:"follow_redirects" json:"follow_redirects"`
+	// Extra Headers to be added on the Http Request
+	ExtraHeaders map[string]string `yaml:"extra_headers,omitempty" json:"extra_headers,omitempty"`
 }
 
 // SetDirectory joins any relative file paths with dir.
@@ -418,6 +420,10 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, optFuncs ...HT
 			rt = NewBasicAuthRoundTripper(cfg.BasicAuth.Username, cfg.BasicAuth.Password, cfg.BasicAuth.PasswordFile, rt)
 		}
 
+		if cfg.ExtraHeaders != nil && len(cfg.ExtraHeaders) > 0 {
+			rt = NewExtraHeadersRoundTripper(cfg.ExtraHeaders, rt)
+		}
+
 		if cfg.OAuth2 != nil {
 			rt = NewOAuth2RoundTripper(cfg.OAuth2, rt)
 		}
@@ -436,6 +442,26 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, optFuncs ...HT
 	}
 
 	return NewTLSRoundTripper(tlsConfig, cfg.TLSConfig.CAFile, newRT)
+}
+
+type extraHeadersRoundTripper struct {
+	extraHeaders map[string]string
+	rt           http.RoundTripper
+}
+
+func (rt *extraHeadersRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	req = cloneRequest(req)
+	if len(rt.extraHeaders) > 0 {
+		for key, value := range rt.extraHeaders {
+			req.Header.Set(key, value)
+		}
+	}
+	return rt.rt.RoundTrip(req)
+}
+
+// NewExtraHeadersRoundTripper adds the provided headers to a request
+func NewExtraHeadersRoundTripper(extraHeaders map[string]string, rt http.RoundTripper) http.RoundTripper {
+	return &extraHeadersRoundTripper{extraHeaders, rt}
 }
 
 type authorizationCredentialsRoundTripper struct {

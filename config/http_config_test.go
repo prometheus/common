@@ -68,6 +68,8 @@ const (
 	ExpectedPassword                  = "42"
 )
 
+var expectedExtraHeaders = map[string]string{"Header1": "Value1", "Header2": "Value2"}
+
 var invalidHTTPClientConfigs = []struct {
 	httpClientConfigFile string
 	errMsg               string
@@ -196,6 +198,26 @@ func TestNewClientFromConfig(t *testing.T) {
 				} else {
 					fmt.Fprint(w, ExpectedMessage)
 				}
+			},
+		},
+		{
+			clientConfig: HTTPClientConfig{
+				ExtraHeaders: expectedExtraHeaders,
+				TLSConfig: TLSConfig{
+					CAFile:             TLSCAChainPath,
+					CertFile:           ClientCertificatePath,
+					KeyFile:            ClientKeyNoPassPath,
+					ServerName:         "",
+					InsecureSkipVerify: false},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				for key, value := range expectedExtraHeaders {
+					if r.Header.Get(key) != value {
+						fmt.Fprintf(w, "The received Headers (%s) does not contain all expected headers (%s).", r.Header, expectedExtraHeaders)
+						return
+					}
+				}
+				fmt.Fprint(w, ExpectedMessage)
 			},
 		}, {
 			clientConfig: HTTPClientConfig{
