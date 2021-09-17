@@ -39,6 +39,32 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+var (
+	reservedHeaders = map[string]struct{}{
+		// NOTE: authorization is checked specially,
+		// see HTTPClientConfig.Validate.
+		// "authorization":                  {},
+		"host":                              {},
+		"content-encoding":                  {},
+		"content-length":                    {},
+		"content-type":                      {},
+		"user-agent":                        {},
+		"connection":                        {},
+		"keep-alive":                        {},
+		"proxy-authenticate":                {},
+		"proxy-authorization":               {},
+		"www-authenticate":                  {},
+		"accept-encoding":                   {},
+		"x-prometheus-remote-write-version": {},
+		"x-prometheus-remote-read-version":  {},
+
+		// Added by SigV4.
+		"x-amz-date":           {},
+		"x-amz-security-token": {},
+		"x-amz-content-sha256": {},
+	}
+)
+
 // DefaultHTTPClientConfig is the default HTTP client configuration.
 var DefaultHTTPClientConfig = HTTPClientConfig{
 	FollowRedirects: true,
@@ -252,6 +278,18 @@ func (c *HTTPClientConfig) Validate() error {
 			return fmt.Errorf("at most one of oauth2 client_secret & client_secret_file must be configured")
 		}
 	}
+
+	if c.Headers != nil {
+		for header := range c.Headers {
+			if strings.ToLower(header) == "authorization" {
+				return fmt.Errorf("authorization header must be changed via the basic_auth, authorization, oauth2, or sigv4 parameter")
+			}
+			if _, ok := reservedHeaders[strings.ToLower(header)]; ok {
+				return fmt.Errorf("%s is a reserved header. It must not be changed", header)
+			}
+		}
+	}
+
 	return nil
 }
 
