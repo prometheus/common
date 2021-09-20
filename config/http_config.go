@@ -381,7 +381,7 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, optFuncs ...HT
 			DialContext:           dialContext,
 		}
 		if opts.http2Enabled && os.Getenv("PROMETHEUS_COMMON_DISABLE_HTTP2") == "" {
-			// HTTP/2 support is golang has many problematic cornercases where
+			// HTTP/2 support is golang had many problematic cornercases where
 			// dead connections would be kept and used in connection pools.
 			// https://github.com/golang/go/issues/32388
 			// https://github.com/golang/go/issues/39337
@@ -389,8 +389,9 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, optFuncs ...HT
 
 			// Do not enable HTTP2 if the environment variable
 			// PROMETHEUS_COMMON_DISABLE_HTTP2 is set to a non-empty value.
-			// This is a temporary workaround, than be enabled if we see issues
-			// again in the short future.
+			// This allows users to easily disable HTTP2 in case they run into
+			// issues again, but will be removed once we are confident that
+			// things work as expected.
 
 			http2t, err := http2.ConfigureTransports(rt.(*http.Transport))
 			if err != nil {
