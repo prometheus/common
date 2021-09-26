@@ -118,10 +118,11 @@ func New(config *Config) log.Logger {
 		l = log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
 	}
 
+	l = log.With(l, "ts", timestampFormat, "caller", log.DefaultCaller)
+
 	if config.Level != nil {
 		l = level.NewFilter(l, config.Level.o)
 	}
-	l = log.With(l, "ts", timestampFormat, "caller", log.DefaultCaller)
 	return l
 }
 
