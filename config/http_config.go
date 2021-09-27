@@ -110,9 +110,23 @@ func (u *URL) UnmarshalYAML(unmarshal func(interface{}) error) error {
 // MarshalYAML implements the yaml.Marshaler interface for URLs.
 func (u URL) MarshalYAML() (interface{}, error) {
 	if u.URL != nil {
-		return u.String(), nil
+		return u.Redacted(), nil
 	}
 	return nil, nil
+}
+
+// Redacted returns the URL but replaces any password with "xxxxx".
+func (u URL) Redacted() string {
+	if u.URL == nil {
+		return ""
+	}
+
+	ru := *u.URL
+	if _, ok := ru.User.Password(); ok {
+		// We can not use secretToken because it would be escaped.
+		ru.User = url.UserPassword(ru.User.Username(), "xxxxx")
+	}
+	return ru.String()
 }
 
 // UnmarshalJSON implements the json.Marshaler interface for URL.
