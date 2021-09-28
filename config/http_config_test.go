@@ -1418,3 +1418,19 @@ func TestUnmarshalURL(t *testing.T) {
 		t.Fatalf("URL not properly unmarshaled in YAML, got '%s'", u.String())
 	}
 }
+
+func TestMarshalURLWithSecret(t *testing.T) {
+	var u URL
+	err := yaml.Unmarshal([]byte("http://foo:bar@example.com"), &u)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b, err := yaml.Marshal(u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(string(b)) != "http://foo:xxxxx@example.com" {
+		t.Fatalf("URL not properly marshaled in YAML, got '%s'", string(b))
+	}
+}
