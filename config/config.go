@@ -18,10 +18,87 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"path/filepath"
+	"strings"
 )
 
 const secretToken = "<secret>"
+
+type SecretLoader struct {
+	secret     string
+	secretFile string
+}
+
+// SetFile sets the filename from which the SecretLoader will load
+// the secret.
+func (s *SecretLoader) SetFile(fn string) {
+	s.secretFile = fn
+}
+
+// IsSet reports whether one of the inline secret or the secret filename
+// is set. In the later case, it _does not_ validate that the file
+// exists or that it can be read.
+func (s *SecretLoader) IsSet() bool {
+	return len(s.secret) > 0 || len(s.secretFile) > 0
+}
+
+// String returns the stored secret, without reloading it from the file
+// if one has been specified. If you need to make sure that the file is
+// (re-)read, use Get instead.
+func (s *SecretLoader) String() string {
+	return s.secret
+}
+
+// Get returns the secret, loading it from the file if necesary. It
+// reports whether the secret changed from the last time this method was
+// called.
+func (s *SecretLoader) Get() (string, bool, error) {
+	changed := false
+
+	if len(s.secretFile) > 0 {
+		newSecret, err := ioutil.ReadFile(s.secretFile)
+		if err != nil {
+			return "", false, err
+		}
+
+		if newStr := strings.TrimSpace(string(newSecret)); newStr != s.secret {
+			s.secret = newStr
+			changed = true
+		}
+	}
+
+	return s.secret, changed, nil
+}
+
+func (s *SecretLoader) MarshalYAML() (interface{}, error) {
+	if s.secret != "" {
+		return secretToken, nil
+	}
+
+	return nil, nil
+}
+
+func (s *SecretLoader) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	return unmarshal(&s.secret)
+}
+
+func (s *SecretLoader) MarshalJSON() ([]byte, error) {
+	if len(s.secret) == 0 {
+		return json.Marshal("")
+	}
+
+	return json.Marshal(secretToken)
+}
+
+func validateSecret(secretField string, secret SecretLoader, secretFilenameField string, secretFilename string) error {
+	if len(secretFilename) != 0 && len(secret.secretFile) == 0 && len(secret.secret) != 0 {
+		return fmt.Errorf("at most one of %s & %s must be configured", secretField, secretFilenameField)
+	}
+
+	return nil
+}
 
 // Secret special type for storing secrets.
 type Secret string

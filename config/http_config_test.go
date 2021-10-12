@@ -11,6 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.8
 // +build go1.8
 
 package config
@@ -59,14 +60,34 @@ const (
 	AuthorizationCredentials          = "theanswertothegreatquestionoflifetheuniverseandeverythingisfortytwo"
 	AuthorizationCredentialsFile      = "testdata/bearer.token"
 	AuthorizationType                 = "APIKEY"
-	BearerToken                       = AuthorizationCredentials
-	BearerTokenFile                   = AuthorizationCredentialsFile
-	MissingBearerTokenFile            = "missing/bearer.token"
-	ExpectedBearer                    = "Bearer " + BearerToken
-	ExpectedAuthenticationCredentials = AuthorizationType + " " + BearerToken
+	MissingBearerTokenFilename        = "missing/bearer.token"
+	ExpectedBearer                    = "Bearer " + AuthorizationCredentials
+	ExpectedAuthenticationCredentials = AuthorizationType + " " + AuthorizationCredentials
 	ExpectedUsername                  = "arthurdent"
 	ExpectedPassword                  = "42"
 )
+
+func inlineSecret(secret string) SecretLoader {
+	return SecretLoader{secret: secret}
+}
+
+func fileSecret(fn string) SecretLoader {
+	s := SecretLoader{secretFile: fn}
+	_, _, err := s.Get()
+	if err != nil {
+		panic(err)
+	}
+	return s
+}
+
+func missingFileSecret(fn string) SecretLoader {
+	s := SecretLoader{secretFile: MissingBearerTokenFilename}
+	_, _, err := s.Get()
+	if err == nil {
+		panic("expecting error, got nil")
+	}
+	return s
+}
 
 var invalidHTTPClientConfigs = []struct {
 	httpClientConfigFile string
@@ -180,7 +201,7 @@ func TestNewClientFromConfig(t *testing.T) {
 			},
 		}, {
 			clientConfig: HTTPClientConfig{
-				BearerToken: BearerToken,
+				BearerToken: inlineSecret(AuthorizationCredentials),
 				TLSConfig: TLSConfig{
 					CAFile:             TLSCAChainPath,
 					CertFile:           ClientCertificatePath,
@@ -199,7 +220,7 @@ func TestNewClientFromConfig(t *testing.T) {
 			},
 		}, {
 			clientConfig: HTTPClientConfig{
-				BearerTokenFile: BearerTokenFile,
+				BearerToken: inlineSecret(AuthorizationCredentials),
 				TLSConfig: TLSConfig{
 					CAFile:             TLSCAChainPath,
 					CertFile:           ClientCertificatePath,
@@ -218,7 +239,7 @@ func TestNewClientFromConfig(t *testing.T) {
 			},
 		}, {
 			clientConfig: HTTPClientConfig{
-				Authorization: &Authorization{Credentials: BearerToken},
+				Authorization: &Authorization{Credentials: inlineSecret(AuthorizationCredentials)},
 				TLSConfig: TLSConfig{
 					CAFile:             TLSCAChainPath,
 					CertFile:           ClientCertificatePath,
@@ -257,7 +278,7 @@ func TestNewClientFromConfig(t *testing.T) {
 		}, {
 			clientConfig: HTTPClientConfig{
 				Authorization: &Authorization{
-					Credentials: AuthorizationCredentials,
+					Credentials: inlineSecret(AuthorizationCredentials),
 					Type:        AuthorizationType,
 				},
 				TLSConfig: TLSConfig{
@@ -279,7 +300,7 @@ func TestNewClientFromConfig(t *testing.T) {
 		}, {
 			clientConfig: HTTPClientConfig{
 				Authorization: &Authorization{
-					CredentialsFile: BearerTokenFile,
+					Credentials: fileSecret(AuthorizationCredentialsFile),
 				},
 				TLSConfig: TLSConfig{
 					CAFile:             TLSCAChainPath,
@@ -301,7 +322,7 @@ func TestNewClientFromConfig(t *testing.T) {
 			clientConfig: HTTPClientConfig{
 				BasicAuth: &BasicAuth{
 					Username: ExpectedUsername,
-					Password: ExpectedPassword,
+					Password: inlineSecret(ExpectedPassword),
 				},
 				TLSConfig: TLSConfig{
 					CAFile:             TLSCAChainPath,
@@ -378,7 +399,7 @@ func TestNewClientFromConfig(t *testing.T) {
 		}
 		client, err := NewClientFromConfig(validConfig.clientConfig, "test")
 		if err != nil {
-			t.Errorf("Can't create a client from this config: %+v", validConfig.clientConfig)
+			t.Errorf("Can't create a client from this config: %+v\nerror: %s", validConfig.clientConfig, err)
 			continue
 		}
 		response, err := client.Get(testServer.URL)
@@ -477,7 +498,7 @@ func TestCustomIdleConnTimeout(t *testing.T) {
 
 func TestMissingBearerAuthFile(t *testing.T) {
 	cfg := HTTPClientConfig{
-		BearerTokenFile: MissingBearerTokenFile,
+		BearerTokenFile: MissingBearerTokenFilename,
 		TLSConfig: TLSConfig{
 			CAFile:             TLSCAChainPath,
 			CertFile:           ClientCertificatePath,
@@ -485,34 +506,16 @@ func TestMissingBearerAuthFile(t *testing.T) {
 			ServerName:         "",
 			InsecureSkipVerify: false},
 	}
-	handler := func(w http.ResponseWriter, r *http.Request) {
-		bearer := r.Header.Get("Authorization")
-		if bearer != ExpectedBearer {
-			fmt.Fprintf(w, "The expected Bearer Authorization (%s) differs from the obtained Bearer Authorization (%s)",
-				ExpectedBearer, bearer)
-		} else {
-			fmt.Fprint(w, ExpectedMessage)
-		}
-	}
-
-	testServer, err := newTestServer(handler)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	defer testServer.Close()
 
 	client, err := NewClientFromConfig(cfg, "test")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = client.Get(testServer.URL)
 	if err == nil {
-		t.Fatal("No error is returned here")
+		t.Fatal("expecting an error, got nil")
 	}
-
-	if !strings.Contains(err.Error(), "unable to read authorization credentials file missing/bearer.token: open missing/bearer.token: no such file or directory") {
-		t.Fatal("wrong error message being returned")
+	if expected := "unable to retrieve bearer token: open missing/bearer.token: no such file or directory"; !strings.Contains(err.Error(), expected) {
+		t.Fatalf("wrong error message being returned, expected=%q, actual=%q", expected, err.Error())
+	}
+	if client != nil {
+		t.Fatal("expecting a nil client, got non-nil")
 	}
 }
 
@@ -530,7 +533,7 @@ func TestBearerAuthRoundTripper(t *testing.T) {
 	}, nil, nil)
 
 	// Normal flow.
-	bearerAuthRoundTripper := NewAuthorizationCredentialsRoundTripper("Bearer", BearerToken, fakeRoundTripper)
+	bearerAuthRoundTripper := NewAuthorizationCredentialsRoundTripper("Bearer", inlineSecret(AuthorizationCredentials), fakeRoundTripper)
 	request, _ := http.NewRequest("GET", "/hitchhiker", nil)
 	request.Header.Set("User-Agent", "Douglas Adams mind")
 	_, err := bearerAuthRoundTripper.RoundTrip(request)
@@ -539,7 +542,7 @@ func TestBearerAuthRoundTripper(t *testing.T) {
 	}
 
 	// Should honor already Authorization header set.
-	bearerAuthRoundTripperShouldNotModifyExistingAuthorization := NewAuthorizationCredentialsRoundTripper("Bearer", newBearerToken, fakeRoundTripper)
+	bearerAuthRoundTripperShouldNotModifyExistingAuthorization := NewAuthorizationCredentialsRoundTripper("Bearer", inlineSecret(newBearerToken), fakeRoundTripper)
 	request, _ = http.NewRequest("GET", "/hitchhiker", nil)
 	request.Header.Set("Authorization", ExpectedBearer)
 	_, err = bearerAuthRoundTripperShouldNotModifyExistingAuthorization.RoundTrip(request)
@@ -558,7 +561,7 @@ func TestBearerAuthFileRoundTripper(t *testing.T) {
 	}, nil, nil)
 
 	// Normal flow.
-	bearerAuthRoundTripper := NewAuthorizationCredentialsFileRoundTripper("Bearer", BearerTokenFile, fakeRoundTripper)
+	bearerAuthRoundTripper := NewAuthorizationCredentialsRoundTripper("Bearer", fileSecret(AuthorizationCredentialsFile), fakeRoundTripper)
 	request, _ := http.NewRequest("GET", "/hitchhiker", nil)
 	request.Header.Set("User-Agent", "Douglas Adams mind")
 	_, err := bearerAuthRoundTripper.RoundTrip(request)
@@ -567,7 +570,7 @@ func TestBearerAuthFileRoundTripper(t *testing.T) {
 	}
 
 	// Should honor already Authorization header set.
-	bearerAuthRoundTripperShouldNotModifyExistingAuthorization := NewAuthorizationCredentialsFileRoundTripper("Bearer", MissingBearerTokenFile, fakeRoundTripper)
+	bearerAuthRoundTripperShouldNotModifyExistingAuthorization := NewAuthorizationCredentialsRoundTripper("Bearer", missingFileSecret(MissingBearerTokenFilename), fakeRoundTripper)
 	request, _ = http.NewRequest("GET", "/hitchhiker", nil)
 	request.Header.Set("Authorization", ExpectedBearer)
 	_, err = bearerAuthRoundTripperShouldNotModifyExistingAuthorization.RoundTrip(request)
@@ -701,6 +704,7 @@ func TestBasicAuthNoPassword(t *testing.T) {
 	}
 	client, err := NewClientFromConfig(*cfg, "test")
 	if err != nil {
+		t.Logf("cfg: %#v", cfg.BasicAuth)
 		t.Fatalf("Error creating HTTP Client: %v", err)
 	}
 
@@ -712,11 +716,8 @@ func TestBasicAuthNoPassword(t *testing.T) {
 	if rt.username != "user" {
 		t.Errorf("Bad HTTP client username: %s", rt.username)
 	}
-	if string(rt.password) != "" {
-		t.Errorf("Expected empty HTTP client password: %s", rt.password)
-	}
-	if string(rt.passwordFile) != "" {
-		t.Errorf("Expected empty HTTP client passwordFile: %s", rt.passwordFile)
+	if actual := rt.password.String(); actual != "" {
+		t.Errorf("Expected empty HTTP client password: %s", actual)
 	}
 }
 
@@ -725,6 +726,7 @@ func TestBasicAuthNoUsername(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error loading HTTP client config: %v", err)
 	}
+	t.Logf("cfg: %#v\n", cfg)
 	client, err := NewClientFromConfig(*cfg, "test")
 	if err != nil {
 		t.Fatalf("Error creating HTTP Client: %v", err)
@@ -738,11 +740,8 @@ func TestBasicAuthNoUsername(t *testing.T) {
 	if rt.username != "" {
 		t.Errorf("Got unexpected username: %s", rt.username)
 	}
-	if string(rt.password) != "secret" {
-		t.Errorf("Unexpected HTTP client password: %s", string(rt.password))
-	}
-	if string(rt.passwordFile) != "" {
-		t.Errorf("Expected empty HTTP client passwordFile: %s", rt.passwordFile)
+	if actual := rt.password.String(); actual != "secret" {
+		t.Errorf("Unexpected HTTP client password: %s", actual)
 	}
 }
 
@@ -764,11 +763,8 @@ func TestBasicAuthPasswordFile(t *testing.T) {
 	if rt.username != "user" {
 		t.Errorf("Bad HTTP client username: %s", rt.username)
 	}
-	if string(rt.password) != "" {
-		t.Errorf("Bad HTTP client password: %s", rt.password)
-	}
-	if string(rt.passwordFile) != "testdata/basic-auth-password" {
-		t.Errorf("Bad HTTP client passwordFile: %s", rt.passwordFile)
+	if actual := rt.password.String(); actual == "" {
+		t.Errorf("Bad HTTP client password: %s", actual)
 	}
 }
 
@@ -1066,14 +1062,16 @@ func TestValidateHTTPConfig(t *testing.T) {
 
 func TestInvalidHTTPConfigs(t *testing.T) {
 	for _, ee := range invalidHTTPClientConfigs {
-		_, _, err := LoadHTTPConfigFile(ee.httpClientConfigFile)
-		if err == nil {
-			t.Error("Expected error with config but got none")
-			continue
-		}
-		if !strings.Contains(err.Error(), ee.errMsg) {
-			t.Errorf("Expected error for invalid HTTP client configuration to contain %q but got: %s", ee.errMsg, err)
-		}
+		t.Run(ee.httpClientConfigFile, func(t *testing.T) {
+			_, _, err := LoadHTTPConfigFile(ee.httpClientConfigFile)
+			if err == nil {
+				t.Error("Expected error with config but got none")
+				return
+			}
+			if !strings.Contains(err.Error(), ee.errMsg) {
+				t.Errorf("Expected error for invalid HTTP client configuration to contain %q but got: %s", ee.errMsg, err)
+			}
+		})
 	}
 }
 
@@ -1157,7 +1155,7 @@ endpoint_params:
 `, ts.URL)
 	expectedConfig := OAuth2{
 		ClientID:       "1",
-		ClientSecret:   "2",
+		ClientSecret:   inlineSecret("2"),
 		Scopes:         []string{"A", "B"},
 		EndpointParams: map[string]string{"hi": "hello"},
 		TokenURL:       ts.URL,
@@ -1232,6 +1230,7 @@ endpoint_params:
 `, secretFile.Name(), tokenTS.URL)
 	expectedConfig := OAuth2{
 		ClientID:         "1",
+		ClientSecret:     SecretLoader{secretFile: secretFile.Name()},
 		ClientSecretFile: secretFile.Name(),
 		Scopes:           []string{"A", "B"},
 		EndpointParams:   map[string]string{"hi": "hello"},
@@ -1244,7 +1243,7 @@ endpoint_params:
 		t.Fatalf("Expected no error unmarshalling yaml, got %v", err)
 	}
 	if !reflect.DeepEqual(unmarshalledConfig, expectedConfig) {
-		t.Fatalf("Got unmarshalled config %q, expected %q", unmarshalledConfig, expectedConfig)
+		t.Fatalf("Got unmarshalled config %#v, expected %q", unmarshalledConfig, expectedConfig)
 	}
 
 	rt := NewOAuth2RoundTripper(&expectedConfig, http.DefaultTransport)

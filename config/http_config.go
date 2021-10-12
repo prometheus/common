@@ -11,6 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.8
 // +build go1.8
 
 package config
@@ -22,6 +23,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -59,9 +61,9 @@ type closeIdler interface {
 
 // BasicAuth contains basic HTTP authentication credentials.
 type BasicAuth struct {
-	Username     string `yaml:"username" json:"username"`
-	Password     Secret `yaml:"password,omitempty" json:"password,omitempty"`
-	PasswordFile string `yaml:"password_file,omitempty" json:"password_file,omitempty"`
+	Username     string       `yaml:"username" json:"username"`
+	Password     SecretLoader `yaml:"password,omitempty" json:"password,omitempty"`
+	PasswordFile string       `yaml:"password_file,omitempty" json:"password_file,omitempty"`
 }
 
 // SetDirectory joins any relative file paths with dir.
@@ -70,13 +72,14 @@ func (a *BasicAuth) SetDirectory(dir string) {
 		return
 	}
 	a.PasswordFile = JoinDir(dir, a.PasswordFile)
+	a.Password.SetFile(a.PasswordFile)
 }
 
 // Authorization contains HTTP authorization credentials.
 type Authorization struct {
-	Type            string `yaml:"type,omitempty" json:"type,omitempty"`
-	Credentials     Secret `yaml:"credentials,omitempty" json:"credentials,omitempty"`
-	CredentialsFile string `yaml:"credentials_file,omitempty" json:"credentials_file,omitempty"`
+	Type            string       `yaml:"type,omitempty" json:"type,omitempty"`
+	Credentials     SecretLoader `yaml:"credentials,omitempty" json:"credentials,omitempty"`
+	CredentialsFile string       `yaml:"credentials_file,omitempty" json:"credentials_file,omitempty"`
 }
 
 // SetDirectory joins any relative file paths with dir.
@@ -85,6 +88,7 @@ func (a *Authorization) SetDirectory(dir string) {
 		return
 	}
 	a.CredentialsFile = JoinDir(dir, a.CredentialsFile)
+	a.Credentials.SetFile(a.CredentialsFile)
 }
 
 // URL is a custom URL type that allows validation at configuration load time.
@@ -154,7 +158,7 @@ func (u URL) MarshalJSON() ([]byte, error) {
 // OAuth2 is the oauth2 client configuration.
 type OAuth2 struct {
 	ClientID         string            `yaml:"client_id" json:"client_id"`
-	ClientSecret     Secret            `yaml:"client_secret" json:"client_secret"`
+	ClientSecret     SecretLoader      `yaml:"client_secret" json:"client_secret"`
 	ClientSecretFile string            `yaml:"client_secret_file" json:"client_secret_file"`
 	Scopes           []string          `yaml:"scopes,omitempty" json:"scopes,omitempty"`
 	TokenURL         string            `yaml:"token_url" json:"token_url"`
@@ -167,6 +171,23 @@ func (a *OAuth2) SetDirectory(dir string) {
 		return
 	}
 	a.ClientSecretFile = JoinDir(dir, a.ClientSecretFile)
+	a.ClientSecret.SetFile(a.ClientSecretFile)
+}
+
+func (a *OAuth2) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type plain OAuth2
+	*a = OAuth2{}
+	if err := unmarshal((*plain)(a)); err != nil {
+		return err
+	}
+
+	if err := validateSecret("oauth2 client_secret", a.ClientSecret, "client_secret_file", a.ClientSecretFile); err != nil {
+		return err
+	}
+
+	a.ClientSecret.SetFile(a.ClientSecretFile)
+
+	return nil
 }
 
 // HTTPClientConfig configures an HTTP client.
@@ -179,7 +200,7 @@ type HTTPClientConfig struct {
 	OAuth2 *OAuth2 `yaml:"oauth2,omitempty" json:"oauth2,omitempty"`
 	// The bearer token for the targets. Deprecated in favour of
 	// Authorization.Credentials.
-	BearerToken Secret `yaml:"bearer_token,omitempty" json:"bearer_token,omitempty"`
+	BearerToken SecretLoader `yaml:"bearer_token,omitempty" json:"bearer_token,omitempty"`
 	// The bearer token file for the targets. Deprecated in favour of
 	// Authorization.CredentialsFile.
 	BearerTokenFile string `yaml:"bearer_token_file,omitempty" json:"bearer_token_file,omitempty"`
@@ -203,28 +224,35 @@ func (c *HTTPClientConfig) SetDirectory(dir string) {
 	c.Authorization.SetDirectory(dir)
 	c.OAuth2.SetDirectory(dir)
 	c.BearerTokenFile = JoinDir(dir, c.BearerTokenFile)
+	c.BearerToken.SetFile(c.BearerTokenFile)
 }
 
 // Validate validates the HTTPClientConfig to check only one of BearerToken,
 // BasicAuth and BearerTokenFile is configured.
 func (c *HTTPClientConfig) Validate() error {
 	// Backwards compatibility with the bearer_token field.
-	if len(c.BearerToken) > 0 && len(c.BearerTokenFile) > 0 {
-		return fmt.Errorf("at most one of bearer_token & bearer_token_file must be configured")
+	if err := validateSecret("bearer_token", c.BearerToken, "bearer_token_file", c.BearerTokenFile); err != nil {
+		return err
 	}
-	if (c.BasicAuth != nil || c.OAuth2 != nil) && (len(c.BearerToken) > 0 || len(c.BearerTokenFile) > 0) {
+	if (c.BasicAuth != nil || c.OAuth2 != nil) && c.BearerToken.IsSet() {
 		return fmt.Errorf("at most one of basic_auth, oauth2, bearer_token & bearer_token_file must be configured")
 	}
-	if c.BasicAuth != nil && (string(c.BasicAuth.Password) != "" && c.BasicAuth.PasswordFile != "") {
-		return fmt.Errorf("at most one of basic_auth password & password_file must be configured")
+	if c.BasicAuth != nil {
+		err := validateSecret("basic_auth password", c.BasicAuth.Password, "password_file", c.BasicAuth.PasswordFile)
+		if err != nil {
+			return err
+		}
 	}
 	if c.Authorization != nil {
-		if len(c.BearerToken) > 0 || len(c.BearerTokenFile) > 0 {
+		if c.BearerToken.IsSet() {
 			return fmt.Errorf("authorization is not compatible with bearer_token & bearer_token_file")
 		}
-		if string(c.Authorization.Credentials) != "" && c.Authorization.CredentialsFile != "" {
-			return fmt.Errorf("at most one of authorization credentials & credentials_file must be configured")
+
+		err := validateSecret("authorization credentials", c.Authorization.Credentials, "credentials_file", c.Authorization.CredentialsFile)
+		if err != nil {
+			return err
 		}
+
 		c.Authorization.Type = strings.TrimSpace(c.Authorization.Type)
 		if len(c.Authorization.Type) == 0 {
 			c.Authorization.Type = "Bearer"
@@ -236,15 +264,9 @@ func (c *HTTPClientConfig) Validate() error {
 			return fmt.Errorf("at most one of basic_auth, oauth2 & authorization must be configured")
 		}
 	} else {
-		if len(c.BearerToken) > 0 {
+		if c.BearerToken.IsSet() {
 			c.Authorization = &Authorization{Credentials: c.BearerToken}
 			c.Authorization.Type = "Bearer"
-			c.BearerToken = ""
-		}
-		if len(c.BearerTokenFile) > 0 {
-			c.Authorization = &Authorization{CredentialsFile: c.BearerTokenFile}
-			c.Authorization.Type = "Bearer"
-			c.BearerTokenFile = ""
 		}
 	}
 	if c.OAuth2 != nil {
@@ -254,14 +276,17 @@ func (c *HTTPClientConfig) Validate() error {
 		if len(c.OAuth2.ClientID) == 0 {
 			return fmt.Errorf("oauth2 client_id must be configured")
 		}
-		if len(c.OAuth2.ClientSecret) == 0 && len(c.OAuth2.ClientSecretFile) == 0 {
-			return fmt.Errorf("either oauth2 client_secret or client_secret_file must be configured")
+		if !c.OAuth2.ClientSecret.IsSet() {
+			return errors.New("either oauth2 client_secret or client_secret_file must be configured")
+		}
+		if err := validateSecret("oauth2 client_secret", c.OAuth2.ClientSecret, "client_secret_file", c.OAuth2.ClientSecretFile); err != nil {
+			return err
 		}
 		if len(c.OAuth2.TokenURL) == 0 {
 			return fmt.Errorf("oauth2 token_url must be configured")
 		}
-		if len(c.OAuth2.ClientSecret) > 0 && len(c.OAuth2.ClientSecretFile) > 0 {
-			return fmt.Errorf("at most one of oauth2 client_secret & client_secret_file must be configured")
+		if c.OAuth2.ClientSecret.IsSet() {
+			return fmt.Errorf("either oauth2 client_secret or client_secret_file must be configured")
 		}
 	}
 	return nil
@@ -274,6 +299,37 @@ func (c *HTTPClientConfig) UnmarshalYAML(unmarshal func(interface{}) error) erro
 	if err := unmarshal((*plain)(c)); err != nil {
 		return err
 	}
+
+	if err := validateSecret("bearer_token", c.BearerToken, "bearer_token_file", c.BearerTokenFile); err != nil {
+		return err
+	}
+
+	c.BearerToken.SetFile(c.BearerTokenFile)
+
+	if c.Authorization != nil {
+		if err := validateSecret("authorization credentials", c.Authorization.Credentials, "credentials_file", c.Authorization.CredentialsFile); err != nil {
+			return err
+		}
+
+		c.Authorization.Credentials.SetFile(c.Authorization.CredentialsFile)
+	}
+
+	if c.BasicAuth != nil {
+		if err := validateSecret("basic_auth password", c.BasicAuth.Password, "password_file", c.BasicAuth.PasswordFile); err != nil {
+			return err
+		}
+
+		c.BasicAuth.Password.SetFile(c.BasicAuth.PasswordFile)
+	}
+
+	if c.OAuth2 != nil {
+		if err := validateSecret("oauth2 client_secret", c.OAuth2.ClientSecret, "client_secret_file", c.OAuth2.ClientSecretFile); err != nil {
+			return err
+		}
+
+		c.OAuth2.ClientSecret.SetFile(c.OAuth2.ClientSecretFile)
+	}
+
 	return c.Validate()
 }
 
@@ -416,24 +472,42 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, optFuncs ...HT
 
 		// If a authorization_credentials is provided, create a round tripper that will set the
 		// Authorization header correctly on each request.
-		if cfg.Authorization != nil && len(cfg.Authorization.Credentials) > 0 {
+		if cfg.Authorization != nil {
+			// Backwards compatibility: if you don't call Validate first,
+			// these fields might not be correctly initialized.
+			cfg.Authorization.Credentials.SetFile(cfg.Authorization.CredentialsFile)
+			if _, _, err := cfg.Authorization.Credentials.Get(); err != nil {
+				return nil, fmt.Errorf("unable to retrieive authorization credentials: %w", err)
+			}
 			rt = NewAuthorizationCredentialsRoundTripper(cfg.Authorization.Type, cfg.Authorization.Credentials, rt)
-		} else if cfg.Authorization != nil && len(cfg.Authorization.CredentialsFile) > 0 {
-			rt = NewAuthorizationCredentialsFileRoundTripper(cfg.Authorization.Type, cfg.Authorization.CredentialsFile, rt)
 		}
 		// Backwards compatibility, be nice with importers who would not have
 		// called Validate().
-		if len(cfg.BearerToken) > 0 {
+		cfg.BearerToken.SetFile(cfg.BearerTokenFile)
+		if cfg.BearerToken.IsSet() {
+			if _, _, err := cfg.BearerToken.Get(); err != nil {
+				return nil, fmt.Errorf("unable to retrieve bearer token: %w", err)
+			}
 			rt = NewAuthorizationCredentialsRoundTripper("Bearer", cfg.BearerToken, rt)
-		} else if len(cfg.BearerTokenFile) > 0 {
-			rt = NewAuthorizationCredentialsFileRoundTripper("Bearer", cfg.BearerTokenFile, rt)
 		}
 
 		if cfg.BasicAuth != nil {
-			rt = NewBasicAuthRoundTripper(cfg.BasicAuth.Username, cfg.BasicAuth.Password, cfg.BasicAuth.PasswordFile, rt)
+			// Backwards compatibility: if you don't call Validate first,
+			// these fields might not be correctly initialized.
+			cfg.BasicAuth.Password.SetFile(cfg.BasicAuth.PasswordFile)
+			if _, _, err := cfg.BasicAuth.Password.Get(); err != nil {
+				return nil, fmt.Errorf("unable to retrieive basic authorization password: %w", err)
+			}
+			rt = NewBasicAuthRoundTripper(cfg.BasicAuth.Username, cfg.BasicAuth.Password, rt)
 		}
 
 		if cfg.OAuth2 != nil {
+			// Backwards compatibility: if you don't call Validate first,
+			// these fields might not be correctly initialized.
+			cfg.OAuth2.ClientSecret.SetFile(cfg.OAuth2.ClientSecretFile)
+			if _, _, err := cfg.OAuth2.ClientSecret.Get(); err != nil {
+				return nil, fmt.Errorf("unable to retrieve OAuth2 client secret: %w", err)
+			}
 			rt = NewOAuth2RoundTripper(cfg.OAuth2, rt)
 		}
 		// Return a new configured RoundTripper.
@@ -455,20 +529,24 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, optFuncs ...HT
 
 type authorizationCredentialsRoundTripper struct {
 	authType        string
-	authCredentials Secret
+	authCredentials SecretLoader
 	rt              http.RoundTripper
 }
 
 // NewAuthorizationCredentialsRoundTripper adds the provided credentials to a
 // request unless the authorization header has already been set.
-func NewAuthorizationCredentialsRoundTripper(authType string, authCredentials Secret, rt http.RoundTripper) http.RoundTripper {
+func NewAuthorizationCredentialsRoundTripper(authType string, authCredentials SecretLoader, rt http.RoundTripper) http.RoundTripper {
 	return &authorizationCredentialsRoundTripper{authType, authCredentials, rt}
 }
 
 func (rt *authorizationCredentialsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if len(req.Header.Get("Authorization")) == 0 {
 		req = cloneRequest(req)
-		req.Header.Set("Authorization", fmt.Sprintf("%s %s", rt.authType, string(rt.authCredentials)))
+		secret, _, err := rt.authCredentials.Get()
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", fmt.Sprintf("%s %s", rt.authType, secret))
 	}
 	return rt.rt.RoundTrip(req)
 }
@@ -514,16 +592,15 @@ func (rt *authorizationCredentialsFileRoundTripper) CloseIdleConnections() {
 }
 
 type basicAuthRoundTripper struct {
-	username     string
-	password     Secret
-	passwordFile string
-	rt           http.RoundTripper
+	username string
+	password SecretLoader
+	rt       http.RoundTripper
 }
 
 // NewBasicAuthRoundTripper will apply a BASIC auth authorization header to a request unless it has
 // already been set.
-func NewBasicAuthRoundTripper(username string, password Secret, passwordFile string, rt http.RoundTripper) http.RoundTripper {
-	return &basicAuthRoundTripper{username, password, passwordFile, rt}
+func NewBasicAuthRoundTripper(username string, password SecretLoader, rt http.RoundTripper) http.RoundTripper {
+	return &basicAuthRoundTripper{username, password, rt}
 }
 
 func (rt *basicAuthRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -531,15 +608,11 @@ func (rt *basicAuthRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 		return rt.rt.RoundTrip(req)
 	}
 	req = cloneRequest(req)
-	if rt.passwordFile != "" {
-		bs, err := ioutil.ReadFile(rt.passwordFile)
-		if err != nil {
-			return nil, fmt.Errorf("unable to read basic auth password file %s: %s", rt.passwordFile, err)
-		}
-		req.SetBasicAuth(rt.username, strings.TrimSpace(string(bs)))
-	} else {
-		req.SetBasicAuth(rt.username, strings.TrimSpace(string(rt.password)))
+	secret, _, err := rt.password.Get()
+	if err != nil {
+		return nil, fmt.Errorf("unable to read basic auth: %s", err)
 	}
+	req.SetBasicAuth(rt.username, strings.TrimSpace(secret))
 	return rt.rt.RoundTrip(req)
 }
 
@@ -565,27 +638,14 @@ func NewOAuth2RoundTripper(config *OAuth2, next http.RoundTripper) http.RoundTri
 }
 
 func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	var (
-		secret  string
-		changed bool
-	)
-
-	if rt.config.ClientSecretFile != "" {
-		data, err := ioutil.ReadFile(rt.config.ClientSecretFile)
-		if err != nil {
-			return nil, fmt.Errorf("unable to read oauth2 client secret file %s: %s", rt.config.ClientSecretFile, err)
-		}
-		secret = strings.TrimSpace(string(data))
-		rt.mtx.RLock()
-		changed = secret != rt.secret
-		rt.mtx.RUnlock()
+	secret, changed, err := rt.config.ClientSecret.Get()
+	if err != nil {
+		return nil, fmt.Errorf("unable to read oauth2 client secret: %s", err)
 	}
 
-	if changed || rt.rt == nil {
-		if rt.config.ClientSecret != "" {
-			secret = string(rt.config.ClientSecret)
-		}
+	secret = strings.TrimSpace(secret)
 
+	if changed || rt.rt == nil {
 		config := &clientcredentials.Config{
 			ClientID:       rt.config.ClientID,
 			ClientSecret:   secret,
