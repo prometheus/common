@@ -66,6 +66,7 @@ const (
 	ExpectedAuthenticationCredentials = AuthorizationType + " " + BearerToken
 	ExpectedUsername                  = "arthurdent"
 	ExpectedPassword                  = "42"
+	ExpectedAccessToken               = "12345"
 )
 
 var invalidHTTPClientConfigs = []struct {
@@ -363,6 +364,45 @@ func TestNewClientFromConfig(t *testing.T) {
 				}
 			},
 		},
+		{
+			clientConfig: HTTPClientConfig{
+				OAuth2: &OAuth2{
+					ClientID:     "ExpectedUsername",
+					ClientSecret: "ExpectedPassword",
+					TLSConfig: TLSConfig{
+						CAFile:             TLSCAChainPath,
+						CertFile:           ClientCertificatePath,
+						KeyFile:            ClientKeyNoPassPath,
+						ServerName:         "",
+						InsecureSkipVerify: false},
+				},
+				TLSConfig: TLSConfig{
+					CAFile:             TLSCAChainPath,
+					CertFile:           ClientCertificatePath,
+					KeyFile:            ClientKeyNoPassPath,
+					ServerName:         "",
+					InsecureSkipVerify: false},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/token":
+					res, _ := json.Marshal(oauth2TestServerResponse{
+						AccessToken: ExpectedAccessToken,
+						TokenType:   "Bearer",
+					})
+					w.Header().Add("Content-Type", "application/json")
+					_, _ = w.Write(res)
+
+				default:
+					authorization := r.Header.Get("Authorization")
+					if authorization != "Bearer "+ExpectedAccessToken {
+						fmt.Fprintf(w, "Expected Authorization header %q, got %q", "Bearer "+ExpectedAccessToken, authorization)
+					} else {
+						fmt.Fprint(w, ExpectedMessage)
+					}
+				}
+			},
+		},
 	}
 
 	for _, validConfig := range newClientValidConfig {
@@ -371,6 +411,12 @@ func TestNewClientFromConfig(t *testing.T) {
 			t.Fatal(err.Error())
 		}
 		defer testServer.Close()
+
+		if validConfig.clientConfig.OAuth2 != nil {
+			// We don't have access to the test server's URL when configuring the test cases,
+			// so it has to be specified here.
+			validConfig.clientConfig.OAuth2.TokenURL = testServer.URL + "/token"
+		}
 
 		err = validConfig.clientConfig.Validate()
 		if err != nil {
@@ -381,6 +427,7 @@ func TestNewClientFromConfig(t *testing.T) {
 			t.Errorf("Can't create a client from this config: %+v", validConfig.clientConfig)
 			continue
 		}
+
 		response, err := client.Get(testServer.URL)
 		if err != nil {
 			t.Errorf("Can't connect to the test server using this config: %+v: %v", validConfig.clientConfig, err)
@@ -1129,14 +1176,14 @@ func NewRoundTripCheckRequest(checkRequest func(*http.Request), theResponse *htt
 			theError:    theError}}
 }
 
-type testServerResponse struct {
+type oauth2TestServerResponse struct {
 	AccessToken string `json:"access_token"`
 	TokenType   string `json:"token_type"`
 }
 
 func TestOAuth2(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		res, _ := json.Marshal(testServerResponse{
+		res, _ := json.Marshal(oauth2TestServerResponse{
 			AccessToken: "12345",
 			TokenType:   "Bearer",
 		})
@@ -1169,7 +1216,7 @@ endpoint_params:
 		t.Fatalf("Expected no error unmarshalling yaml, got %v", err)
 	}
 	if !reflect.DeepEqual(unmarshalledConfig, expectedConfig) {
-		t.Fatalf("Got unmarshalled config %q, expected %q", unmarshalledConfig, expectedConfig)
+		t.Fatalf("Got unmarshalled config %v, expected %v", unmarshalledConfig, expectedConfig)
 	}
 
 	rt := NewOAuth2RoundTripper(&expectedConfig, http.DefaultTransport)
@@ -1197,7 +1244,7 @@ func TestOAuth2WithFile(t *testing.T) {
 			t.Fatal("token endpoint called twice")
 		}
 		previousAuth = auth
-		res, _ := json.Marshal(testServerResponse{
+		res, _ := json.Marshal(oauth2TestServerResponse{
 			AccessToken: "12345",
 			TokenType:   "Bearer",
 		})
@@ -1244,7 +1291,7 @@ endpoint_params:
 		t.Fatalf("Expected no error unmarshalling yaml, got %v", err)
 	}
 	if !reflect.DeepEqual(unmarshalledConfig, expectedConfig) {
-		t.Fatalf("Got unmarshalled config %q, expected %q", unmarshalledConfig, expectedConfig)
+		t.Fatalf("Got unmarshalled config %v, expected %v", unmarshalledConfig, expectedConfig)
 	}
 
 	rt := NewOAuth2RoundTripper(&expectedConfig, http.DefaultTransport)
