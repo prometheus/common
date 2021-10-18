@@ -168,16 +168,16 @@ func (l *logger) Log(keyvals ...interface{}) error {
 func (l *logger) SetLevel(lvl *AllowedLevel) {
 	l.mtx.Lock()
 	defer l.mtx.Unlock()
-	if lvl != nil {
-		if (l.currentLevel != nil && l.currentLevel.s != lvl.s) || l.currentLevel == nil {
-			l.leveled = log.With(l.base, "ts", timestampFormat, "caller", log.Caller(5))
-			_ = l.base.Log("msg", "Log level changed", "prev", l.currentLevel, "current", lvl)
-		}
-		l.currentLevel = lvl
-	} else {
+	if lvl == nil {
 		l.leveled = log.With(l.base, "ts", timestampFormat, "caller", log.DefaultCaller)
 		l.currentLevel = nil
 		return
 	}
+
+	l.leveled = log.With(l.base, "ts", timestampFormat, "caller", log.Caller(5))
+	if l.currentLevel != nil && l.currentLevel.s != lvl.s {
+		_ = l.base.Log("msg", "Log level changed", "prev", l.currentLevel, "current", lvl)
+	}
+	l.currentLevel = lvl
 	l.leveled = level.NewFilter(l.leveled, lvl.o)
 }
