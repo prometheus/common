@@ -170,6 +170,7 @@ func (a *OAuth2) SetDirectory(dir string) {
 		return
 	}
 	a.ClientSecretFile = JoinDir(dir, a.ClientSecretFile)
+	a.TLSConfig.SetDirectory(dir)
 }
 
 // HTTPClientConfig configures an HTTP client.
