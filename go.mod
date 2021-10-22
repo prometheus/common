@@ -1,7 +1,7 @@
 module github.com/prometheus/common
 
 require (
-	github.com/go-kit/log v0.1.0
+	github.com/go-kit/log v0.2.0
 	github.com/golang/protobuf v1.4.3
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/matttproud/golang_protobuf_extensions v1.0.1
