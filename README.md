@@ -5,6 +5,7 @@ This repository contains Go libraries that are shared across Prometheus
 components and libraries. They are considered internal to Prometheus, without
 any stability guarantees for external usage.
 
+* **assets**: Embedding of static assets with gzip support
 * **config**: Common configuration structures
 * **expfmt**: Decoding and encoding for the exposition format
 * **model**: Shared data structures
