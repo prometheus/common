@@ -833,12 +833,12 @@ func (c *TLSConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 // readCertAndKey reads the cert and key files from the disk.
 func readCertAndKey(certFile, keyFile string) ([]byte, []byte, error) {
-	certData, err := os.ReadFile(certFile)
+	certData, err := ioutil.ReadFile(certFile)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	keyData, err := os.ReadFile(keyFile)
+	keyData, err := ioutil.ReadFile(keyFile)
 	if err != nil {
 		return nil, nil, err
 	}
