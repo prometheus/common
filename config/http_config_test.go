@@ -1575,12 +1575,16 @@ func TestModifyTLSCertificates(t *testing.T) {
 			cert: WrongClientCertPath,
 			key:  ClientKeyNoPassPath,
 
+			errMsg: "private key does not match public key",
+
 			modification: func() { writeCertificate(bs, ClientCertificatePath, cert) },
 		},
 		{
 			ca:   TLSCAChainPath,
 			cert: ClientCertificatePath,
 			key:  WrongClientCertPath,
+
+			errMsg: "found a certificate rather than a key in the PEM for the private key",
 
 			modification: func() { writeCertificate(bs, ClientKeyNoPassPath, key) },
 		},
