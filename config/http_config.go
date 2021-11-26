@@ -948,27 +948,30 @@ func (t *tlsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 
 	t.mtx.RLock()
-	equal := bytes.Equal(caHash[:], t.hashCAFile) &&
-		bytes.Equal(certHash[:], t.hashCertFile) &&
-		bytes.Equal(keyHash[:], t.hashKeyFile)
+	caEqual := bytes.Equal(caHash[:], t.hashCAFile)
+	certKeyEqual := bytes.Equal(certHash[:], t.hashCertFile) && bytes.Equal(keyHash[:], t.hashKeyFile)
 	rt := t.rt
 	t.mtx.RUnlock()
-	if equal {
+	if caEqual && certKeyEqual {
 		// The CA cert hasn't changed, use the existing RoundTripper.
 		return rt.RoundTrip(req)
 	}
 
-	// Create a new RoundTripper.
 	// The cert and key files are read separately by the client
-	// using GetClientCertificate.
-	tlsConfig := t.tlsConfig.Clone()
-	if !updateRootCA(tlsConfig, caData) {
-		return nil, fmt.Errorf("unable to use specified CA cert %s", t.caFile)
+	// using GetClientCertificate, therefore the RoundTripper
+	// doesn't need to be updated if only they are changed.
+	if !caEqual {
+		// Create a new RoundTripper.
+		tlsConfig := t.tlsConfig.Clone()
+		if !updateRootCA(tlsConfig, caData) {
+			return nil, fmt.Errorf("unable to use specified CA cert %s", t.caFile)
+		}
+		rt, err = t.newRT(tlsConfig)
+		if err != nil {
+			return nil, err
+		}
 	}
-	rt, err = t.newRT(tlsConfig)
-	if err != nil {
-		return nil, err
-	}
+
 	t.CloseIdleConnections()
 
 	t.mtx.Lock()
