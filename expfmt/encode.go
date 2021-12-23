@@ -99,7 +99,8 @@ func NegotiateIncludingOpenMetrics(h http.Header) Format {
 		if ac.Type == "text" && ac.SubType == "plain" && (ver == TextVersion || ver == "") {
 			return FmtText
 		}
-		if ac.Type+"/"+ac.SubType == OpenMetricsType && (ver == OpenMetricsVersion || ver == "") {
+		// Intentionally not checking version to allow for OpenMetics rollout.
+		if ac.Type+"/"+ac.SubType == OpenMetricsType {
 			return FmtOpenMetrics
 		}
 	}

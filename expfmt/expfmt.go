@@ -24,7 +24,7 @@ const (
 	ProtoProtocol      = `io.prometheus.client.MetricFamily`
 	ProtoFmt           = ProtoType + "; proto=" + ProtoProtocol + ";"
 	OpenMetricsType    = `application/openmetrics-text`
-	OpenMetricsVersion = "0.0.1"
+	OpenMetricsVersion = "1.0.0"
 
 	// The Content-Type values for the different wire protocols.
 	FmtUnknown      Format = `<unknown>`
