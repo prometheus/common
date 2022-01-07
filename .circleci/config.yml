@@ -14,7 +14,6 @@ jobs:
         default: true
     docker:
     - image: circleci/golang:<< parameters.go_version >>
-    working_directory: /go/src/github.com/prometheus/common
     steps:
     - checkout
     - when:
@@ -23,7 +22,7 @@ jobs:
         - go/load-cache:
             key: v1-go<< parameters.go_version >>
     - run: make test
-    - run: cd sigv4 && make test
+    - run: make -C sigv4 test
     - when:
         condition: << parameters.use_gomod_cache >>
         steps:
@@ -40,7 +39,6 @@ jobs:
         default: true
     docker:
     - image: circleci/golang:<< parameters.go_version >>
-    working_directory: /go/src/github.com/prometheus/common/assets
     steps:
     - checkout
     - when:
@@ -48,14 +46,14 @@ jobs:
         steps:
         - go/load-cache:
             key: v1-go<< parameters.go_version >>
-    - run: make test
+    - run: make -C assets test
     - when:
         condition: << parameters.use_gomod_cache >>
         steps:
         - go/save-cache:
             key: v1-go<< parameters.go_version >>
     - store_test_results:
-        path: ../test-results
+        path: test-results
   style:
     parameters:
       go_version:
@@ -65,7 +63,6 @@ jobs:
         default: true
     docker:
     - image: circleci/golang:<< parameters.go_version >>
-    working_directory: /go/src/github.com/prometheus/common
     steps:
     - checkout
     - when:
@@ -74,8 +71,8 @@ jobs:
         - go/load-cache:
             key: v1-go<< parameters.go_version >>
     - run: make style
-    - run: cd sigv4 && make style
-    - run: cd assets && make style
+    - run: make -C sigv4 style
+    - run: make -C assets style
     - when:
         condition: << parameters.use_gomod_cache >>
         steps:
@@ -93,12 +90,16 @@ workflows:
         name: go-<< matrix.go_version >>
         matrix:
           parameters:
-            go_version: ["1.13", "1.14", "1.15", "1.16", "1.17"]
+            go_version:
+            - "1.15"
+            - "1.16"
+            - "1.17"
     - test-assets:
         name: assets-go-<< matrix.go_version >>
         matrix:
           parameters:
-            go_version: ["1.17"]
+            go_version:
+            - "1.17"
     - style:
         name: style
         go_version: "1.17"
