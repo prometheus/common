@@ -78,7 +78,13 @@ func NewSigV4RoundTripper(cfg *SigV4Config, next http.RoundTripper) (http.RoundT
 
 	signerCreds := sess.Config.Credentials
 	if cfg.RoleARN != "" {
-		signerCreds = stscreds.NewCredentials(sess, cfg.RoleARN)
+		if cfg.ExternalId == "" {
+			signerCreds = stscreds.NewCredentials(sess, cfg.RoleARN)
+		 }else{
+			 signerCreds = stscreds.NewCredentials(sess, cfg.RoleARN, func(p *stscreds.AssumeRoleProvider) {
+				 p.ExternalID = &cfg.ExternalId
+			   })
+		 }
 	}
 
 	rt := &sigV4RoundTripper{
