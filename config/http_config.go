@@ -161,6 +161,8 @@ type OAuth2 struct {
 	TokenURL         string            `yaml:"token_url" json:"token_url"`
 	EndpointParams   map[string]string `yaml:"endpoint_params,omitempty" json:"endpoint_params,omitempty"`
 
+	// HTTP proxy server to use to connect to the targets.
+	ProxyURL URL `yaml:"proxy_url,omitempty" json:"proxy_url,omitempty"`
 	// TLSConfig is used to connect to the token URL.
 	TLSConfig TLSConfig `yaml:"tls_config,omitempty"`
 }
@@ -606,10 +608,16 @@ func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 
 		var t http.RoundTripper
 		if len(rt.config.TLSConfig.CAFile) == 0 {
-			t = &http.Transport{TLSClientConfig: tlsConfig}
+			t = &http.Transport{
+				TLSClientConfig: tlsConfig,
+				Proxy:           http.ProxyURL(rt.config.ProxyURL.URL),
+			}
 		} else {
 			t, err = NewTLSRoundTripper(tlsConfig, rt.config.TLSConfig.CAFile, func(tls *tls.Config) (http.RoundTripper, error) {
-				return &http.Transport{TLSClientConfig: tls}, nil
+				return &http.Transport{
+					TLSClientConfig: tls,
+					Proxy:           http.ProxyURL(rt.config.ProxyURL.URL),
+				}, nil
 			})
 			if err != nil {
 				return nil, err

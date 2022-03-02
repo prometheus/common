@@ -1482,3 +1482,10 @@ func TestMarshalURLWithSecret(t *testing.T) {
 		t.Fatalf("URL not properly marshaled in YAML, got '%s'", string(b))
 	}
 }
+
+func TestOAuth2Proxy(t *testing.T) {
+	_, _, err := LoadHTTPConfigFile("testdata/http.conf.oauth2-proxy.good.yml")
+	if err != nil {
+		t.Errorf("Error loading OAuth2 client config: %v", err)
+	}
+}
