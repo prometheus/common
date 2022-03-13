@@ -931,11 +931,14 @@ func (t *tlsRoundTripper) getTLSFilesWithHash() ([]byte, []byte, []byte, []byte,
 	}
 	h1 := sha256.Sum256(b1)
 
-	b2, b3, err := readCertAndKey(t.certFile, t.keyFile)
-	if err != nil {
-		return nil, nil, nil, nil, err
+	var h2, h3 [32]byte
+	if t.certFile != "" {
+		b2, b3, err := readCertAndKey(t.certFile, t.keyFile)
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
+		h2, h3 = sha256.Sum256(b2), sha256.Sum256(b3)
 	}
-	h2, h3 := sha256.Sum256(b2), sha256.Sum256(b3)
 
 	return b1, h1[:], h2[:], h3[:], nil
 }
