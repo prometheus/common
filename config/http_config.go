@@ -28,7 +28,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -43,6 +42,7 @@ import (
 // DefaultHTTPClientConfig is the default HTTP client configuration.
 var DefaultHTTPClientConfig = HTTPClientConfig{
 	FollowRedirects: true,
+	EnableHTTP2:     true,
 }
 
 // defaultHTTPClientOptions holds the default HTTP client options.
@@ -198,6 +198,10 @@ type HTTPClientConfig struct {
 	// The omitempty flag is not set, because it would be hidden from the
 	// marshalled configuration when set to false.
 	FollowRedirects bool `yaml:"follow_redirects" json:"follow_redirects"`
+	// EnableHTTP2 specifies whether the client should configure HTTP2.
+	// The omitempty flag is not set, because it would be hidden from the
+	// marshalled configuration when set to false.
+	EnableHTTP2 bool `yaml:"enable_http2" json:"enable_http2"`
 }
 
 // SetDirectory joins any relative file paths with dir.
@@ -401,7 +405,7 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, optFuncs ...HT
 			ExpectContinueTimeout: 1 * time.Second,
 			DialContext:           dialContext,
 		}
-		if opts.http2Enabled && os.Getenv("PROMETHEUS_COMMON_DISABLE_HTTP2") == "" {
+		if opts.http2Enabled && cfg.EnableHTTP2 {
 			// HTTP/2 support is golang had many problematic cornercases where
 			// dead connections would be kept and used in connection pools.
 			// https://github.com/golang/go/issues/32388
