@@ -2,7 +2,7 @@
 version: 2.1
 
 orbs:
-  go: circleci/go@0.2.0
+  go: circleci/go@1.7.1
 
 jobs:
   test:
@@ -13,23 +13,23 @@ jobs:
         type: boolean
         default: true
     docker:
-      - image: circleci/golang:<< parameters.go_version >>
+    - image: cimg/go:<< parameters.go_version >>
     steps:
-      - checkout
-      - when:
-          condition: << parameters.use_gomod_cache >>
-          steps:
-            - go/load-cache:
-                key: v1-go<< parameters.go_version >>
-      - run: make test
-      - run: make -C sigv4 test
-      - when:
-          condition: << parameters.use_gomod_cache >>
-          steps:
-            - go/save-cache:
-                key: v1-go<< parameters.go_version >>
-      - store_test_results:
-          path: test-results
+    - checkout
+    - when:
+        condition: << parameters.use_gomod_cache >>
+        steps:
+        - go/load-cache:
+            key: v1-go<< parameters.go_version >>
+    - run: make test
+    - run: make -C sigv4 test
+    - when:
+        condition: << parameters.use_gomod_cache >>
+        steps:
+        - go/save-cache:
+            key: v1-go<< parameters.go_version >>
+    - store_test_results:
+        path: test-results
   test-assets:
     parameters:
       go_version:
@@ -38,22 +38,22 @@ jobs:
         type: boolean
         default: true
     docker:
-      - image: circleci/golang:<< parameters.go_version >>
+    - image: cimg/go:<< parameters.go_version >>
     steps:
-      - checkout
-      - when:
-          condition: << parameters.use_gomod_cache >>
-          steps:
-            - go/load-cache:
-                key: v1-go<< parameters.go_version >>
-      - run: make -C assets test
-      - when:
-          condition: << parameters.use_gomod_cache >>
-          steps:
-            - go/save-cache:
-                key: v1-go<< parameters.go_version >>
-      - store_test_results:
-          path: test-results
+    - checkout
+    - when:
+        condition: << parameters.use_gomod_cache >>
+        steps:
+        - go/load-cache:
+            key: v1-go<< parameters.go_version >>
+    - run: make -C assets test
+    - when:
+        condition: << parameters.use_gomod_cache >>
+        steps:
+        - go/save-cache:
+            key: v1-go<< parameters.go_version >>
+    - store_test_results:
+        path: test-results
   style:
     parameters:
       go_version:
@@ -62,24 +62,24 @@ jobs:
         type: boolean
         default: true
     docker:
-      - image: circleci/golang:<< parameters.go_version >>
+    - image: cimg/go:<< parameters.go_version >>
     steps:
-      - checkout
-      - when:
-          condition: << parameters.use_gomod_cache >>
-          steps:
-            - go/load-cache:
-                key: v1-go<< parameters.go_version >>
-      - run: make style
-      - run: make -C sigv4 style
-      - run: make -C assets style
-      - when:
-          condition: << parameters.use_gomod_cache >>
-          steps:
-            - go/save-cache:
-                key: v1-go<< parameters.go_version >>
-      - store_test_results:
-          path: test-results
+    - checkout
+    - when:
+        condition: << parameters.use_gomod_cache >>
+        steps:
+        - go/load-cache:
+            key: v1-go<< parameters.go_version >>
+    - run: make style
+    - run: make -C sigv4 style
+    - run: make -C assets style
+    - when:
+        condition: << parameters.use_gomod_cache >>
+        steps:
+        - go/save-cache:
+            key: v1-go<< parameters.go_version >>
+    - store_test_results:
+        path: test-results
 
 workflows:
   version: 2
