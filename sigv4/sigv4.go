@@ -115,6 +115,10 @@ func (rt *sigV4RoundTripper) RoundTrip(req *http.Request) (*http.Response, error
 	}()
 	req.Body = ioutil.NopCloser(seeker)
 
+	// Escape URL like documented in AWS documentation.
+	// https://docs.aws.amazon.com/sdk-for-go/api/aws/signer/v4/#pkg-overview
+	req.URL.Path = req.URL.EscapedPath()
+
 	// Clone the request and trim out headers that we don't want to sign.
 	signReq := req.Clone(req.Context())
 	for _, header := range sigv4HeaderDenylist {
