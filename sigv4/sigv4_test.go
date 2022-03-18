@@ -89,4 +89,14 @@ func TestSigV4RoundTripper(t *testing.T) {
 
 		require.Equal(t, origReq.Header.Get("Authorization"), gotReq.Header.Get("Authorization"))
 	})
+
+	t.Run("Escape URL", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodPost, "google.com/test//test", strings.NewReader("Hello, world!"))
+		require.NoError(t, err)
+		require.Equal(t, "google.com/test//test", req.URL.Path)
+
+		// Escape URL and check
+		req.URL.Path = req.URL.EscapedPath()
+		require.Equal(t, "google.com/test/test", req.URL.Path)
+	})
 }
