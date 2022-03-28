@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/textproto"
+	"path"
 	"sync"
 	"time"
 
@@ -115,9 +116,9 @@ func (rt *sigV4RoundTripper) RoundTrip(req *http.Request) (*http.Response, error
 	}()
 	req.Body = ioutil.NopCloser(seeker)
 
-	// Escape URL like documented in AWS documentation.
-	// https://docs.aws.amazon.com/sdk-for-go/api/aws/signer/v4/#pkg-overview
-	req.URL.Path = req.URL.EscapedPath()
+	// Clean path like documented in AWS documentation.
+	// https://docs.aws.amazon.com/general/latest/gr/sigv4-create-canonical-request.html
+	req.URL.Path = path.Clean(req.URL.Path)
 
 	// Clone the request and trim out headers that we don't want to sign.
 	signReq := req.Clone(req.Context())

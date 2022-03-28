@@ -64,7 +64,7 @@ func TestSigV4RoundTripper(t *testing.T) {
 
 	cli := &http.Client{Transport: rt}
 
-	req, err := http.NewRequest(http.MethodPost, "google.com", strings.NewReader("Hello, world!"))
+	req, err := http.NewRequest(http.MethodPost, "https://example.com", strings.NewReader("Hello, world!"))
 	require.NoError(t, err)
 
 	_, err = cli.Do(req)
@@ -78,7 +78,7 @@ func TestSigV4RoundTripper(t *testing.T) {
 	// Perform the same request but with a header that shouldn't included in the
 	// signature; validate that the Authorization signature matches.
 	t.Run("Ignored Headers", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodPost, "google.com", strings.NewReader("Hello, world!"))
+		req, err := http.NewRequest(http.MethodPost, "https://example.com", strings.NewReader("Hello, world!"))
 		require.NoError(t, err)
 
 		req.Header.Add("Uber-Trace-Id", "some-trace-id")
@@ -91,12 +91,14 @@ func TestSigV4RoundTripper(t *testing.T) {
 	})
 
 	t.Run("Escape URL", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodPost, "google.com/test//test", strings.NewReader("Hello, world!"))
+		req, err := http.NewRequest(http.MethodPost, "https://example.com/test//test", strings.NewReader("Hello, world!"))
 		require.NoError(t, err)
-		require.Equal(t, "google.com/test//test", req.URL.Path)
+		require.Equal(t, "/test//test", req.URL.Path)
 
-		// Escape URL and check
-		req.URL.Path = req.URL.EscapedPath()
-		require.Equal(t, "google.com/test/test", req.URL.Path)
+		_, err = cli.Do(req)
+		require.NoError(t, err)
+		require.NotNil(t, gotReq)
+
+		require.Equal(t, "/test/test", gotReq.URL.Path)
 	})
 }
