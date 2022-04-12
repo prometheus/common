@@ -409,12 +409,6 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, optFuncs ...HT
 			// https://github.com/golang/go/issues/39337
 			// https://github.com/golang/go/issues/39750
 
-			// Do not enable HTTP2 if the environment variable
-			// PROMETHEUS_COMMON_DISABLE_HTTP2 is set to a non-empty value.
-			// This allows users to easily disable HTTP2 in case they run into
-			// issues again, but will be removed once we are confident that
-			// things work as expected.
-
 			http2t, err := http2.ConfigureTransports(rt.(*http.Transport))
 			if err != nil {
 				return nil, err
