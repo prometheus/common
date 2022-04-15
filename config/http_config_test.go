@@ -627,7 +627,9 @@ func TestTLSConfig(t *testing.T) {
 		CertFile:           ClientCertificatePath,
 		KeyFile:            ClientKeyNoPassPath,
 		ServerName:         "localhost",
-		InsecureSkipVerify: false}
+		InsecureSkipVerify: false,
+		MinVersion:         tls.VersionTLS12,
+	}
 
 	tlsCAChain, err := ioutil.ReadFile(TLSCAChainPath)
 	if err != nil {
@@ -640,7 +642,9 @@ func TestTLSConfig(t *testing.T) {
 	expectedTLSConfig := &tls.Config{
 		RootCAs:            rootCAs,
 		ServerName:         configTLSConfig.ServerName,
-		InsecureSkipVerify: configTLSConfig.InsecureSkipVerify}
+		InsecureSkipVerify: configTLSConfig.InsecureSkipVerify,
+		MinVersion:         tls.VersionTLS12,
+	}
 
 	tlsConfig, err := NewTLSConfig(&configTLSConfig)
 	if err != nil {
@@ -683,6 +687,7 @@ func TestTLSConfigEmpty(t *testing.T) {
 
 	expectedTLSConfig := &tls.Config{
 		InsecureSkipVerify: configTLSConfig.InsecureSkipVerify,
+		MinVersion:         tls.VersionTLS12,
 	}
 
 	tlsConfig, err := NewTLSConfig(&configTLSConfig)

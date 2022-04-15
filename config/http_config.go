@@ -36,23 +36,61 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// DefaultHTTPClientConfig is the default HTTP client configuration.
-var DefaultHTTPClientConfig = HTTPClientConfig{
-	FollowRedirects: true,
-	EnableHTTP2:     true,
-}
+var (
+	// DefaultHTTPClientConfig is the default HTTP client configuration.
+	DefaultHTTPClientConfig = HTTPClientConfig{
+		FollowRedirects: true,
+		EnableHTTP2:     true,
+	}
 
-// defaultHTTPClientOptions holds the default HTTP client options.
-var defaultHTTPClientOptions = httpClientOptions{
-	keepAlivesEnabled: true,
-	http2Enabled:      true,
-	// 5 minutes is typically above the maximum sane scrape interval. So we can
-	// use keepalive for all configurations.
-	idleConnTimeout: 5 * time.Minute,
-}
+	// defaultHTTPClientOptions holds the default HTTP client options.
+	defaultHTTPClientOptions = httpClientOptions{
+		keepAlivesEnabled: true,
+		http2Enabled:      true,
+		// 5 minutes is typically above the maximum sane scrape interval. So we can
+		// use keepalive for all configurations.
+		idleConnTimeout: 5 * time.Minute,
+	}
+
+	// DefaultTLSConfig holds the default TLS configuration.
+	DefaultTLSConfig = TLSConfig{
+		MinVersion: tls.VersionTLS12,
+	}
+)
 
 type closeIdler interface {
 	CloseIdleConnections()
+}
+
+type TLSVersion uint16
+
+var TLSVersions = map[string]TLSVersion{
+	"TLS13": (TLSVersion)(tls.VersionTLS13),
+	"TLS12": (TLSVersion)(tls.VersionTLS12),
+	"TLS11": (TLSVersion)(tls.VersionTLS11),
+	"TLS10": (TLSVersion)(tls.VersionTLS10),
+}
+
+func (tv *TLSVersion) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	err := unmarshal((*string)(&s))
+	if err != nil {
+		return err
+	}
+	if v, ok := TLSVersions[s]; ok {
+		*tv = v
+		return nil
+	}
+	return fmt.Errorf("unknown TLS version: %s", s)
+}
+
+func (tv *TLSVersion) MarshalYAML() (interface{}, error) {
+	for s, v := range TLSVersions {
+		if *tv == v {
+			return s, nil
+		}
+	}
+	return fmt.Sprintf("%v", tv), nil
 }
 
 // BasicAuth contains basic HTTP authentication credentials.
@@ -669,7 +707,17 @@ func cloneRequest(r *http.Request) *http.Request {
 
 // NewTLSConfig creates a new tls.Config from the given TLSConfig.
 func NewTLSConfig(cfg *TLSConfig) (*tls.Config, error) {
-	tlsConfig := &tls.Config{InsecureSkipVerify: cfg.InsecureSkipVerify}
+	// Ensure that min and max versions are set even if TLSConfig is from its
+	// zero-value.
+	minv := uint16(cfg.MinVersion)
+	if minv == 0 {
+		minv = uint16(DefaultTLSConfig.MinVersion)
+	}
+
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: cfg.InsecureSkipVerify,
+		MinVersion:         minv,
+	}
 
 	// If a CA cert is provided then let's read it in so we can validate the
 	// scrape target's certificate properly.
@@ -714,6 +762,8 @@ type TLSConfig struct {
 	ServerName string `yaml:"server_name,omitempty" json:"server_name,omitempty"`
 	// Disable target certificate validation.
 	InsecureSkipVerify bool `yaml:"insecure_skip_verify" json:"insecure_skip_verify"`
+	// Minimum TLS version.
+	MinVersion TLSVersion `yaml:"min_version,omitempty"`
 }
 
 // SetDirectory joins any relative file paths with dir.
@@ -728,6 +778,7 @@ func (c *TLSConfig) SetDirectory(dir string) {
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (c *TLSConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*c = DefaultTLSConfig
 	type plain TLSConfig
 	return unmarshal((*plain)(c))
 }
