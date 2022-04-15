@@ -45,6 +45,9 @@ var expectedTLSConfigs = []struct {
 	}, {
 		filename: "tls_config.insecure.good.yml",
 		config:   &tls.Config{InsecureSkipVerify: true},
+	}, {
+		filename: "tls_config.tlsversion.good.yml",
+		config:   &tls.Config{MinVersion: tls.VersionTLS11},
 	},
 }
 

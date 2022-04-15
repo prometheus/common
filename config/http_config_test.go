@@ -627,7 +627,8 @@ func TestTLSConfig(t *testing.T) {
 		CertFile:           ClientCertificatePath,
 		KeyFile:            ClientKeyNoPassPath,
 		ServerName:         "localhost",
-		InsecureSkipVerify: false}
+		InsecureSkipVerify: false,
+	}
 
 	tlsCAChain, err := ioutil.ReadFile(TLSCAChainPath)
 	if err != nil {
@@ -640,7 +641,8 @@ func TestTLSConfig(t *testing.T) {
 	expectedTLSConfig := &tls.Config{
 		RootCAs:            rootCAs,
 		ServerName:         configTLSConfig.ServerName,
-		InsecureSkipVerify: configTLSConfig.InsecureSkipVerify}
+		InsecureSkipVerify: configTLSConfig.InsecureSkipVerify,
+	}
 
 	tlsConfig, err := NewTLSConfig(&configTLSConfig)
 	if err != nil {
