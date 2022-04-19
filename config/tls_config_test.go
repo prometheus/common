@@ -14,23 +14,39 @@
 package config
 
 import (
+	"bytes"
 	"crypto/tls"
+	"fmt"
 	"io/ioutil"
+	"path/filepath"
 	"reflect"
 	"testing"
+
+	"encoding/json"
 
 	"gopkg.in/yaml.v2"
 )
 
-// LoadTLSConfig parses the given YAML file into a tls.Config.
+// LoadTLSConfig parses the given file into a tls.Config.
 func LoadTLSConfig(filename string) (*tls.Config, error) {
 	content, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
 	cfg := TLSConfig{}
-	if err = yaml.UnmarshalStrict(content, &cfg); err != nil {
-		return nil, err
+	switch filepath.Ext(filename) {
+	case ".yml":
+		if err = yaml.UnmarshalStrict(content, &cfg); err != nil {
+			return nil, err
+		}
+	case ".json":
+		decoder := json.NewDecoder(bytes.NewReader(content))
+		decoder.DisallowUnknownFields()
+		if err = decoder.Decode(&cfg); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("Unknown extension: %s", filepath.Ext(filename))
 	}
 	return NewTLSConfig(&cfg)
 }
@@ -39,6 +55,16 @@ var expectedTLSConfigs = []struct {
 	filename string
 	config   *tls.Config
 }{
+	{
+		filename: "tls_config.empty.good.json",
+		config:   &tls.Config{},
+	}, {
+		filename: "tls_config.insecure.good.json",
+		config:   &tls.Config{InsecureSkipVerify: true},
+	}, {
+		filename: "tls_config.tlsversion.good.json",
+		config:   &tls.Config{MinVersion: tls.VersionTLS11},
+	},
 	{
 		filename: "tls_config.empty.good.yml",
 		config:   &tls.Config{},
@@ -55,7 +81,7 @@ func TestValidTLSConfig(t *testing.T) {
 	for _, cfg := range expectedTLSConfigs {
 		got, err := LoadTLSConfig("testdata/" + cfg.filename)
 		if err != nil {
-			t.Errorf("Error parsing %s: %s", cfg.filename, err)
+			t.Fatalf("Error parsing %s: %s", cfg.filename, err)
 		}
 		// non-nil functions are never equal.
 		got.GetClientCertificate = nil

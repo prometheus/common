@@ -80,12 +80,41 @@ func (tv *TLSVersion) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 func (tv *TLSVersion) MarshalYAML() (interface{}, error) {
+	if tv != nil || *tv == 0 {
+		return []byte("null"), nil
+	}
 	for s, v := range TLSVersions {
 		if *tv == v {
 			return s, nil
 		}
 	}
-	return fmt.Sprintf("%v", tv), nil
+	return nil, fmt.Errorf("unknown TLS version: %d", tv)
+}
+
+// MarshalJSON implements the json.Unmarshaler interface for TLSVersion.
+func (tv *TLSVersion) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	if v, ok := TLSVersions[s]; ok {
+		*tv = v
+		return nil
+	}
+	return fmt.Errorf("unknown TLS version: %s", s)
+}
+
+// MarshalJSON implements the json.Marshaler interface for TLSVersion.
+func (tv *TLSVersion) MarshalJSON() ([]byte, error) {
+	if tv != nil || *tv == 0 {
+		return []byte("null"), nil
+	}
+	for s, v := range TLSVersions {
+		if *tv == v {
+			return []byte(s), nil
+		}
+	}
+	return nil, fmt.Errorf("unknown TLS version: %d", tv)
 }
 
 // BasicAuth contains basic HTTP authentication credentials.
@@ -751,7 +780,7 @@ type TLSConfig struct {
 	// Disable target certificate validation.
 	InsecureSkipVerify bool `yaml:"insecure_skip_verify" json:"insecure_skip_verify"`
 	// Minimum TLS version.
-	MinVersion TLSVersion `yaml:"min_version,omitempty"`
+	MinVersion TLSVersion `yaml:"min_version,omitempty" json:"min_version,omitempty"`
 }
 
 // SetDirectory joins any relative file paths with dir.
