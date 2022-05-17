@@ -29,6 +29,7 @@ type SigV4Config struct {
 	Profile            string        `yaml:"profile,omitempty"`
 	RoleARN            string        `yaml:"role_arn,omitempty"`
 	UseFIPSSTSEndpoint bool          `yaml:"use_fips_sts_endpoint,omitempty"`
+	Service   		   string        `yaml:"service,omitempty"`
 }
 
 func (c *SigV4Config) Validate() error {
