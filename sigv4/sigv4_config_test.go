@@ -47,6 +47,13 @@ func TestGoodSigV4Configs(t *testing.T) {
 	}
 }
 
+func TestGoodSigV4ServiceConfigs(t *testing.T) {
+	filesToTest := []string{"testdata/sigv4_good_service.yaml", "testdata/sigv4_good_service.yaml"}
+	for _, filename := range filesToTest {
+		testGoodConfig(t, filename)
+	}
+}
+
 func TestBadSigV4Config(t *testing.T) {
 	filename := "testdata/sigv4_bad.yaml"
 	_, err := loadSigv4Config(filename)
