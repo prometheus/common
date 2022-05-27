@@ -2,7 +2,7 @@
 version: 2.1
 
 orbs:
-  go: circleci/go@0.2.0
+  go: circleci/go@1.7.1
 
 jobs:
   test:
@@ -14,6 +14,9 @@ jobs:
         default: true
     docker:
       - image: cimg/go:<< parameters.go_version >>
+    environment:
+      # Override Go 1.18 security deprecations.
+      GODEBUG: "x509sha1=1,tls10default=1"
     steps:
       - checkout
       - when:
@@ -91,7 +94,6 @@ workflows:
           matrix:
             parameters:
               go_version:
-                - "1.16"
                 - "1.17"
                 - "1.18"
       - test-assets:
