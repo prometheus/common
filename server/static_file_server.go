@@ -24,6 +24,8 @@ var mimeTypes = map[string]string{
 	".png": "image/png",
 	".jpg": "image/jpeg",
 	".gif": "image/gif",
+	".ico": "image/x-icon",
+	".ttf": "font/ttf",
 }
 
 func StaticFileServer(root http.FileSystem) http.Handler {
