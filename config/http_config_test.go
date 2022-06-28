@@ -1183,6 +1183,12 @@ type oauth2TestServerResponse struct {
 
 func TestOAuth2(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/token" {
+			if r.Header.Get("User-Agent") != "myuseragent" {
+				t.Fatalf("Expected User-Agent header in oauth request to be 'myuseragent', got '%s'", r.Header.Get("User-Agent"))
+			}
+		}
+
 		res, _ := json.Marshal(oauth2TestServerResponse{
 			AccessToken: "12345",
 			TokenType:   "Bearer",
@@ -1198,7 +1204,8 @@ client_secret: 2
 scopes:
  - A
  - B
-token_url: %s
+token_url: %s/token
+user_agent: myuseragent
 endpoint_params:
  hi: hello
 `, ts.URL)
@@ -1207,7 +1214,8 @@ endpoint_params:
 		ClientSecret:   "2",
 		Scopes:         []string{"A", "B"},
 		EndpointParams: map[string]string{"hi": "hello"},
-		TokenURL:       ts.URL,
+		TokenURL:       fmt.Sprintf("%s/token", ts.URL),
+		UserAgent:      "myuseragent",
 	}
 
 	var unmarshalledConfig OAuth2
@@ -1484,6 +1492,13 @@ func TestMarshalURLWithSecret(t *testing.T) {
 
 func TestOAuth2Proxy(t *testing.T) {
 	_, _, err := LoadHTTPConfigFile("testdata/http.conf.oauth2-proxy.good.yml")
+	if err != nil {
+		t.Errorf("Error loading OAuth2 client config: %v", err)
+	}
+}
+
+func TestOAuth2UserAgent(t *testing.T) {
+	_, _, err := LoadHTTPConfigFile("testdata/http.conf.oauth2-user-agent.good.yml")
 	if err != nil {
 		t.Errorf("Error loading OAuth2 client config: %v", err)
 	}

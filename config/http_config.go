@@ -224,6 +224,8 @@ type OAuth2 struct {
 	ProxyURL URL `yaml:"proxy_url,omitempty" json:"proxy_url,omitempty"`
 	// TLSConfig is used to connect to the token URL.
 	TLSConfig TLSConfig `yaml:"tls_config,omitempty"`
+	// UserAgent is used to set a custom User-Agent http header while making the oauth request.
+	UserAgent string `yaml:"user_agent,omitempty" json:"user_agent,omitempty"`
 }
 
 // SetDirectory joins any relative file paths with dir.
@@ -681,6 +683,10 @@ func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 			}
 		}
 
+		if rt.config.UserAgent != "" {
+			t = NewUserAgentRoundTripper(rt.config.UserAgent, t)
+		}
+
 		ctx := context.WithValue(context.Background(), oauth2.HTTPClient, &http.Client{Transport: t})
 		tokenSource := config.TokenSource(ctx)
 
@@ -907,6 +913,28 @@ func (t *tlsRoundTripper) CloseIdleConnections() {
 	t.mtx.RLock()
 	defer t.mtx.RUnlock()
 	if ci, ok := t.rt.(closeIdler); ok {
+		ci.CloseIdleConnections()
+	}
+}
+
+type userAgentRoundTripper struct {
+	userAgent string
+	rt        http.RoundTripper
+}
+
+// NewUserAgentRoundTripper adds the user agent every request header.
+func NewUserAgentRoundTripper(userAgent string, rt http.RoundTripper) http.RoundTripper {
+	return &userAgentRoundTripper{userAgent, rt}
+}
+
+func (rt *userAgentRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	req = cloneRequest(req)
+	req.Header.Set("User-Agent", rt.userAgent)
+	return rt.rt.RoundTrip(req)
+}
+
+func (rt *userAgentRoundTripper) CloseIdleConnections() {
+	if ci, ok := rt.rt.(closeIdler); ok {
 		ci.CloseIdleConnections()
 	}
 }
