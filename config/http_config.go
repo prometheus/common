@@ -224,8 +224,6 @@ type OAuth2 struct {
 	ProxyURL URL `yaml:"proxy_url,omitempty" json:"proxy_url,omitempty"`
 	// TLSConfig is used to connect to the token URL.
 	TLSConfig TLSConfig `yaml:"tls_config,omitempty"`
-	// UserAgent is used to set a custom User-Agent http header while making the oauth request.
-	UserAgent string `yaml:"user_agent,omitempty" json:"user_agent,omitempty"`
 }
 
 // SetDirectory joins any relative file paths with dir.
@@ -374,6 +372,7 @@ type httpClientOptions struct {
 	keepAlivesEnabled bool
 	http2Enabled      bool
 	idleConnTimeout   time.Duration
+	userAgent         string
 }
 
 // HTTPClientOption defines an option that can be applied to the HTTP client.
@@ -404,6 +403,13 @@ func WithHTTP2Disabled() HTTPClientOption {
 func WithIdleConnTimeout(timeout time.Duration) HTTPClientOption {
 	return func(opts *httpClientOptions) {
 		opts.idleConnTimeout = timeout
+	}
+}
+
+// WithIdleConnTimeout allows setting the user agent.
+func WithUserAgent(ua string) HTTPClientOption {
+	return func(opts *httpClientOptions) {
+		opts.userAgent = ua
 	}
 }
 
@@ -499,8 +505,12 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, optFuncs ...HT
 			rt = NewBasicAuthRoundTripper(cfg.BasicAuth.Username, cfg.BasicAuth.Password, cfg.BasicAuth.PasswordFile, rt)
 		}
 
+		if opts.userAgent != "" {
+			rt = NewUserAgentRoundTripper(opts.userAgent, rt)
+		}
+
 		if cfg.OAuth2 != nil {
-			rt = NewOAuth2RoundTripper(cfg.OAuth2, rt)
+			rt = NewOAuth2RoundTripper(cfg.OAuth2, rt, &opts)
 		}
 		// Return a new configured RoundTripper.
 		return rt, nil
@@ -621,12 +631,14 @@ type oauth2RoundTripper struct {
 	next   http.RoundTripper
 	secret string
 	mtx    sync.RWMutex
+	opts   *httpClientOptions
 }
 
-func NewOAuth2RoundTripper(config *OAuth2, next http.RoundTripper) http.RoundTripper {
+func NewOAuth2RoundTripper(config *OAuth2, next http.RoundTripper, opts *httpClientOptions) http.RoundTripper {
 	return &oauth2RoundTripper{
 		config: config,
 		next:   next,
+		opts:   opts,
 	}
 }
 
@@ -683,8 +695,8 @@ func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 			}
 		}
 
-		if rt.config.UserAgent != "" {
-			t = NewUserAgentRoundTripper(rt.config.UserAgent, t)
+		if rt.opts.userAgent != "" {
+			t = NewUserAgentRoundTripper(rt.opts.userAgent, t)
 		}
 
 		ctx := context.WithValue(context.Background(), oauth2.HTTPClient, &http.Client{Transport: t})
