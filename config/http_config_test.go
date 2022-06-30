@@ -1234,10 +1234,8 @@ endpoint_params:
 
 func TestOAuth2UserAgent(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" {
-			if r.Header.Get("User-Agent") != "myuseragent" {
-				t.Fatalf("Expected User-Agent header in oauth request to be 'myuseragent', got '%s'", r.Header.Get("User-Agent"))
-			}
+		if r.Header.Get("User-Agent") != "myuseragent" {
+			t.Fatalf("Expected User-Agent header in oauth request to be 'myuseragent', got '%s'", r.Header.Get("User-Agent"))
 		}
 
 		res, _ := json.Marshal(oauth2TestServerResponse{
@@ -1249,7 +1247,8 @@ func TestOAuth2UserAgent(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	config := &OAuth2{
+	config := DefaultHTTPClientConfig
+	config.OAuth2 = &OAuth2{
 		ClientID:       "1",
 		ClientSecret:   "2",
 		Scopes:         []string{"A", "B"},
@@ -1257,10 +1256,10 @@ func TestOAuth2UserAgent(t *testing.T) {
 		TokenURL:       fmt.Sprintf("%s/token", ts.URL),
 	}
 
-	opts := defaultHTTPClientOptions
-	WithUserAgent("myuseragent")(&opts)
-
-	rt := NewOAuth2RoundTripper(config, http.DefaultTransport, &opts)
+	rt, err := NewRoundTripperFromConfig(config, "test_oauth2", WithUserAgent("myuseragent"))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	client := http.Client{
 		Transport: rt,
