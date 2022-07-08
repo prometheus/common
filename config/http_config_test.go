@@ -1198,7 +1198,7 @@ client_secret: 2
 scopes:
  - A
  - B
-token_url: %s
+token_url: %s/token
 endpoint_params:
  hi: hello
 `, ts.URL)
@@ -1207,7 +1207,7 @@ endpoint_params:
 		ClientSecret:   "2",
 		Scopes:         []string{"A", "B"},
 		EndpointParams: map[string]string{"hi": "hello"},
-		TokenURL:       ts.URL,
+		TokenURL:       fmt.Sprintf("%s/token", ts.URL),
 	}
 
 	var unmarshalledConfig OAuth2
@@ -1219,12 +1219,55 @@ endpoint_params:
 		t.Fatalf("Got unmarshalled config %v, expected %v", unmarshalledConfig, expectedConfig)
 	}
 
-	rt := NewOAuth2RoundTripper(&expectedConfig, http.DefaultTransport)
+	rt := NewOAuth2RoundTripper(&expectedConfig, http.DefaultTransport, &defaultHTTPClientOptions)
 
 	client := http.Client{
 		Transport: rt,
 	}
 	resp, _ := client.Get(ts.URL)
+
+	authorization := resp.Request.Header.Get("Authorization")
+	if authorization != "Bearer 12345" {
+		t.Fatalf("Expected authorization header to be 'Bearer 12345', got '%s'", authorization)
+	}
+}
+
+func TestOAuth2UserAgent(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("User-Agent") != "myuseragent" {
+			t.Fatalf("Expected User-Agent header in oauth request to be 'myuseragent', got '%s'", r.Header.Get("User-Agent"))
+		}
+
+		res, _ := json.Marshal(oauth2TestServerResponse{
+			AccessToken: "12345",
+			TokenType:   "Bearer",
+		})
+		w.Header().Add("Content-Type", "application/json")
+		_, _ = w.Write(res)
+	}))
+	defer ts.Close()
+
+	config := DefaultHTTPClientConfig
+	config.OAuth2 = &OAuth2{
+		ClientID:       "1",
+		ClientSecret:   "2",
+		Scopes:         []string{"A", "B"},
+		EndpointParams: map[string]string{"hi": "hello"},
+		TokenURL:       fmt.Sprintf("%s/token", ts.URL),
+	}
+
+	rt, err := NewRoundTripperFromConfig(config, "test_oauth2", WithUserAgent("myuseragent"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	client := http.Client{
+		Transport: rt,
+	}
+	resp, err := client.Get(ts.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	authorization := resp.Request.Header.Get("Authorization")
 	if authorization != "Bearer 12345" {
@@ -1294,7 +1337,7 @@ endpoint_params:
 		t.Fatalf("Got unmarshalled config %v, expected %v", unmarshalledConfig, expectedConfig)
 	}
 
-	rt := NewOAuth2RoundTripper(&expectedConfig, http.DefaultTransport)
+	rt := NewOAuth2RoundTripper(&expectedConfig, http.DefaultTransport, &defaultHTTPClientOptions)
 
 	client := http.Client{
 		Transport: rt,

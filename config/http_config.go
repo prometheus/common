@@ -372,6 +372,7 @@ type httpClientOptions struct {
 	keepAlivesEnabled bool
 	http2Enabled      bool
 	idleConnTimeout   time.Duration
+	userAgent         string
 }
 
 // HTTPClientOption defines an option that can be applied to the HTTP client.
@@ -402,6 +403,13 @@ func WithHTTP2Disabled() HTTPClientOption {
 func WithIdleConnTimeout(timeout time.Duration) HTTPClientOption {
 	return func(opts *httpClientOptions) {
 		opts.idleConnTimeout = timeout
+	}
+}
+
+// WithUserAgent allows setting the user agent.
+func WithUserAgent(ua string) HTTPClientOption {
+	return func(opts *httpClientOptions) {
+		opts.userAgent = ua
 	}
 }
 
@@ -497,8 +505,12 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, optFuncs ...HT
 			rt = NewBasicAuthRoundTripper(cfg.BasicAuth.Username, cfg.BasicAuth.Password, cfg.BasicAuth.PasswordFile, rt)
 		}
 
+		if opts.userAgent != "" {
+			rt = NewUserAgentRoundTripper(opts.userAgent, rt)
+		}
+
 		if cfg.OAuth2 != nil {
-			rt = NewOAuth2RoundTripper(cfg.OAuth2, rt)
+			rt = NewOAuth2RoundTripper(cfg.OAuth2, rt, &opts)
 		}
 		// Return a new configured RoundTripper.
 		return rt, nil
@@ -619,12 +631,14 @@ type oauth2RoundTripper struct {
 	next   http.RoundTripper
 	secret string
 	mtx    sync.RWMutex
+	opts   *httpClientOptions
 }
 
-func NewOAuth2RoundTripper(config *OAuth2, next http.RoundTripper) http.RoundTripper {
+func NewOAuth2RoundTripper(config *OAuth2, next http.RoundTripper, opts *httpClientOptions) http.RoundTripper {
 	return &oauth2RoundTripper{
 		config: config,
 		next:   next,
+		opts:   opts,
 	}
 }
 
@@ -679,6 +693,10 @@ func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 			if err != nil {
 				return nil, err
 			}
+		}
+
+		if rt.opts.userAgent != "" {
+			t = NewUserAgentRoundTripper(rt.opts.userAgent, t)
 		}
 
 		ctx := context.WithValue(context.Background(), oauth2.HTTPClient, &http.Client{Transport: t})
@@ -907,6 +925,28 @@ func (t *tlsRoundTripper) CloseIdleConnections() {
 	t.mtx.RLock()
 	defer t.mtx.RUnlock()
 	if ci, ok := t.rt.(closeIdler); ok {
+		ci.CloseIdleConnections()
+	}
+}
+
+type userAgentRoundTripper struct {
+	userAgent string
+	rt        http.RoundTripper
+}
+
+// NewUserAgentRoundTripper adds the user agent every request header.
+func NewUserAgentRoundTripper(userAgent string, rt http.RoundTripper) http.RoundTripper {
+	return &userAgentRoundTripper{userAgent, rt}
+}
+
+func (rt *userAgentRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	req = cloneRequest(req)
+	req.Header.Set("User-Agent", rt.userAgent)
+	return rt.rt.RoundTrip(req)
+}
+
+func (rt *userAgentRoundTripper) CloseIdleConnections() {
+	if ci, ok := rt.rt.(closeIdler); ok {
 		ci.CloseIdleConnections()
 	}
 }
