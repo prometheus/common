@@ -13,7 +13,7 @@ jobs:
         type: boolean
         default: true
     docker:
-      - image: circleci/golang:<< parameters.go_version >>
+      - image: cimg/go:<< parameters.go_version >>
     steps:
       - checkout
       - when:
@@ -38,7 +38,7 @@ jobs:
         type: boolean
         default: true
     docker:
-      - image: circleci/golang:<< parameters.go_version >>
+      - image: cimg/go:<< parameters.go_version >>
     steps:
       - checkout
       - when:
@@ -62,7 +62,7 @@ jobs:
         type: boolean
         default: true
     docker:
-      - image: circleci/golang:<< parameters.go_version >>
+      - image: cimg/go:<< parameters.go_version >>
     steps:
       - checkout
       - when:
@@ -93,12 +93,13 @@ workflows:
               go_version:
                 - "1.16"
                 - "1.17"
+                - "1.18"
       - test-assets:
           name: assets-go-<< matrix.go_version >>
           matrix:
             parameters:
               go_version:
-                - "1.17"
+                - "1.18"
       - style:
           name: style
-          go_version: "1.17"
+          go_version: "1.18"
