@@ -632,6 +632,7 @@ type oauth2RoundTripper struct {
 	secret string
 	mtx    sync.RWMutex
 	opts   *httpClientOptions
+	client *http.Client
 }
 
 func NewOAuth2RoundTripper(config *OAuth2, next http.RoundTripper, opts *httpClientOptions) http.RoundTripper {
@@ -677,19 +678,24 @@ func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 			return nil, err
 		}
 
+		tlsTransport := func(tlsConfig *tls.Config) (http.RoundTripper, error) {
+			return &http.Transport{
+				TLSClientConfig:       tlsConfig,
+				Proxy:                 http.ProxyURL(rt.config.ProxyURL.URL),
+				DisableKeepAlives:     !rt.opts.keepAlivesEnabled,
+				MaxIdleConns:          20,
+				MaxIdleConnsPerHost:   1, // see https://github.com/golang/go/issues/13801
+				IdleConnTimeout:       10 * time.Second,
+				TLSHandshakeTimeout:   10 * time.Second,
+				ExpectContinueTimeout: 1 * time.Second,
+			}, nil
+		}
+
 		var t http.RoundTripper
 		if len(rt.config.TLSConfig.CAFile) == 0 {
-			t = &http.Transport{
-				TLSClientConfig: tlsConfig,
-				Proxy:           http.ProxyURL(rt.config.ProxyURL.URL),
-			}
+			t, _ = tlsTransport(tlsConfig)
 		} else {
-			t, err = NewTLSRoundTripper(tlsConfig, rt.config.TLSConfig.CAFile, func(tls *tls.Config) (http.RoundTripper, error) {
-				return &http.Transport{
-					TLSClientConfig: tls,
-					Proxy:           http.ProxyURL(rt.config.ProxyURL.URL),
-				}, nil
-			})
+			t, err = NewTLSRoundTripper(tlsConfig, rt.config.TLSConfig.CAFile, tlsTransport)
 			if err != nil {
 				return nil, err
 			}
@@ -699,7 +705,8 @@ func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 			t = NewUserAgentRoundTripper(rt.opts.userAgent, t)
 		}
 
-		ctx := context.WithValue(context.Background(), oauth2.HTTPClient, &http.Client{Transport: t})
+		client := &http.Client{Transport: t}
+		ctx := context.WithValue(context.Background(), oauth2.HTTPClient, client)
 		tokenSource := config.TokenSource(ctx)
 
 		rt.mtx.Lock()
@@ -708,6 +715,10 @@ func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 			Base:   rt.next,
 			Source: tokenSource,
 		}
+		if rt.client != nil {
+			rt.client.CloseIdleConnections()
+		}
+		rt.client = client
 		rt.mtx.Unlock()
 	}
 
@@ -718,7 +729,9 @@ func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 }
 
 func (rt *oauth2RoundTripper) CloseIdleConnections() {
-	// OAuth2 RT does not support CloseIdleConnections() but the next RT might.
+	if rt.client != nil {
+		rt.client.CloseIdleConnections()
+	}
 	if ci, ok := rt.next.(closeIdler); ok {
 		ci.CloseIdleConnections()
 	}
