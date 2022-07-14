@@ -505,13 +505,14 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, optFuncs ...HT
 			rt = NewBasicAuthRoundTripper(cfg.BasicAuth.Username, cfg.BasicAuth.Password, cfg.BasicAuth.PasswordFile, rt)
 		}
 
+		if cfg.OAuth2 != nil {
+			rt = NewOAuth2RoundTripper(cfg.OAuth2, rt, &opts)
+		}
+
 		if opts.userAgent != "" {
 			rt = NewUserAgentRoundTripper(opts.userAgent, rt)
 		}
 
-		if cfg.OAuth2 != nil {
-			rt = NewOAuth2RoundTripper(cfg.OAuth2, rt, &opts)
-		}
 		// Return a new configured RoundTripper.
 		return rt, nil
 	}
@@ -701,8 +702,8 @@ func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 			}
 		}
 
-		if rt.opts.userAgent != "" {
-			t = NewUserAgentRoundTripper(rt.opts.userAgent, t)
+		if ua := req.UserAgent(); ua != "" {
+			t = NewUserAgentRoundTripper(ua, t)
 		}
 
 		client := &http.Client{Transport: t}
