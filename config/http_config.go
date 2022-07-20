@@ -334,6 +334,10 @@ func (c *HTTPClientConfig) Validate() error {
 			return fmt.Errorf("at most one of oauth2 client_secret & client_secret_file must be configured")
 		}
 	}
+	// Change empty URL to nil to avoid connection errors
+	if c.ProxyURL.URL != nil && *c.ProxyURL.URL == (url.URL{}) {
+		c.ProxyURL.URL = nil
+	}
 	return nil
 }
 
