@@ -28,10 +28,10 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"math/big"
 	"net"
+	"os"
 	"time"
 )
 
@@ -170,7 +170,7 @@ func writeCertificateAndKey(path string, cert *x509.Certificate, key *rsa.Privat
 		return err
 	}
 
-	if err := ioutil.WriteFile(fmt.Sprintf("%s.crt", path), b.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(fmt.Sprintf("%s.crt", path), b.Bytes(), 0644); err != nil {
 		return err
 	}
 
@@ -179,7 +179,7 @@ func writeCertificateAndKey(path string, cert *x509.Certificate, key *rsa.Privat
 		return err
 	}
 
-	if err := ioutil.WriteFile(fmt.Sprintf("%s.key", path), b.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(fmt.Sprintf("%s.key", path), b.Bytes(), 0644); err != nil {
 		return err
 	}
 
@@ -239,7 +239,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := ioutil.WriteFile("testdata/tls-ca-chain.pem", b.Bytes(), 0644); err != nil {
+	if err := os.WriteFile("testdata/tls-ca-chain.pem", b.Bytes(), 0644); err != nil {
 		log.Fatal(err)
 	}
 }

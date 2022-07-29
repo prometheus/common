@@ -17,7 +17,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/textproto"
 	"path"
@@ -114,7 +113,7 @@ func (rt *sigV4RoundTripper) RoundTrip(req *http.Request) (*http.Response, error
 	defer func() {
 		_, _ = seeker.Seek(0, io.SeekStart)
 	}()
-	req.Body = ioutil.NopCloser(seeker)
+	req.Body = io.NopCloser(seeker)
 
 	// Clean path like documented in AWS documentation.
 	// https://docs.aws.amazon.com/general/latest/gr/sigv4-create-canonical-request.html

@@ -17,7 +17,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
@@ -47,7 +47,7 @@ var parser TextParser
 // family DTOs.
 func BenchmarkParseText(b *testing.B) {
 	b.StopTimer()
-	data, err := ioutil.ReadFile("testdata/text")
+	data, err := os.ReadFile("testdata/text")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func BenchmarkParseText(b *testing.B) {
 // into metric family DTOs.
 func BenchmarkParseTextGzip(b *testing.B) {
 	b.StopTimer()
-	data, err := ioutil.ReadFile("testdata/text.gz")
+	data, err := os.ReadFile("testdata/text.gz")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func BenchmarkParseTextGzip(b *testing.B) {
 // protobuf-format guarantees bundling at one place.)
 func BenchmarkParseProto(b *testing.B) {
 	b.StopTimer()
-	data, err := ioutil.ReadFile("testdata/protobuf")
+	data, err := os.ReadFile("testdata/protobuf")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func BenchmarkParseProto(b *testing.B) {
 // protobuf format.
 func BenchmarkParseProtoGzip(b *testing.B) {
 	b.StopTimer()
-	data, err := ioutil.ReadFile("testdata/protobuf.gz")
+	data, err := os.ReadFile("testdata/protobuf.gz")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -144,7 +144,7 @@ func BenchmarkParseProtoGzip(b *testing.B) {
 // separate it from the overhead of the text format parsing.
 func BenchmarkParseProtoMap(b *testing.B) {
 	b.StopTimer()
-	data, err := ioutil.ReadFile("testdata/protobuf")
+	data, err := os.ReadFile("testdata/protobuf")
 	if err != nil {
 		b.Fatal(err)
 	}

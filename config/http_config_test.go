@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -124,7 +124,7 @@ var invalidHTTPClientConfigs = []struct {
 func newTestServer(handler func(w http.ResponseWriter, r *http.Request)) (*httptest.Server, error) {
 	testServer := httptest.NewUnstartedServer(http.HandlerFunc(handler))
 
-	tlsCAChain, err := ioutil.ReadFile(TLSCAChainPath)
+	tlsCAChain, err := os.ReadFile(TLSCAChainPath)
 	if err != nil {
 		return nil, fmt.Errorf("Can't read %s", TLSCAChainPath)
 	}
@@ -432,7 +432,7 @@ func TestNewClientFromConfig(t *testing.T) {
 			continue
 		}
 
-		message, err := ioutil.ReadAll(response.Body)
+		message, err := io.ReadAll(response.Body)
 		response.Body.Close()
 		if err != nil {
 			t.Errorf("Can't read the server response body using this config: %+v", validConfig.clientConfig)
@@ -630,7 +630,7 @@ func TestTLSConfig(t *testing.T) {
 		InsecureSkipVerify: false,
 	}
 
-	tlsCAChain, err := ioutil.ReadFile(TLSCAChainPath)
+	tlsCAChain, err := os.ReadFile(TLSCAChainPath)
 	if err != nil {
 		t.Fatalf("Can't read the CA certificate chain (%s)",
 			TLSCAChainPath)
@@ -833,7 +833,7 @@ func getCertificateBlobs(t *testing.T) map[string][]byte {
 	}
 	bs := make(map[string][]byte, len(files)+1)
 	for _, f := range files {
-		b, err := ioutil.ReadFile(f)
+		b, err := os.ReadFile(f)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -848,7 +848,7 @@ func writeCertificate(bs map[string][]byte, src string, dst string) {
 	if !ok {
 		panic(fmt.Sprintf("Couldn't find %q in bs", src))
 	}
-	if err := ioutil.WriteFile(dst, b, 0664); err != nil {
+	if err := os.WriteFile(dst, b, 0664); err != nil {
 		panic(err)
 	}
 }
@@ -856,7 +856,7 @@ func writeCertificate(bs map[string][]byte, src string, dst string) {
 func TestTLSRoundTripper(t *testing.T) {
 	bs := getCertificateBlobs(t)
 
-	tmpDir, err := ioutil.TempDir("", "tlsroundtripper")
+	tmpDir, err := os.MkdirTemp("", "tlsroundtripper")
 	if err != nil {
 		t.Fatal("Failed to create tmp dir", err)
 	}
@@ -976,7 +976,7 @@ func TestTLSRoundTripper(t *testing.T) {
 				t.Fatalf("Can't connect to the test server")
 			}
 
-			b, err := ioutil.ReadAll(r.Body)
+			b, err := io.ReadAll(r.Body)
 			r.Body.Close()
 			if err != nil {
 				t.Errorf("Can't read the server response body")
@@ -993,7 +993,7 @@ func TestTLSRoundTripper(t *testing.T) {
 func TestTLSRoundTripperRaces(t *testing.T) {
 	bs := getCertificateBlobs(t)
 
-	tmpDir, err := ioutil.TempDir("", "tlsroundtripper")
+	tmpDir, err := os.MkdirTemp("", "tlsroundtripper")
 	if err != nil {
 		t.Fatal("Failed to create tmp dir", err)
 	}
@@ -1137,7 +1137,7 @@ func LoadHTTPConfig(s string) (*HTTPClientConfig, error) {
 
 // LoadHTTPConfigFile parses the given YAML file into a HTTPClientConfig.
 func LoadHTTPConfigFile(filename string) (*HTTPClientConfig, []byte, error) {
-	content, err := ioutil.ReadFile(filename)
+	content, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1305,7 +1305,7 @@ func TestOAuth2WithFile(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	secretFile, err := ioutil.TempFile("", "oauth2_secret")
+	secretFile, err := os.CreateTemp("", "oauth2_secret")
 	if err != nil {
 		t.Fatal(err)
 	}
