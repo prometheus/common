@@ -795,7 +795,7 @@ func TestBasicAuthNoUsername(t *testing.T) {
 }
 
 func TestBasicAuthPasswordFile(t *testing.T) {
-	cfg, _, err := LoadHTTPConfigFile("testdata/http.conf.basic-auth.good.yaml")
+	cfg, _, err := LoadHTTPConfigFile("testdata/http.conf.basic-auth.good.password-file.yaml")
 	if err != nil {
 		t.Fatalf("Error loading HTTP client config: %v", err)
 	}
@@ -817,6 +817,32 @@ func TestBasicAuthPasswordFile(t *testing.T) {
 	}
 	if string(rt.passwordFile) != "testdata/basic-auth-password" {
 		t.Errorf("Bad HTTP client passwordFile: %s", rt.passwordFile)
+	}
+}
+
+func TestBasicAuthUsernameFile(t *testing.T) {
+	cfg, _, err := LoadHTTPConfigFile("testdata/http.conf.basic-auth.good.username-file.yaml")
+	if err != nil {
+		t.Fatalf("Error loading HTTP client config: %v", err)
+	}
+	client, err := NewClientFromConfig(*cfg, "test")
+	if err != nil {
+		t.Fatalf("Error creating HTTP Client: %v", err)
+	}
+
+	rt, ok := client.Transport.(*basicAuthRoundTripper)
+	if !ok {
+		t.Fatalf("Error casting to basic auth transport, %v", client.Transport)
+	}
+
+	if rt.username != "" {
+		t.Errorf("Expected empty HTTP client username: %s", rt.username)
+	}
+	if string(rt.usernameFile) != "testdata/basic-auth-username" {
+		t.Errorf("Bad HTTP client usernameFile: %s", rt.usernameFile)
+	}
+	if string(rt.password) != "secret" {
+		t.Errorf("Bad HTTP client password: %s", rt.password)
 	}
 }
 
