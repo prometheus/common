@@ -17,7 +17,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -29,7 +29,7 @@ import (
 
 // LoadTLSConfig parses the given file into a tls.Config.
 func LoadTLSConfig(filename string) (*tls.Config, error) {
-	content, err := ioutil.ReadFile(filename)
+	content, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}

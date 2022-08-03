@@ -14,7 +14,7 @@
 package sigv4
 
 import (
-	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
@@ -22,7 +22,7 @@ import (
 )
 
 func loadSigv4Config(filename string) (*SigV4Config, error) {
-	content, err := ioutil.ReadFile(filename)
+	content, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}

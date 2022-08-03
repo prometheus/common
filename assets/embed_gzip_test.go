@@ -15,7 +15,7 @@ package assets
 
 import (
 	"embed"
-	"io/ioutil"
+	"io"
 	"strings"
 	"testing"
 )
@@ -81,7 +81,7 @@ func TestFS(t *testing.T) {
 				return
 			}
 
-			content, err := ioutil.ReadAll(f)
+			content, err := io.ReadAll(f)
 			if err != nil {
 				t.Fatal(err)
 			}
