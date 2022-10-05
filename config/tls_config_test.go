@@ -90,3 +90,9 @@ func TestValidTLSConfig(t *testing.T) {
 		}
 	}
 }
+
+func TestStringer(t *testing.T) {
+	if s := (TLSVersion)(tls.VersionTLS13); s.String() != "TLS13" {
+		t.Fatalf("tls.VersionTLS13 string should be TLS13, got %s", s.String())
+	}
+}
