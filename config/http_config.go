@@ -106,7 +106,7 @@ func (tv *TLSVersion) UnmarshalJSON(data []byte) error {
 
 // MarshalJSON implements the json.Marshaler interface for TLSVersion.
 func (tv *TLSVersion) MarshalJSON() ([]byte, error) {
-	if tv != nil || *tv == 0 {
+	if tv == nil || *tv == 0 {
 		return []byte("null"), nil
 	}
 	for s, v := range TLSVersions {
