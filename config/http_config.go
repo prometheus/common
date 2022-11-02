@@ -80,7 +80,7 @@ func (tv *TLSVersion) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 func (tv *TLSVersion) MarshalYAML() (interface{}, error) {
-	if tv != nil || *tv == 0 {
+	if tv == nil || *tv == 0 {
 		return []byte("null"), nil
 	}
 	for s, v := range TLSVersions {
@@ -106,7 +106,7 @@ func (tv *TLSVersion) UnmarshalJSON(data []byte) error {
 
 // MarshalJSON implements the json.Marshaler interface for TLSVersion.
 func (tv *TLSVersion) MarshalJSON() ([]byte, error) {
-	if tv != nil || *tv == 0 {
+	if tv == nil || *tv == 0 {
 		return []byte("null"), nil
 	}
 	for s, v := range TLSVersions {
@@ -115,6 +115,19 @@ func (tv *TLSVersion) MarshalJSON() ([]byte, error) {
 		}
 	}
 	return nil, fmt.Errorf("unknown TLS version: %d", tv)
+}
+
+// String implements the fmt.Stringer interface for TLSVersion.
+func (tv *TLSVersion) String() string {
+	if tv == nil || *tv == 0 {
+		return ""
+	}
+	for s, v := range TLSVersions {
+		if *tv == v {
+			return s
+		}
+	}
+	return fmt.Sprintf("%d", tv)
 }
 
 // BasicAuth contains basic HTTP authentication credentials.
