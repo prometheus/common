@@ -718,7 +718,7 @@ func TestTLSConfigInvalidCA(t *testing.T) {
 				KeyFile:            ClientKeyNoPassPath,
 				ServerName:         "",
 				InsecureSkipVerify: false},
-			errorMessage: fmt.Sprintf("unable to use specified client cert (%s) & key (%s):", MissingCert, ClientKeyNoPassPath),
+			errorMessage: fmt.Sprintf("unable to read specified client cert (%s) & key (%s):", MissingCert, ClientKeyNoPassPath),
 		}, {
 			configTLSConfig: TLSConfig{
 				CAFile:             "",
@@ -726,7 +726,7 @@ func TestTLSConfigInvalidCA(t *testing.T) {
 				KeyFile:            MissingKey,
 				ServerName:         "",
 				InsecureSkipVerify: false},
-			errorMessage: fmt.Sprintf("unable to use specified client cert (%s) & key (%s):", ClientCertificatePath, MissingKey),
+			errorMessage: fmt.Sprintf("unable to read specified client cert (%s) & key (%s):", ClientCertificatePath, MissingKey),
 		},
 	}
 
@@ -1530,5 +1530,118 @@ func TestOAuth2Proxy(t *testing.T) {
 	_, _, err := LoadHTTPConfigFile("testdata/http.conf.oauth2-proxy.good.yml")
 	if err != nil {
 		t.Errorf("Error loading OAuth2 client config: %v", err)
+	}
+}
+
+func TestModifyTLSCertificates(t *testing.T) {
+	bs := getCertificateBlobs(t)
+
+	tmpDir, err := ioutil.TempDir("", "modifytlscertificates")
+	if err != nil {
+		t.Fatal("Failed to create tmp dir", err)
+	}
+	defer os.RemoveAll(tmpDir)
+	ca, cert, key := filepath.Join(tmpDir, "ca"), filepath.Join(tmpDir, "cert"), filepath.Join(tmpDir, "key")
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, ExpectedMessage)
+	}
+	testServer, err := newTestServer(handler)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	defer testServer.Close()
+
+	tests := []struct {
+		ca   string
+		cert string
+		key  string
+
+		errMsg string
+
+		modification func()
+	}{
+		{
+			ca:   ClientCertificatePath,
+			cert: ClientCertificatePath,
+			key:  ClientKeyNoPassPath,
+
+			errMsg: "certificate signed by unknown authority",
+
+			modification: func() { writeCertificate(bs, TLSCAChainPath, ca) },
+		},
+		{
+			ca:   TLSCAChainPath,
+			cert: WrongClientCertPath,
+			key:  ClientKeyNoPassPath,
+
+			errMsg: "private key does not match public key",
+
+			modification: func() { writeCertificate(bs, ClientCertificatePath, cert) },
+		},
+		{
+			ca:   TLSCAChainPath,
+			cert: ClientCertificatePath,
+			key:  WrongClientCertPath,
+
+			errMsg: "found a certificate rather than a key in the PEM for the private key",
+
+			modification: func() { writeCertificate(bs, ClientKeyNoPassPath, key) },
+		},
+	}
+
+	cfg := HTTPClientConfig{
+		TLSConfig: TLSConfig{
+			CAFile:             ca,
+			CertFile:           cert,
+			KeyFile:            key,
+			InsecureSkipVerify: false},
+	}
+
+	var c *http.Client
+	for i, tc := range tests {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			writeCertificate(bs, tc.ca, ca)
+			writeCertificate(bs, tc.cert, cert)
+			writeCertificate(bs, tc.key, key)
+			if c == nil {
+				c, err = NewClientFromConfig(cfg, "test")
+				if err != nil {
+					t.Fatalf("Error creating HTTP Client: %v", err)
+				}
+			}
+
+			req, err := http.NewRequest(http.MethodGet, testServer.URL, nil)
+			if err != nil {
+				t.Fatalf("Error creating HTTP request: %v", err)
+			}
+
+			r, err := c.Do(req)
+			if err == nil {
+				r.Body.Close()
+				t.Fatalf("Could connect to the test server.")
+			}
+			if !strings.Contains(err.Error(), tc.errMsg) {
+				t.Fatalf("Expected error message to contain %q, got %q", tc.errMsg, err)
+			}
+
+			tc.modification()
+
+			r, err = c.Do(req)
+			if err != nil {
+				t.Fatalf("Expected no error, got %q", err)
+			}
+
+			b, err := ioutil.ReadAll(r.Body)
+			r.Body.Close()
+			if err != nil {
+				t.Errorf("Can't read the server response body")
+			}
+
+			got := strings.TrimSpace(string(b))
+			if ExpectedMessage != got {
+				t.Errorf("The expected message %q differs from the obtained message %q", ExpectedMessage, got)
+			}
+		})
 	}
 }
