@@ -140,7 +140,8 @@ func newTestServer(handler func(w http.ResponseWriter, r *http.Request)) (*httpt
 		Certificates: make([]tls.Certificate, 1),
 		RootCAs:      rootCAs,
 		ClientAuth:   tls.RequireAndVerifyClientCert,
-		ClientCAs:    rootCAs}
+		ClientCAs:    rootCAs,
+	}
 	testServer.TLS.Certificates[0] = serverCertificate
 
 	testServer.StartTLS()
@@ -149,7 +150,7 @@ func newTestServer(handler func(w http.ResponseWriter, r *http.Request)) (*httpt
 }
 
 func TestNewClientFromConfig(t *testing.T) {
-	var newClientValidConfig = []struct {
+	newClientValidConfig := []struct {
 		clientConfig HTTPClientConfig
 		handler      func(w http.ResponseWriter, r *http.Request)
 	}{
@@ -160,24 +161,28 @@ func TestNewClientFromConfig(t *testing.T) {
 					CertFile:           ClientCertificatePath,
 					KeyFile:            ClientKeyNoPassPath,
 					ServerName:         "",
-					InsecureSkipVerify: true},
+					InsecureSkipVerify: true,
+				},
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprint(w, ExpectedMessage)
 			},
-		}, {
+		},
+		{
 			clientConfig: HTTPClientConfig{
 				TLSConfig: TLSConfig{
 					CAFile:             TLSCAChainPath,
 					CertFile:           ClientCertificatePath,
 					KeyFile:            ClientKeyNoPassPath,
 					ServerName:         "",
-					InsecureSkipVerify: false},
+					InsecureSkipVerify: false,
+				},
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprint(w, ExpectedMessage)
 			},
-		}, {
+		},
+		{
 			clientConfig: HTTPClientConfig{
 				BearerToken: BearerToken,
 				TLSConfig: TLSConfig{
@@ -185,7 +190,8 @@ func TestNewClientFromConfig(t *testing.T) {
 					CertFile:           ClientCertificatePath,
 					KeyFile:            ClientKeyNoPassPath,
 					ServerName:         "",
-					InsecureSkipVerify: false},
+					InsecureSkipVerify: false,
+				},
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				bearer := r.Header.Get("Authorization")
@@ -196,7 +202,8 @@ func TestNewClientFromConfig(t *testing.T) {
 					fmt.Fprint(w, ExpectedMessage)
 				}
 			},
-		}, {
+		},
+		{
 			clientConfig: HTTPClientConfig{
 				BearerTokenFile: BearerTokenFile,
 				TLSConfig: TLSConfig{
@@ -204,7 +211,8 @@ func TestNewClientFromConfig(t *testing.T) {
 					CertFile:           ClientCertificatePath,
 					KeyFile:            ClientKeyNoPassPath,
 					ServerName:         "",
-					InsecureSkipVerify: false},
+					InsecureSkipVerify: false,
+				},
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				bearer := r.Header.Get("Authorization")
@@ -215,7 +223,8 @@ func TestNewClientFromConfig(t *testing.T) {
 					fmt.Fprint(w, ExpectedMessage)
 				}
 			},
-		}, {
+		},
+		{
 			clientConfig: HTTPClientConfig{
 				Authorization: &Authorization{Credentials: BearerToken},
 				TLSConfig: TLSConfig{
@@ -223,7 +232,8 @@ func TestNewClientFromConfig(t *testing.T) {
 					CertFile:           ClientCertificatePath,
 					KeyFile:            ClientKeyNoPassPath,
 					ServerName:         "",
-					InsecureSkipVerify: false},
+					InsecureSkipVerify: false,
+				},
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				bearer := r.Header.Get("Authorization")
@@ -234,7 +244,8 @@ func TestNewClientFromConfig(t *testing.T) {
 					fmt.Fprint(w, ExpectedMessage)
 				}
 			},
-		}, {
+		},
+		{
 			clientConfig: HTTPClientConfig{
 				Authorization: &Authorization{CredentialsFile: AuthorizationCredentialsFile, Type: AuthorizationType},
 				TLSConfig: TLSConfig{
@@ -242,7 +253,8 @@ func TestNewClientFromConfig(t *testing.T) {
 					CertFile:           ClientCertificatePath,
 					KeyFile:            ClientKeyNoPassPath,
 					ServerName:         "",
-					InsecureSkipVerify: false},
+					InsecureSkipVerify: false,
+				},
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				bearer := r.Header.Get("Authorization")
@@ -253,7 +265,8 @@ func TestNewClientFromConfig(t *testing.T) {
 					fmt.Fprint(w, ExpectedMessage)
 				}
 			},
-		}, {
+		},
+		{
 			clientConfig: HTTPClientConfig{
 				Authorization: &Authorization{
 					Credentials: AuthorizationCredentials,
@@ -264,7 +277,8 @@ func TestNewClientFromConfig(t *testing.T) {
 					CertFile:           ClientCertificatePath,
 					KeyFile:            ClientKeyNoPassPath,
 					ServerName:         "",
-					InsecureSkipVerify: false},
+					InsecureSkipVerify: false,
+				},
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				bearer := r.Header.Get("Authorization")
@@ -275,7 +289,8 @@ func TestNewClientFromConfig(t *testing.T) {
 					fmt.Fprint(w, ExpectedMessage)
 				}
 			},
-		}, {
+		},
+		{
 			clientConfig: HTTPClientConfig{
 				Authorization: &Authorization{
 					CredentialsFile: BearerTokenFile,
@@ -285,7 +300,8 @@ func TestNewClientFromConfig(t *testing.T) {
 					CertFile:           ClientCertificatePath,
 					KeyFile:            ClientKeyNoPassPath,
 					ServerName:         "",
-					InsecureSkipVerify: false},
+					InsecureSkipVerify: false,
+				},
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				bearer := r.Header.Get("Authorization")
@@ -296,7 +312,8 @@ func TestNewClientFromConfig(t *testing.T) {
 					fmt.Fprint(w, ExpectedMessage)
 				}
 			},
-		}, {
+		},
+		{
 			clientConfig: HTTPClientConfig{
 				BasicAuth: &BasicAuth{
 					Username: ExpectedUsername,
@@ -307,7 +324,8 @@ func TestNewClientFromConfig(t *testing.T) {
 					CertFile:           ClientCertificatePath,
 					KeyFile:            ClientKeyNoPassPath,
 					ServerName:         "",
-					InsecureSkipVerify: false},
+					InsecureSkipVerify: false,
+				},
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				username, password, ok := r.BasicAuth()
@@ -321,7 +339,8 @@ func TestNewClientFromConfig(t *testing.T) {
 					fmt.Fprint(w, ExpectedMessage)
 				}
 			},
-		}, {
+		},
+		{
 			clientConfig: HTTPClientConfig{
 				FollowRedirects: true,
 				TLSConfig: TLSConfig{
@@ -329,7 +348,8 @@ func TestNewClientFromConfig(t *testing.T) {
 					CertFile:           ClientCertificatePath,
 					KeyFile:            ClientKeyNoPassPath,
 					ServerName:         "",
-					InsecureSkipVerify: false},
+					InsecureSkipVerify: false,
+				},
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				switch r.URL.Path {
@@ -341,7 +361,8 @@ func TestNewClientFromConfig(t *testing.T) {
 					fmt.Fprint(w, "It should follow the redirect.")
 				}
 			},
-		}, {
+		},
+		{
 			clientConfig: HTTPClientConfig{
 				FollowRedirects: false,
 				TLSConfig: TLSConfig{
@@ -349,7 +370,8 @@ func TestNewClientFromConfig(t *testing.T) {
 					CertFile:           ClientCertificatePath,
 					KeyFile:            ClientKeyNoPassPath,
 					ServerName:         "",
-					InsecureSkipVerify: false},
+					InsecureSkipVerify: false,
+				},
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				switch r.URL.Path {
@@ -372,14 +394,16 @@ func TestNewClientFromConfig(t *testing.T) {
 						CertFile:           ClientCertificatePath,
 						KeyFile:            ClientKeyNoPassPath,
 						ServerName:         "",
-						InsecureSkipVerify: false},
+						InsecureSkipVerify: false,
+					},
 				},
 				TLSConfig: TLSConfig{
 					CAFile:             TLSCAChainPath,
 					CertFile:           ClientCertificatePath,
 					KeyFile:            ClientKeyNoPassPath,
 					ServerName:         "",
-					InsecureSkipVerify: false},
+					InsecureSkipVerify: false,
+				},
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				switch r.URL.Path {
@@ -448,7 +472,7 @@ func TestNewClientFromConfig(t *testing.T) {
 }
 
 func TestNewClientFromInvalidConfig(t *testing.T) {
-	var newClientInvalidConfig = []struct {
+	newClientInvalidConfig := []struct {
 		clientConfig HTTPClientConfig
 		errorMsg     string
 	}{
@@ -456,7 +480,8 @@ func TestNewClientFromInvalidConfig(t *testing.T) {
 			clientConfig: HTTPClientConfig{
 				TLSConfig: TLSConfig{
 					CAFile:             MissingCA,
-					InsecureSkipVerify: true},
+					InsecureSkipVerify: true,
+				},
 			},
 			errorMsg: fmt.Sprintf("unable to load specified CA cert %s:", MissingCA),
 		},
@@ -464,7 +489,8 @@ func TestNewClientFromInvalidConfig(t *testing.T) {
 			clientConfig: HTTPClientConfig{
 				TLSConfig: TLSConfig{
 					CAFile:             InvalidCA,
-					InsecureSkipVerify: true},
+					InsecureSkipVerify: true,
+				},
 			},
 			errorMsg: fmt.Sprintf("unable to use specified CA cert %s", InvalidCA),
 		},
@@ -528,7 +554,8 @@ func TestMissingBearerAuthFile(t *testing.T) {
 			CertFile:           ClientCertificatePath,
 			KeyFile:            ClientKeyNoPassPath,
 			ServerName:         "",
-			InsecureSkipVerify: false},
+			InsecureSkipVerify: false,
+		},
 	}
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		bearer := r.Header.Get("Authorization")
@@ -699,7 +726,7 @@ func TestTLSConfigEmpty(t *testing.T) {
 }
 
 func TestTLSConfigInvalidCA(t *testing.T) {
-	var invalidTLSConfig = []struct {
+	invalidTLSConfig := []struct {
 		configTLSConfig TLSConfig
 		errorMessage    string
 	}{
@@ -709,7 +736,8 @@ func TestTLSConfigInvalidCA(t *testing.T) {
 				CertFile:           "",
 				KeyFile:            "",
 				ServerName:         "",
-				InsecureSkipVerify: false},
+				InsecureSkipVerify: false,
+			},
 			errorMessage: fmt.Sprintf("unable to load specified CA cert %s:", MissingCA),
 		}, {
 			configTLSConfig: TLSConfig{
@@ -717,7 +745,8 @@ func TestTLSConfigInvalidCA(t *testing.T) {
 				CertFile:           MissingCert,
 				KeyFile:            ClientKeyNoPassPath,
 				ServerName:         "",
-				InsecureSkipVerify: false},
+				InsecureSkipVerify: false,
+			},
 			errorMessage: fmt.Sprintf("unable to read specified client cert (%s) & key (%s):", MissingCert, ClientKeyNoPassPath),
 		}, {
 			configTLSConfig: TLSConfig{
@@ -725,7 +754,8 @@ func TestTLSConfigInvalidCA(t *testing.T) {
 				CertFile:           ClientCertificatePath,
 				KeyFile:            MissingKey,
 				ServerName:         "",
-				InsecureSkipVerify: false},
+				InsecureSkipVerify: false,
+			},
 			errorMessage: fmt.Sprintf("unable to read specified client cert (%s) & key (%s):", ClientCertificatePath, MissingKey),
 		},
 	}
@@ -848,7 +878,7 @@ func writeCertificate(bs map[string][]byte, src string, dst string) {
 	if !ok {
 		panic(fmt.Sprintf("Couldn't find %q in bs", src))
 	}
-	if err := os.WriteFile(dst, b, 0664); err != nil {
+	if err := os.WriteFile(dst, b, 0o664); err != nil {
 		panic(err)
 	}
 }
@@ -939,7 +969,8 @@ func TestTLSRoundTripper(t *testing.T) {
 			CAFile:             ca,
 			CertFile:           cert,
 			KeyFile:            key,
-			InsecureSkipVerify: false},
+			InsecureSkipVerify: false,
+		},
 	}
 
 	var c *http.Client
@@ -1015,7 +1046,8 @@ func TestTLSRoundTripperRaces(t *testing.T) {
 			CAFile:             ca,
 			CertFile:           cert,
 			KeyFile:            key,
-			InsecureSkipVerify: false},
+			InsecureSkipVerify: false,
+		},
 	}
 
 	var c *http.Client
@@ -1174,7 +1206,9 @@ func NewRoundTripCheckRequest(checkRequest func(*http.Request), theResponse *htt
 		checkRequest: checkRequest,
 		roundTrip: roundTrip{
 			theResponse: theResponse,
-			theError:    theError}}
+			theError:    theError,
+		},
+	}
 }
 
 type oauth2TestServerResponse struct {
@@ -1193,7 +1227,7 @@ func TestOAuth2(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	var yamlConfig = fmt.Sprintf(`
+	yamlConfig := fmt.Sprintf(`
 client_id: 1
 client_secret: 2
 scopes:
@@ -1311,7 +1345,7 @@ func TestOAuth2WithFile(t *testing.T) {
 	}
 	defer os.Remove(secretFile.Name())
 
-	var yamlConfig = fmt.Sprintf(`
+	yamlConfig := fmt.Sprintf(`
 client_id: 1
 client_secret_file: %s
 scopes:
@@ -1536,7 +1570,7 @@ func TestOAuth2Proxy(t *testing.T) {
 func TestModifyTLSCertificates(t *testing.T) {
 	bs := getCertificateBlobs(t)
 
-	tmpDir, err := ioutil.TempDir("", "modifytlscertificates")
+	tmpDir, err := os.MkdirTemp("", "modifytlscertificates")
 	if err != nil {
 		t.Fatal("Failed to create tmp dir", err)
 	}
@@ -1595,7 +1629,8 @@ func TestModifyTLSCertificates(t *testing.T) {
 			CAFile:             ca,
 			CertFile:           cert,
 			KeyFile:            key,
-			InsecureSkipVerify: false},
+			InsecureSkipVerify: false,
+		},
 	}
 
 	var c *http.Client
@@ -1632,7 +1667,7 @@ func TestModifyTLSCertificates(t *testing.T) {
 				t.Fatalf("Expected no error, got %q", err)
 			}
 
-			b, err := ioutil.ReadAll(r.Body)
+			b, err := io.ReadAll(r.Body)
 			r.Body.Close()
 			if err != nil {
 				t.Errorf("Can't read the server response body")
