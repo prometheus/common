@@ -447,6 +447,50 @@ func TestNewClientFromConfig(t *testing.T) {
 	}
 }
 
+func TestProxyConfiguration(t *testing.T) {
+	testcases := map[string]struct {
+		testFn  string
+		loader  func(string) (*HTTPClientConfig, []byte, error)
+		isValid bool
+	}{
+		"good yaml": {
+			testFn:  "testdata/http.conf.proxy-headers.good.yml",
+			loader:  LoadHTTPConfigFile,
+			isValid: true,
+		},
+		"bad yaml": {
+			testFn:  "testdata/http.conf.proxy-headers.bad.yml",
+			loader:  LoadHTTPConfigFile,
+			isValid: false,
+		},
+		"good json": {
+			testFn:  "testdata/http.conf.proxy-headers.good.json",
+			loader:  loadHTTPConfigJSONFile,
+			isValid: true,
+		},
+		"bad json": {
+			testFn:  "testdata/http.conf.proxy-headers.bad.json",
+			loader:  loadHTTPConfigJSONFile,
+			isValid: false,
+		},
+	}
+
+	for name, tc := range testcases {
+		t.Run(name, func(t *testing.T) {
+			_, _, err := tc.loader(tc.testFn)
+			if tc.isValid {
+				if err != nil {
+					t.Fatalf("Error validating %s: %s", tc.testFn, err)
+				}
+			} else {
+				if err == nil {
+					t.Fatalf("Expecting error validating %s but got %s", tc.testFn, err)
+				}
+			}
+		})
+	}
+}
+
 func TestNewClientFromInvalidConfig(t *testing.T) {
 	var newClientInvalidConfig = []struct {
 		clientConfig HTTPClientConfig
@@ -1621,4 +1665,27 @@ func TestModifyTLSCertificates(t *testing.T) {
 			}
 		})
 	}
+}
+
+// loadHTTPConfigJSON parses the JSON input s into a HTTPClientConfig.
+func loadHTTPConfigJSON(buf []byte) (*HTTPClientConfig, error) {
+	cfg := &HTTPClientConfig{}
+	err := json.Unmarshal(buf, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+// loadHTTPConfigJSONFile parses the given JSON file into a HTTPClientConfig.
+func loadHTTPConfigJSONFile(filename string) (*HTTPClientConfig, []byte, error) {
+	content, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, nil, err
+	}
+	cfg, err := loadHTTPConfigJSON(content)
+	if err != nil {
+		return nil, nil, err
+	}
+	return cfg, content, nil
 }
