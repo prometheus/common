@@ -33,6 +33,7 @@ const (
 	FmtProtoText    Format = ProtoFmt + ` encoding=text`
 	FmtProtoCompact Format = ProtoFmt + ` encoding=compact-text`
 	FmtOpenMetrics  Format = OpenMetricsType + `; version=` + OpenMetricsVersion + `; charset=utf-8`
+	FmtHTML         Format = "text/html; charset=utf-8"
 )
 
 const (

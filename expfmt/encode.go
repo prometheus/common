@@ -72,6 +72,9 @@ func Negotiate(h http.Header) Format {
 				return FmtProtoCompact
 			}
 		}
+		if ac.Type == "text" && ac.SubType == "html" {
+			return FmtHTML
+		}
 		if ac.Type == "text" && ac.SubType == "plain" && (ver == TextVersion || ver == "") {
 			return FmtText
 		}
@@ -95,6 +98,9 @@ func NegotiateIncludingOpenMetrics(h http.Header) Format {
 			case "compact-text":
 				return FmtProtoCompact
 			}
+		}
+		if ac.Type == "text" && ac.SubType == "html" {
+			return FmtHTML
 		}
 		if ac.Type == "text" && ac.SubType == "plain" && (ver == TextVersion || ver == "") {
 			return FmtText
@@ -157,6 +163,8 @@ func NewEncoder(w io.Writer, format Format) Encoder {
 				return err
 			},
 		}
+	case FmtHTML:
+		return NewHTMLEncoder(w)
 	}
 	panic(fmt.Errorf("expfmt.NewEncoder: unknown format %q", format))
 }
