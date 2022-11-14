@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -24,7 +25,7 @@ import (
 
 	"encoding/json"
 
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 // LoadTLSConfig parses the given file into a tls.Config.
@@ -36,7 +37,11 @@ func LoadTLSConfig(filename string) (*tls.Config, error) {
 	cfg := TLSConfig{}
 	switch filepath.Ext(filename) {
 	case ".yml":
-		if err = yaml.UnmarshalStrict(content, &cfg); err != nil {
+		// In yaml.v3 UnmarschalStrict was removed
+		// https://github.com/go-yaml/yaml/issues/639#issuecomment-666935833
+		decoder := yaml.NewDecoder(bytes.NewReader(content))
+		decoder.KnownFields(true)
+		if err := decoder.Decode(&cfg); err != nil && err != io.EOF {
 			return nil, err
 		}
 	case ".json":
