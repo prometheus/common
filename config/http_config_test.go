@@ -1536,7 +1536,7 @@ func TestOAuth2Proxy(t *testing.T) {
 func TestModifyTLSCertificates(t *testing.T) {
 	bs := getCertificateBlobs(t)
 
-	tmpDir, err := ioutil.TempDir("", "modifytlscertificates")
+	tmpDir, err := os.MkdirTemp("", "modifytlscertificates")
 	if err != nil {
 		t.Fatal("Failed to create tmp dir", err)
 	}
@@ -1632,7 +1632,7 @@ func TestModifyTLSCertificates(t *testing.T) {
 				t.Fatalf("Expected no error, got %q", err)
 			}
 
-			b, err := ioutil.ReadAll(r.Body)
+			b, err := io.ReadAll(r.Body)
 			r.Body.Close()
 			if err != nil {
 				t.Errorf("Can't read the server response body")
