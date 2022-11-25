@@ -64,6 +64,9 @@ var expectedTLSConfigs = []struct {
 	}, {
 		filename: "tls_config.tlsversion.good.json",
 		config:   &tls.Config{MinVersion: tls.VersionTLS11},
+	}, {
+		filename: "tls_config.max_version.good.json",
+		config:   &tls.Config{MaxVersion: tls.VersionTLS12},
 	},
 	{
 		filename: "tls_config.empty.good.yml",
@@ -74,6 +77,9 @@ var expectedTLSConfigs = []struct {
 	}, {
 		filename: "tls_config.tlsversion.good.yml",
 		config:   &tls.Config{MinVersion: tls.VersionTLS11},
+	}, {
+		filename: "tls_config.max_version.good.yml",
+		config:   &tls.Config{MaxVersion: tls.VersionTLS12},
 	},
 }
 
