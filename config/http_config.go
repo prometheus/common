@@ -780,6 +780,7 @@ func NewTLSConfig(cfg *TLSConfig) (*tls.Config, error) {
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: cfg.InsecureSkipVerify,
 		MinVersion:         uint16(cfg.MinVersion),
+		MaxVersion:         uint16(cfg.MaxVersion),
 	}
 
 	// If a CA cert is provided then let's read it in so we can validate the
