@@ -1125,29 +1125,6 @@ func TestInvalidHTTPConfigs(t *testing.T) {
 	}
 }
 
-// LoadHTTPConfig parses the YAML input s into a HTTPClientConfig.
-func LoadHTTPConfig(s string) (*HTTPClientConfig, error) {
-	cfg := &HTTPClientConfig{}
-	err := yaml.UnmarshalStrict([]byte(s), cfg)
-	if err != nil {
-		return nil, err
-	}
-	return cfg, nil
-}
-
-// LoadHTTPConfigFile parses the given YAML file into a HTTPClientConfig.
-func LoadHTTPConfigFile(filename string) (*HTTPClientConfig, []byte, error) {
-	content, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, nil, err
-	}
-	cfg, err := LoadHTTPConfig(string(content))
-	if err != nil {
-		return nil, nil, err
-	}
-	return cfg, content, nil
-}
-
 type roundTrip struct {
 	theResponse *http.Response
 	theError    error
