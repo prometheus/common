@@ -299,6 +299,9 @@ type HTTPClientConfig struct {
 	// The omitempty flag is not set, because it would be hidden from the
 	// marshalled configuration when set to false.
 	EnableHTTP2 bool `yaml:"enable_http2" json:"enable_http2"`
+	// HTTPHeaders specify headers to inject in the requests. Those headers
+	// could be marshalled back to the users.
+	HTTPHeaders *Headers `yaml:"http_headers" json:"http_headers"`
 }
 
 // SetDirectory joins any relative file paths with dir.
@@ -310,6 +313,7 @@ func (c *HTTPClientConfig) SetDirectory(dir string) {
 	c.BasicAuth.SetDirectory(dir)
 	c.Authorization.SetDirectory(dir)
 	c.OAuth2.SetDirectory(dir)
+	c.HTTPHeaders.SetDirectory(dir)
 	c.BearerTokenFile = JoinDir(dir, c.BearerTokenFile)
 }
 
@@ -370,6 +374,11 @@ func (c *HTTPClientConfig) Validate() error {
 		}
 		if len(c.OAuth2.ClientSecret) > 0 && len(c.OAuth2.ClientSecretFile) > 0 {
 			return fmt.Errorf("at most one of oauth2 client_secret & client_secret_file must be configured")
+		}
+	}
+	if c.HTTPHeaders != nil {
+		if err := c.HTTPHeaders.Validate(); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -545,6 +554,10 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, optFuncs ...HT
 
 		if cfg.OAuth2 != nil {
 			rt = NewOAuth2RoundTripper(cfg.OAuth2, rt, &opts)
+		}
+
+		if cfg.HTTPHeaders != nil {
+			rt = NewHeadersRoundTripper(cfg.HTTPHeaders, rt)
 		}
 
 		if opts.userAgent != "" {
