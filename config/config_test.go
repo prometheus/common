@@ -83,11 +83,11 @@ func TestJSONMarshalSecret(t *testing.T) {
 
 func TestHeaderHTTPHeader(t *testing.T) {
 	testcases := map[string]struct {
-		header   Header
+		header   ProxyHeader
 		expected http.Header
 	}{
 		"basic": {
-			header: Header{
+			header: ProxyHeader{
 				"single": []Secret{"v1"},
 				"multi":  []Secret{"v1", "v2"},
 				"empty":  []Secret{},
@@ -119,32 +119,32 @@ func TestHeaderHTTPHeader(t *testing.T) {
 func TestHeaderYamlUnmarshal(t *testing.T) {
 	testcases := map[string]struct {
 		input    string
-		expected Header
+		expected ProxyHeader
 	}{
 		"void": {
 			input: ``,
 		},
 		"simple": {
 			input:    "single:\n- a\n",
-			expected: Header{"single": []Secret{"a"}},
+			expected: ProxyHeader{"single": []Secret{"a"}},
 		},
 		"multi": {
 			input:    "multi:\n- a\n- b\n",
-			expected: Header{"multi": []Secret{"a", "b"}},
+			expected: ProxyHeader{"multi": []Secret{"a", "b"}},
 		},
 		"empty": {
 			input:    "{}",
-			expected: Header{},
+			expected: ProxyHeader{},
 		},
 		"empty value": {
 			input:    "empty:\n",
-			expected: Header{"empty": nil},
+			expected: ProxyHeader{"empty": nil},
 		},
 	}
 
 	for name, tc := range testcases {
 		t.Run(name, func(t *testing.T) {
-			var actual Header
+			var actual ProxyHeader
 			err := yaml.Unmarshal([]byte(tc.input), &actual)
 			if err != nil {
 				t.Fatalf("error unmarshaling %s: %s", tc.input, err)
@@ -158,7 +158,7 @@ func TestHeaderYamlUnmarshal(t *testing.T) {
 
 func TestHeaderYamlMarshal(t *testing.T) {
 	testcases := map[string]struct {
-		input    Header
+		input    ProxyHeader
 		expected []byte
 	}{
 		"void": {
@@ -166,15 +166,15 @@ func TestHeaderYamlMarshal(t *testing.T) {
 			expected: []byte("{}\n"),
 		},
 		"simple": {
-			input:    Header{"single": []Secret{"a"}},
+			input:    ProxyHeader{"single": []Secret{"a"}},
 			expected: []byte("single:\n- <secret>\n"),
 		},
 		"multi": {
-			input:    Header{"multi": []Secret{"a", "b"}},
+			input:    ProxyHeader{"multi": []Secret{"a", "b"}},
 			expected: []byte("multi:\n- <secret>\n- <secret>\n"),
 		},
 		"empty": {
-			input:    Header{"empty": nil},
+			input:    ProxyHeader{"empty": nil},
 			expected: []byte("empty: []\n"),
 		},
 	}
@@ -195,32 +195,32 @@ func TestHeaderYamlMarshal(t *testing.T) {
 func TestHeaderJsonUnmarshal(t *testing.T) {
 	testcases := map[string]struct {
 		input    string
-		expected Header
+		expected ProxyHeader
 	}{
 		"void": {
 			input: `null`,
 		},
 		"simple": {
 			input:    `{"single": ["a"]}`,
-			expected: Header{"single": []Secret{"a"}},
+			expected: ProxyHeader{"single": []Secret{"a"}},
 		},
 		"multi": {
 			input:    `{"multi": ["a", "b"]}`,
-			expected: Header{"multi": []Secret{"a", "b"}},
+			expected: ProxyHeader{"multi": []Secret{"a", "b"}},
 		},
 		"empty": {
 			input:    `{}`,
-			expected: Header{},
+			expected: ProxyHeader{},
 		},
 		"empty value": {
 			input:    `{"empty":null}`,
-			expected: Header{"empty": nil},
+			expected: ProxyHeader{"empty": nil},
 		},
 	}
 
 	for name, tc := range testcases {
 		t.Run(name, func(t *testing.T) {
-			var actual Header
+			var actual ProxyHeader
 			err := json.Unmarshal([]byte(tc.input), &actual)
 			if err != nil {
 				t.Fatalf("error unmarshaling %s: %s", tc.input, err)
@@ -234,7 +234,7 @@ func TestHeaderJsonUnmarshal(t *testing.T) {
 
 func TestHeaderJsonMarshal(t *testing.T) {
 	testcases := map[string]struct {
-		input    Header
+		input    ProxyHeader
 		expected []byte
 	}{
 		"void": {
@@ -242,15 +242,15 @@ func TestHeaderJsonMarshal(t *testing.T) {
 			expected: []byte("null"),
 		},
 		"simple": {
-			input:    Header{"single": []Secret{"a"}},
+			input:    ProxyHeader{"single": []Secret{"a"}},
 			expected: []byte("{\"single\":[\"\\u003csecret\\u003e\"]}"),
 		},
 		"multi": {
-			input:    Header{"multi": []Secret{"a", "b"}},
+			input:    ProxyHeader{"multi": []Secret{"a", "b"}},
 			expected: []byte("{\"multi\":[\"\\u003csecret\\u003e\",\"\\u003csecret\\u003e\"]}"),
 		},
 		"empty": {
-			input:    Header{"empty": nil},
+			input:    ProxyHeader{"empty": nil},
 			expected: []byte(`{"empty":null}`),
 		},
 	}

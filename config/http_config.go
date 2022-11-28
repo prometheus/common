@@ -311,6 +311,9 @@ type HTTPClientConfig struct {
 	EnableHTTP2 bool `yaml:"enable_http2" json:"enable_http2"`
 	// Proxy configuration.
 	ProxyConfig `yaml:",inline"`
+	// HTTPHeaders specify headers to inject in the requests. Those headers
+	// could be marshalled back to the users.
+	HTTPHeaders *Headers `yaml:"http_headers" json:"http_headers"`
 }
 
 // SetDirectory joins any relative file paths with dir.
@@ -322,6 +325,7 @@ func (c *HTTPClientConfig) SetDirectory(dir string) {
 	c.BasicAuth.SetDirectory(dir)
 	c.Authorization.SetDirectory(dir)
 	c.OAuth2.SetDirectory(dir)
+	c.HTTPHeaders.SetDirectory(dir)
 	c.BearerTokenFile = JoinDir(dir, c.BearerTokenFile)
 }
 
@@ -387,6 +391,11 @@ func (c *HTTPClientConfig) Validate() error {
 	}
 	if err := c.ProxyConfig.Validate(); err != nil {
 		return err
+	}
+	if c.HTTPHeaders != nil {
+		if err := c.HTTPHeaders.Validate(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -570,6 +579,10 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, optFuncs ...HT
 
 		if cfg.OAuth2 != nil {
 			rt = NewOAuth2RoundTripper(cfg.OAuth2, rt, &opts)
+		}
+
+		if cfg.HTTPHeaders != nil {
+			rt = NewHeadersRoundTripper(cfg.HTTPHeaders, rt)
 		}
 
 		if opts.userAgent != "" {
@@ -1236,7 +1249,7 @@ type ProxyConfig struct {
 	// proxies during CONNECT requests. Assume that at least _some_ of
 	// these headers are going to contain secrets and use Secret as the
 	// value type instead of string.
-	ProxyConnectHeader Header `yaml:"proxy_connect_header,omitempty" json:"proxy_connect_header,omitempty"`
+	ProxyConnectHeader ProxyHeader `yaml:"proxy_connect_header,omitempty" json:"proxy_connect_header,omitempty"`
 
 	proxyFunc func(*http.Request) (*url.URL, error)
 }
