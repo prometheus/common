@@ -21,6 +21,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -33,7 +34,7 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 var (

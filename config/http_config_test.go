@@ -14,6 +14,7 @@
 package config
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -21,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -35,7 +37,7 @@ import (
 	"testing"
 	"time"
 
-	yaml "gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v3"
 )
 
 const (
@@ -1128,8 +1130,12 @@ func TestInvalidHTTPConfigs(t *testing.T) {
 // LoadHTTPConfig parses the YAML input s into a HTTPClientConfig.
 func LoadHTTPConfig(s string) (*HTTPClientConfig, error) {
 	cfg := &HTTPClientConfig{}
-	err := yaml.UnmarshalStrict([]byte(s), cfg)
-	if err != nil {
+
+	// In yaml.v3 UnmarschalStrict was removed
+	// https://github.com/go-yaml/yaml/issues/639#issuecomment-666935833
+	decoder := yaml.NewDecoder(bytes.NewReader([]byte(s)))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&cfg); err != nil && err != io.EOF {
 		return nil, err
 	}
 	return cfg, nil

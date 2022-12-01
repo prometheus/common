@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"github.com/go-kit/log/level"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 // Make sure creating and using a logger with an empty configuration doesn't
