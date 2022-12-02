@@ -782,6 +782,12 @@ func NewTLSConfig(cfg *TLSConfig) (*tls.Config, error) {
 		MaxVersion:         uint16(cfg.MaxVersion),
 	}
 
+	if cfg.MaxVersion != 0 && cfg.MinVersion != 0 {
+		if cfg.MaxVersion < cfg.MinVersion {
+			return nil, fmt.Errorf("tls_config.max_version must be greater than or equal to tls_config.min_version if both are specified")
+		}
+	}
+
 	// If a CA cert is provided then let's read it in so we can validate the
 	// scrape target's certificate properly.
 	if len(cfg.CAFile) > 0 {
