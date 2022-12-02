@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"encoding/json"
@@ -80,6 +81,12 @@ var expectedTLSConfigs = []struct {
 	}, {
 		filename: "tls_config.max_version.good.yml",
 		config:   &tls.Config{MaxVersion: tls.VersionTLS12},
+	}, {
+		filename: "tls_config.max_and_min_version.good.yml",
+		config:   &tls.Config{MaxVersion: tls.VersionTLS12, MinVersion: tls.VersionTLS11},
+	}, {
+		filename: "tls_config.max_and_min_version_same.good.yml",
+		config:   &tls.Config{MaxVersion: tls.VersionTLS12, MinVersion: tls.VersionTLS12},
 	},
 }
 
@@ -93,6 +100,29 @@ func TestValidTLSConfig(t *testing.T) {
 		got.GetClientCertificate = nil
 		if !reflect.DeepEqual(got, cfg.config) {
 			t.Fatalf("%v: unexpected config result: \n\n%v\n expected\n\n%v", cfg.filename, got, cfg.config)
+		}
+	}
+}
+
+var invalidTLSConfigs = []struct {
+	filename string
+	errMsg   string
+}{
+	{
+		filename: "tls_config.max_and_min_version.bad.yml",
+		errMsg:   "tls_config.max_version must be greater than or equal to tls_config.min_version if both are specified",
+	},
+}
+
+func TestInvalidTLSConfig(t *testing.T) {
+	for _, ee := range invalidTLSConfigs {
+		_, err := LoadTLSConfig("testdata/" + ee.filename)
+		if err == nil {
+			t.Error("Expected error with config but got none")
+			continue
+		}
+		if !strings.Contains(err.Error(), ee.errMsg) {
+			t.Errorf("Expected error for invalid HTTP client configuration to contain %q but got: %s", ee.errMsg, err)
 		}
 	}
 }
