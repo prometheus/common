@@ -262,8 +262,11 @@ type HTTPClientConfig struct {
 	// The bearer token file for the targets. Deprecated in favour of
 	// Authorization.CredentialsFile.
 	BearerTokenFile string `yaml:"bearer_token_file,omitempty" json:"bearer_token_file,omitempty"`
-	// HTTP proxy server to use to connect to the targets.
-	ProxyURL URL `yaml:"proxy_url,omitempty" json:"proxy_url,omitempty"`
+	// HTTP proxy server to use to connect to the targets. ProxyURL is appended
+	// to ProxyURLs. If multiple URLs are provided, each RoundTrip will cycle
+	// through them.
+	ProxyURL  URL   `yaml:"proxy_url,omitempty" json:"proxy_url,omitempty"`
+	ProxyURLs []URL `yaml:"proxy_urls,omitempty" json:"proxy_urls,omitempty"`
 	// TLSConfig to use to connect to the targets.
 	TLSConfig TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
 	// FollowRedirects specifies whether the client should follow HTTP 3xx redirects.
@@ -448,6 +451,36 @@ func NewClientFromConfig(cfg HTTPClientConfig, name string, optFuncs ...HTTPClie
 	return client, nil
 }
 
+func proxyURLs(cfg HTTPClientConfig) func(*http.Request) (*url.URL, error) {
+	urls := []*url.URL{}
+	for _, u := range cfg.ProxyURLs {
+		if u.URL != nil {
+			urls = append(urls, u.URL)
+		}
+	}
+	if cfg.ProxyURL.URL != nil {
+		urls = append(urls, cfg.ProxyURL.URL)
+	}
+
+	if len(urls) == 0 {
+		return nil
+	}
+
+	// Every time this function is called, it will cycle through the URLs provided
+	next := 0
+	var mux sync.Mutex
+	return func(_ *http.Request) (*url.URL, error) {
+		mux.Lock()
+		defer mux.Unlock()
+		if next >= len(urls) {
+			next = 0
+		}
+		u := urls[next]
+		next += 1
+		return u, nil
+	}
+}
+
 // NewRoundTripperFromConfig returns a new HTTP RoundTripper configured for the
 // given config.HTTPClientConfig and config.HTTPClientOption.
 // The name is used as go-conntrack metric label.
@@ -474,7 +507,7 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, optFuncs ...HT
 		// The only timeout we care about is the configured scrape timeout.
 		// It is applied on request. So we leave out any timings here.
 		var rt http.RoundTripper = &http.Transport{
-			Proxy:                 http.ProxyURL(cfg.ProxyURL.URL),
+			Proxy:                 proxyURLs(cfg),
 			MaxIdleConns:          20000,
 			MaxIdleConnsPerHost:   1000, // see https://github.com/golang/go/issues/13801
 			DisableKeepAlives:     !opts.keepAlivesEnabled,
