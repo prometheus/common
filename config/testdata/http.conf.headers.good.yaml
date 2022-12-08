@@ -1,7 +1,7 @@
 http_headers:
   headers:
-    one: value1
+    one: [value1]
   secret_headers:
-    two: value2
+    two: [value2]
   files:
-    three: testdata/headers-file
+    three: [testdata/headers-file]

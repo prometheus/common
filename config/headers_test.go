@@ -17,15 +17,15 @@
 package config
 
 import (
-	"strings"
+	"net/http"
 	"testing"
 )
 
 func TestReservedHeaders(t *testing.T) {
 	for k := range reservedHeaders {
-		l := strings.ToLower(k)
+		l := http.CanonicalHeaderKey(k)
 		if k != l {
-			t.Errorf("reservedHeaders keys should be lowercase: got %q, expected %q", k, strings.ToLower(k))
+			t.Errorf("reservedHeaders keys should be lowercase: got %q, expected %q", k, http.CanonicalHeaderKey(k))
 		}
 	}
 }

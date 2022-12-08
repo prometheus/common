@@ -1,7 +1,7 @@
 http_headers:
   headers:
-    Foo: bar
+    Foo: [bar]
   secret_headers:
-    foO: bar
+    foO: [bar]
   files:
-    foO: bar
+    foO: [bar]

@@ -1144,7 +1144,7 @@ func TestInvalidHTTPConfigs(t *testing.T) {
 	for _, ee := range invalidHTTPClientConfigs {
 		_, _, err := LoadHTTPConfigFile(ee.httpClientConfigFile)
 		if err == nil {
-			t.Error("Expected error with config but got none")
+			t.Errorf("Expected error with config %q but got none", ee.httpClientConfigFile)
 			continue
 		}
 		if !strings.Contains(err.Error(), ee.errMsg) {

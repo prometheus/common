@@ -1,5 +1,5 @@
 http_headers:
   files:
-    Foo: bar
+    Foo: [bar]
   secret_headers:
-    foO: bar
+    foO: [bar]

@@ -19,7 +19,6 @@ package config
 import (
 	"fmt"
 	"net/http"
-	"net/textproto"
 	"os"
 	"strings"
 )
@@ -27,33 +26,33 @@ import (
 // reservedHeaders that change the connection, are set by Prometheus, or car be set
 // otherwise can't be changed.
 var reservedHeaders = map[string]struct{}{
-	"authorization":                       {},
-	"host":                                {},
-	"content-encoding":                    {},
-	"content-length":                      {},
-	"content-type":                        {},
-	"user-agent":                          {},
-	"connection":                          {},
-	"keep-alive":                          {},
-	"proxy-authenticate":                  {},
-	"proxy-authorization":                 {},
-	"www-authenticate":                    {},
-	"accept-encoding":                     {},
-	"x-prometheus-remote-write-version":   {},
-	"x-prometheus-remote-read-version":    {},
-	"x-prometheus-scrape-timeout-seconds": {},
+	"Authorization":                       {},
+	"Host":                                {},
+	"Content-Encoding":                    {},
+	"Content-Length":                      {},
+	"Content-Type":                        {},
+	"User-Agent":                          {},
+	"Connection":                          {},
+	"Keep-Alive":                          {},
+	"Proxy-Authenticate":                  {},
+	"Proxy-Authorization":                 {},
+	"Www-Authenticate":                    {},
+	"Accept-Encoding":                     {},
+	"X-Prometheus-Remote-Write-Version":   {},
+	"X-Prometheus-Remote-Read-Version":    {},
+	"X-Prometheus-Scrape-Timeout-Seconds": {},
 
 	// Added by SigV4.
-	"x-amz-date":           {},
-	"x-amz-security-token": {},
-	"x-amz-content-sha256": {},
+	"X-Amz-Date":           {},
+	"X-Amz-Security-Token": {},
+	"X-Amz-Content-Sha256": {},
 }
 
 // Headers represents the configuration for HTTP headers.
 type Headers struct {
-	Headers       map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
-	SecretHeaders map[string]Secret `yaml:"secret_headers,omitempty" json:"secret_headers,omitempty"`
-	Files         map[string]string `yaml:"files,omitempty" json:"files,omitempty"`
+	Headers       map[string][]string `yaml:"headers,omitempty" json:"headers,omitempty"`
+	SecretHeaders map[string][]Secret `yaml:"secret_headers,omitempty" json:"secret_headers,omitempty"`
+	Files         map[string][]string `yaml:"files,omitempty" json:"files,omitempty"`
 	dir           string
 }
 
@@ -67,28 +66,30 @@ func (h *Headers) SetDirectory(dir string) {
 func (h *Headers) Validate() error {
 	uniqueHeaders := make(map[string]struct{}, len(h.Headers))
 	for k := range h.Headers {
-		uniqueHeaders[strings.ToLower(k)] = struct{}{}
+		uniqueHeaders[http.CanonicalHeaderKey(k)] = struct{}{}
 	}
 	for k := range h.SecretHeaders {
-		if _, ok := uniqueHeaders[strings.ToLower(k)]; ok {
-			return fmt.Errorf("header %q is defined in multiple sections", textproto.CanonicalMIMEHeaderKey(k))
+		if _, ok := uniqueHeaders[http.CanonicalHeaderKey(k)]; ok {
+			return fmt.Errorf("header %q is defined in multiple sections", http.CanonicalHeaderKey(k))
 		}
-		uniqueHeaders[strings.ToLower(k)] = struct{}{}
+		uniqueHeaders[http.CanonicalHeaderKey(k)] = struct{}{}
 	}
 	for k, v := range h.Files {
-		if _, ok := uniqueHeaders[strings.ToLower(k)]; ok {
-			return fmt.Errorf("header %q is defined in multiple sections", textproto.CanonicalMIMEHeaderKey(k))
+		if _, ok := uniqueHeaders[http.CanonicalHeaderKey(k)]; ok {
+			return fmt.Errorf("header %q is defined in multiple sections", http.CanonicalHeaderKey(k))
 		}
-		uniqueHeaders[strings.ToLower(k)] = struct{}{}
-		f := JoinDir(h.dir, v)
-		_, err := os.ReadFile(f)
-		if err != nil {
-			return fmt.Errorf("unable to read header %q from file %s: %w", textproto.CanonicalMIMEHeaderKey(k), f, err)
+		uniqueHeaders[http.CanonicalHeaderKey(k)] = struct{}{}
+		for _, file := range v {
+			f := JoinDir(h.dir, file)
+			_, err := os.ReadFile(f)
+			if err != nil {
+				return fmt.Errorf("unable to read header %q from file %s: %w", http.CanonicalHeaderKey(k), f, err)
+			}
 		}
 	}
 	for k := range uniqueHeaders {
-		if _, ok := reservedHeaders[strings.ToLower(k)]; ok {
-			return fmt.Errorf("setting header %q is not allowed", textproto.CanonicalMIMEHeaderKey(k))
+		if _, ok := reservedHeaders[http.CanonicalHeaderKey(k)]; ok {
+			return fmt.Errorf("setting header %q is not allowed", http.CanonicalHeaderKey(k))
 		}
 	}
 	return nil
@@ -115,18 +116,36 @@ type headersRoundTripper struct {
 func (rt *headersRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	req = cloneRequest(req)
 	for k, v := range rt.config.Headers {
-		req.Header.Set(textproto.CanonicalMIMEHeaderKey(k), v)
+		for i, h := range v {
+			if i == 0 {
+				req.Header.Set(k, h)
+				continue
+			}
+			req.Header.Add(k, h)
+		}
 	}
 	for k, v := range rt.config.SecretHeaders {
-		req.Header.Set(textproto.CanonicalMIMEHeaderKey(k), string(v))
+		for i, h := range v {
+			if i == 0 {
+				req.Header.Set(k, string(h))
+				continue
+			}
+			req.Header.Add(k, string(h))
+		}
 	}
 	for k, v := range rt.config.Files {
-		f := JoinDir(rt.config.dir, v)
-		b, err := os.ReadFile(f)
-		if err != nil {
-			return nil, fmt.Errorf("unable to read headers file %s: %w", f, err)
+		for i, h := range v {
+			f := JoinDir(rt.config.dir, h)
+			b, err := os.ReadFile(f)
+			if err != nil {
+				return nil, fmt.Errorf("unable to read headers file %s: %w", f, err)
+			}
+			if i == 0 {
+				req.Header.Set(k, strings.TrimSpace(string(b)))
+				continue
+			}
+			req.Header.Add(k, strings.TrimSpace(string(b)))
 		}
-		req.Header.Set(textproto.CanonicalMIMEHeaderKey(k), strings.TrimSpace(string(b)))
 	}
 	return rt.next.RoundTrip(req)
 }
