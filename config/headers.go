@@ -59,6 +59,9 @@ type Headers struct {
 // SetDirectory records the directory to make headers file relative to the
 // configuration file.
 func (h *Headers) SetDirectory(dir string) {
+	if h == nil {
+		return
+	}
 	h.dir = dir
 }
 

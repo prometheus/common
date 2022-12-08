@@ -1680,3 +1680,33 @@ func TestHeaders(t *testing.T) {
 		t.Fatalf("can't fetch URL: %v", err)
 	}
 }
+
+func TestMultipleHeaders(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for k, v := range map[string][]string{
+			"One":   {"value1a", "value1b", "value1c"},
+			"Two":   {"value2a", "value2b", "value2c"},
+			"Three": {"value3a", "value3b", "value3c"},
+		} {
+			if !reflect.DeepEqual(r.Header.Values(k), v) {
+				t.Errorf("expected %v, got %v", v, r.Header.Values(k))
+			}
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(ts.Close)
+
+	cfg, _, err := LoadHTTPConfigFile("testdata/http.conf.headers-multiple.good.yaml")
+	if err != nil {
+		t.Fatalf("Error loading HTTP client config: %v", err)
+	}
+	client, err := NewClientFromConfig(*cfg, "test")
+	if err != nil {
+		t.Fatalf("Error creating HTTP Client: %v", err)
+	}
+
+	_, err = client.Get(ts.URL)
+	if err != nil {
+		t.Fatalf("can't fetch URL: %v", err)
+	}
+}
