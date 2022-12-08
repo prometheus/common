@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -246,6 +247,30 @@ func (a *OAuth2) SetDirectory(dir string) {
 	}
 	a.ClientSecretFile = JoinDir(dir, a.ClientSecretFile)
 	a.TLSConfig.SetDirectory(dir)
+}
+
+// LoadHTTPConfig parses the YAML input s into a HTTPClientConfig.
+func LoadHTTPConfig(s string) (*HTTPClientConfig, error) {
+	cfg := &HTTPClientConfig{}
+	err := yaml.UnmarshalStrict([]byte(s), cfg)
+	if err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+// LoadHTTPConfigFile parses the given YAML file into a HTTPClientConfig.
+func LoadHTTPConfigFile(filename string) (*HTTPClientConfig, []byte, error) {
+	content, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, nil, err
+	}
+	cfg, err := LoadHTTPConfig(string(content))
+	if err != nil {
+		return nil, nil, err
+	}
+	cfg.SetDirectory(filepath.Dir(filepath.Dir(filename)))
+	return cfg, content, nil
 }
 
 // HTTPClientConfig configures an HTTP client.
