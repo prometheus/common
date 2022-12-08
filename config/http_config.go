@@ -779,6 +779,13 @@ func NewTLSConfig(cfg *TLSConfig) (*tls.Config, error) {
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: cfg.InsecureSkipVerify,
 		MinVersion:         uint16(cfg.MinVersion),
+		MaxVersion:         uint16(cfg.MaxVersion),
+	}
+
+	if cfg.MaxVersion != 0 && cfg.MinVersion != 0 {
+		if cfg.MaxVersion < cfg.MinVersion {
+			return nil, fmt.Errorf("tls_config.max_version must be greater than or equal to tls_config.min_version if both are specified")
+		}
 	}
 
 	// If a CA cert is provided then let's read it in so we can validate the
@@ -826,6 +833,8 @@ type TLSConfig struct {
 	InsecureSkipVerify bool `yaml:"insecure_skip_verify" json:"insecure_skip_verify"`
 	// Minimum TLS version.
 	MinVersion TLSVersion `yaml:"min_version,omitempty" json:"min_version,omitempty"`
+	// Maximum TLS version.
+	MaxVersion TLSVersion `yaml:"max_version,omitempty" json:"max_version,omitempty"`
 }
 
 // SetDirectory joins any relative file paths with dir.
