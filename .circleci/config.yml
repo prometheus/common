@@ -91,7 +91,6 @@ workflows:
           matrix:
             parameters:
               go_version:
-                - "1.16"
                 - "1.17"
                 - "1.18"
       - test-assets:
