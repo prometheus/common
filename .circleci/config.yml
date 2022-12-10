@@ -76,6 +76,7 @@ jobs:
       - run: make style
       - run: make -C sigv4 style
       - run: make -C assets style
+      - run: make check-go-mod-version
       - when:
           condition: << parameters.use_gomod_cache >>
           steps:
