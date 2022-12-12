@@ -19,3 +19,8 @@ test:: deps check_license unused common-test lint
 .PHONY: generate-testdata
 generate-testdata:
 	@cd config && go run generate.go
+
+.PHONY: check-go-mod-version
+check-go-mod-version:
+	@echo ">> checking go.mod version matching"
+	@./scripts/check-go-mod-version.sh
