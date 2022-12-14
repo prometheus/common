@@ -1,0 +1,7 @@
+http_headers:
+  headers:
+    Foo: [bar]
+  secret_headers:
+    foO: [bar]
+  files:
+    foO: [bar]

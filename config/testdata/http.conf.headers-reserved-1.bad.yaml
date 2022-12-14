@@ -1,0 +1,3 @@
+http_headers:
+  headers:
+    user-Agent: [bar]

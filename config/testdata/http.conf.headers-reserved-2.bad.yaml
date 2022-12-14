@@ -1,0 +1,3 @@
+http_headers:
+  secret_headers:
+    user-Agent: [bar]

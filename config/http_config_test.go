@@ -119,6 +119,34 @@ var invalidHTTPClientConfigs = []struct {
 		httpClientConfigFile: "testdata/http.conf.oauth2-no-token-url.bad.yaml",
 		errMsg:               "oauth2 token_url must be configured",
 	},
+	{
+		httpClientConfigFile: "testdata/http.conf.headers-duplicate-1.bad.yaml",
+		errMsg:               `header "Foo" is defined in multiple sections`,
+	},
+	{
+		httpClientConfigFile: "testdata/http.conf.headers-duplicate-2.bad.yaml",
+		errMsg:               `header "Foo" is defined in multiple sections`,
+	},
+	{
+		httpClientConfigFile: "testdata/http.conf.headers-duplicate-3.bad.yaml",
+		errMsg:               `header "Foo" is defined in multiple sections`,
+	},
+	{
+		httpClientConfigFile: "testdata/http.conf.headers-duplicate-4.bad.yaml",
+		errMsg:               `header "Foo" is defined in multiple sections`,
+	},
+	{
+		httpClientConfigFile: "testdata/http.conf.headers-reserved-1.bad.yaml",
+		errMsg:               `setting header "User-Agent" is not allowed`,
+	},
+	{
+		httpClientConfigFile: "testdata/http.conf.headers-reserved-2.bad.yaml",
+		errMsg:               `setting header "User-Agent" is not allowed`,
+	},
+	{
+		httpClientConfigFile: "testdata/http.conf.headers-reserved-3.bad.yaml",
+		errMsg:               `setting header "User-Agent" is not allowed`,
+	},
 }
 
 func newTestServer(handler func(w http.ResponseWriter, r *http.Request)) (*httptest.Server, error) {
@@ -1116,7 +1144,7 @@ func TestInvalidHTTPConfigs(t *testing.T) {
 	for _, ee := range invalidHTTPClientConfigs {
 		_, _, err := LoadHTTPConfigFile(ee.httpClientConfigFile)
 		if err == nil {
-			t.Error("Expected error with config but got none")
+			t.Errorf("Expected error with config %q but got none", ee.httpClientConfigFile)
 			continue
 		}
 		if !strings.Contains(err.Error(), ee.errMsg) {
@@ -1620,5 +1648,65 @@ func TestModifyTLSCertificates(t *testing.T) {
 				t.Errorf("The expected message %q differs from the obtained message %q", ExpectedMessage, got)
 			}
 		})
+	}
+}
+
+func TestHeaders(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for k, v := range map[string]string{
+			"One":   "value1",
+			"Two":   "value2",
+			"Three": "value3",
+		} {
+			if r.Header.Get(k) != v {
+				t.Errorf("expected %q, got %q", v, r.Header.Get(k))
+			}
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(ts.Close)
+
+	cfg, _, err := LoadHTTPConfigFile("testdata/http.conf.headers.good.yaml")
+	if err != nil {
+		t.Fatalf("Error loading HTTP client config: %v", err)
+	}
+	client, err := NewClientFromConfig(*cfg, "test")
+	if err != nil {
+		t.Fatalf("Error creating HTTP Client: %v", err)
+	}
+
+	_, err = client.Get(ts.URL)
+	if err != nil {
+		t.Fatalf("can't fetch URL: %v", err)
+	}
+}
+
+func TestMultipleHeaders(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for k, v := range map[string][]string{
+			"One":   {"value1a", "value1b", "value1c"},
+			"Two":   {"value2a", "value2b", "value2c"},
+			"Three": {"value3a", "value3b", "value3c"},
+		} {
+			if !reflect.DeepEqual(r.Header.Values(k), v) {
+				t.Errorf("expected %v, got %v", v, r.Header.Values(k))
+			}
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(ts.Close)
+
+	cfg, _, err := LoadHTTPConfigFile("testdata/http.conf.headers-multiple.good.yaml")
+	if err != nil {
+		t.Fatalf("Error loading HTTP client config: %v", err)
+	}
+	client, err := NewClientFromConfig(*cfg, "test")
+	if err != nil {
+		t.Fatalf("Error creating HTTP Client: %v", err)
+	}
+
+	_, err = client.Get(ts.URL)
+	if err != nil {
+		t.Fatalf("can't fetch URL: %v", err)
 	}
 }
