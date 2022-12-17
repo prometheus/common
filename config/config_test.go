@@ -70,10 +70,13 @@ func TestHeaderHTTPHeader(t *testing.T) {
 				"nil":    nil,
 			},
 			expected: http.Header{
-				"single": []string{"v1"},
-				"multi":  []string{"v1", "v2"},
-				"empty":  []string{},
-				"nil":    nil,
+				// note that the conversion from config.header
+				// to http.Header will use the canonical form
+				// of the header names.
+				"Single": []string{"v1"},
+				"Multi":  []string{"v1", "v2"},
+				"Empty":  []string{""},
+				"Nil":    []string{""},
 			},
 		},
 		"nil": {
