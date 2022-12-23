@@ -36,17 +36,17 @@ func TestEqualValues(t *testing.T) {
 			in2:  3.1415,
 			want: false,
 		},
-		"positive inifinities": {
+		"positive infinities": {
 			in1:  SampleValue(math.Inf(+1)),
 			in2:  SampleValue(math.Inf(+1)),
 			want: true,
 		},
-		"negative inifinities": {
+		"negative infinities": {
 			in1:  SampleValue(math.Inf(-1)),
 			in2:  SampleValue(math.Inf(-1)),
 			want: true,
 		},
-		"different inifinities": {
+		"different infinities": {
 			in1:  SampleValue(math.Inf(+1)),
 			in2:  SampleValue(math.Inf(-1)),
 			want: false,
@@ -115,6 +115,146 @@ func TestEqualSamples(t *testing.T) {
 				Value:     1,
 			},
 			want: true,
+		},
+		"equal histograms": {
+			in1: &Sample{
+				Metric:    Metric{"foo": "bar"},
+				Timestamp: 0,
+				Histogram: SampleHistogram{
+					Count: 1,
+					Sum:   4500,
+					Buckets: HistogramBuckets{
+						{
+							Boundaries: 0,
+							Lower:      4466.7196729968955,
+							Upper:      4870.992343051145,
+							Count:      1,
+						},
+					},
+				},
+			},
+			in2: &Sample{
+				Metric:    Metric{"foo": "bar"},
+				Timestamp: 0,
+				Histogram: SampleHistogram{
+					Count: 1,
+					Sum:   4500,
+					Buckets: HistogramBuckets{
+						{
+							Boundaries: 0,
+							Lower:      4466.7196729968955,
+							Upper:      4870.992343051145,
+							Count:      1,
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		"different histogram counts": {
+			in1: &Sample{
+				Metric:    Metric{"foo": "bar"},
+				Timestamp: 0,
+				Histogram: SampleHistogram{
+					Count: 2,
+					Sum:   4500,
+					Buckets: HistogramBuckets{
+						{
+							Boundaries: 0,
+							Lower:      4466.7196729968955,
+							Upper:      4870.992343051145,
+							Count:      1,
+						},
+					},
+				},
+			},
+			in2: &Sample{
+				Metric:    Metric{"foo": "bar"},
+				Timestamp: 0,
+				Histogram: SampleHistogram{
+					Count: 1,
+					Sum:   4500,
+					Buckets: HistogramBuckets{
+						{
+							Boundaries: 0,
+							Lower:      4466.7196729968955,
+							Upper:      4870.992343051145,
+							Count:      1,
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		"different histogram sums": {
+			in1: &Sample{
+				Metric:    Metric{"foo": "bar"},
+				Timestamp: 0,
+				Histogram: SampleHistogram{
+					Count: 1,
+					Sum:   4500.01,
+					Buckets: HistogramBuckets{
+						{
+							Boundaries: 0,
+							Lower:      4466.7196729968955,
+							Upper:      4870.992343051145,
+							Count:      1,
+						},
+					},
+				},
+			},
+			in2: &Sample{
+				Metric:    Metric{"foo": "bar"},
+				Timestamp: 0,
+				Histogram: SampleHistogram{
+					Count: 1,
+					Sum:   4500,
+					Buckets: HistogramBuckets{
+						{
+							Boundaries: 0,
+							Lower:      4466.7196729968955,
+							Upper:      4870.992343051145,
+							Count:      1,
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		"different histogram inner counts": {
+			in1: &Sample{
+				Metric:    Metric{"foo": "bar"},
+				Timestamp: 0,
+				Histogram: SampleHistogram{
+					Count: 1,
+					Sum:   4500,
+					Buckets: HistogramBuckets{
+						{
+							Boundaries: 0,
+							Lower:      4466.7196729968955,
+							Upper:      4870.992343051145,
+							Count:      2,
+						},
+					},
+				},
+			},
+			in2: &Sample{
+				Metric:    Metric{"foo": "bar"},
+				Timestamp: 0,
+				Histogram: SampleHistogram{
+					Count: 1,
+					Sum:   4500,
+					Buckets: HistogramBuckets{
+						{
+							Boundaries: 0,
+							Lower:      4466.7196729968955,
+							Upper:      4870.992343051145,
+							Count:      1,
+						},
+					},
+				},
+			},
+			want: false,
 		},
 	}
 
