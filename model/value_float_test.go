@@ -220,3 +220,74 @@ func TestVectorJSON(t *testing.T) {
 		}
 	}
 }
+
+func TestMatrixJSON(t *testing.T) {
+	input := []struct {
+		plain string
+		value Matrix
+	}{
+		{
+			plain: `[]`,
+			value: Matrix{},
+		},
+		{
+			plain: `[{"metric":{"__name__":"test_metric"},"values":[[1234.567,"123.1"],[12345.678,"123.12"]]},{"metric":{"foo":"bar"},"values":[[2234.567,"223.1"],[22345.678,"223.12"]]}]`,
+			value: Matrix{
+				&SampleStream{
+					Metric: Metric{
+						MetricNameLabel: "test_metric",
+					},
+					Values: []SamplePair{
+						{
+							Value:     123.1,
+							Timestamp: 1234567,
+						},
+						{
+							Value:     123.12,
+							Timestamp: 12345678,
+						},
+					},
+				},
+				&SampleStream{
+					Metric: Metric{
+						"foo": "bar",
+					},
+					Values: []SamplePair{
+						{
+							Value:     223.1,
+							Timestamp: 2234567,
+						},
+						{
+							Value:     223.12,
+							Timestamp: 22345678,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, test := range input {
+		b, err := json.Marshal(test.value)
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+
+		if string(b) != test.plain {
+			t.Errorf("encoding error: expected %q, got %q", test.plain, b)
+			continue
+		}
+
+		var mat Matrix
+		err = json.Unmarshal(b, &mat)
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+
+		if !reflect.DeepEqual(mat, test.value) {
+			t.Errorf("decoding error: expected %v, got %v", test.value, mat)
+		}
+	}
+}

@@ -182,6 +182,28 @@ func (ss SampleStream) String() string {
 	return fmt.Sprintf("%s =>\n%s", ss.Metric, strings.Join(vals, "\n"))
 }
 
+func (ss SampleStream) MarshalJSON() ([]byte, error) {
+	if len(ss.Histograms) > 0 {
+		v := struct {
+			Metric     Metric                `json:"metric"`
+			Histograms []SampleHistogramPair `json:"histograms"`
+		}{
+			Metric:     ss.Metric,
+			Histograms: ss.Histograms,
+		}
+		return json.Marshal(&v)
+	} else {
+		v := struct {
+			Metric Metric       `json:"metric"`
+			Values []SamplePair `json:"values"`
+		}{
+			Metric: ss.Metric,
+			Values: ss.Values,
+		}
+		return json.Marshal(&v)
+	}
+}
+
 // Scalar is a scalar value evaluated at the set timestamp.
 type Scalar struct {
 	Value     SampleValue `json:"value"`

@@ -19,6 +19,21 @@ import (
 	"testing"
 )
 
+func genSampleHistogram() SampleHistogram {
+	return SampleHistogram{
+		Count: 1,
+		Sum:   4500,
+		Buckets: HistogramBuckets{
+			{
+				Boundaries: 0,
+				Lower:      4466.7196729968955,
+				Upper:      4870.992343051145,
+				Count:      1,
+			},
+		},
+	}
+}
+
 func TestSampleHistogramPairJSON(t *testing.T) {
 	input := []struct {
 		plain string
@@ -27,18 +42,7 @@ func TestSampleHistogramPairJSON(t *testing.T) {
 		{
 			plain: `[1234.567,{"count":"1","sum":"4500","buckets":[[0,"4466.7196729968955","4870.992343051145","1"]]}]`,
 			value: SampleHistogramPair{
-				Histogram: SampleHistogram{
-					Count: 1,
-					Sum:   4500,
-					Buckets: HistogramBuckets{
-						{
-							Boundaries: 0,
-							Lower:      4466.7196729968955,
-							Upper:      4870.992343051145,
-							Count:      1,
-						},
-					},
-				},
+				Histogram: genSampleHistogram(),
 				Timestamp: 1234567,
 			},
 		},
@@ -80,18 +84,7 @@ func TestSampleHistogramJSON(t *testing.T) {
 				Metric: Metric{
 					MetricNameLabel: "test_metric",
 				},
-				Histogram: SampleHistogram{
-					Count: 1,
-					Sum:   4500,
-					Buckets: HistogramBuckets{
-						{
-							Boundaries: 0,
-							Lower:      4466.7196729968955,
-							Upper:      4870.992343051145,
-							Count:      1,
-						},
-					},
-				},
+				Histogram: genSampleHistogram(),
 				Timestamp: 1234567,
 			},
 		},
@@ -133,18 +126,7 @@ func TestVectorHistogramJSON(t *testing.T) {
 				Metric: Metric{
 					MetricNameLabel: "test_metric",
 				},
-				Histogram: SampleHistogram{
-					Count: 1,
-					Sum:   4500,
-					Buckets: HistogramBuckets{
-						{
-							Boundaries: 0,
-							Lower:      4466.7196729968955,
-							Upper:      4870.992343051145,
-							Count:      1,
-						},
-					},
-				},
+				Histogram: genSampleHistogram(),
 				Timestamp: 1234567,
 			}},
 		},
@@ -155,36 +137,14 @@ func TestVectorHistogramJSON(t *testing.T) {
 					Metric: Metric{
 						MetricNameLabel: "test_metric",
 					},
-					Histogram: SampleHistogram{
-						Count: 1,
-						Sum:   4500,
-						Buckets: HistogramBuckets{
-							{
-								Boundaries: 0,
-								Lower:      4466.7196729968955,
-								Upper:      4870.992343051145,
-								Count:      1,
-							},
-						},
-					},
+					Histogram: genSampleHistogram(),
 					Timestamp: 1234567,
 				},
 				&Sample{
 					Metric: Metric{
 						"foo": "bar",
 					},
-					Histogram: SampleHistogram{
-						Count: 1,
-						Sum:   4500,
-						Buckets: HistogramBuckets{
-							{
-								Boundaries: 0,
-								Lower:      4466.7196729968955,
-								Upper:      4870.992343051145,
-								Count:      1,
-							},
-						},
-					},
+					Histogram: genSampleHistogram(),
 					Timestamp: 1234,
 				},
 			},
@@ -212,6 +172,77 @@ func TestVectorHistogramJSON(t *testing.T) {
 
 		if !reflect.DeepEqual(vec, test.value) {
 			t.Errorf("decoding error: expected %v, got %v", test.value, vec)
+		}
+	}
+}
+
+func TestMatrixHistogramJSON(t *testing.T) {
+	input := []struct {
+		plain string
+		value Matrix
+	}{
+		{
+			plain: `[]`,
+			value: Matrix{},
+		},
+		{
+			plain: `[{"metric":{"__name__":"test_metric"},"histograms":[[1234.567,{"count":"1","sum":"4500","buckets":[[0,"4466.7196729968955","4870.992343051145","1"]]}],[12345.678,{"count":"1","sum":"4500","buckets":[[0,"4466.7196729968955","4870.992343051145","1"]]}]]},{"metric":{"foo":"bar"},"histograms":[[2234.567,{"count":"1","sum":"4500","buckets":[[0,"4466.7196729968955","4870.992343051145","1"]]}],[22345.678,{"count":"1","sum":"4500","buckets":[[0,"4466.7196729968955","4870.992343051145","1"]]}]]}]`,
+			value: Matrix{
+				&SampleStream{
+					Metric: Metric{
+						MetricNameLabel: "test_metric",
+					},
+					Histograms: []SampleHistogramPair{
+						{
+							Histogram: genSampleHistogram(),
+							Timestamp: 1234567,
+						},
+						{
+							Histogram: genSampleHistogram(),
+							Timestamp: 12345678,
+						},
+					},
+				},
+				&SampleStream{
+					Metric: Metric{
+						"foo": "bar",
+					},
+					Histograms: []SampleHistogramPair{
+						{
+							Histogram: genSampleHistogram(),
+							Timestamp: 2234567,
+						},
+						{
+							Histogram: genSampleHistogram(),
+							Timestamp: 22345678,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, test := range input {
+		b, err := json.Marshal(test.value)
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+
+		if string(b) != test.plain {
+			t.Errorf("encoding error: expected %q, got %q", test.plain, b)
+			continue
+		}
+
+		var mat Matrix
+		err = json.Unmarshal(b, &mat)
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+
+		if !reflect.DeepEqual(mat, test.value) {
+			t.Errorf("decoding error: expected %v, got %v", test.value, mat)
 		}
 	}
 }

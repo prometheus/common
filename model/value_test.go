@@ -64,34 +64,12 @@ func TestEqualSamples(t *testing.T) {
 			in1: &Sample{
 				Metric:    Metric{"foo": "bar"},
 				Timestamp: 0,
-				Histogram: SampleHistogram{
-					Count: 1,
-					Sum:   4500,
-					Buckets: HistogramBuckets{
-						{
-							Boundaries: 0,
-							Lower:      4466.7196729968955,
-							Upper:      4870.992343051145,
-							Count:      1,
-						},
-					},
-				},
+				Histogram: genSampleHistogram(),
 			},
 			in2: &Sample{
 				Metric:    Metric{"foo": "bar"},
 				Timestamp: 0,
-				Histogram: SampleHistogram{
-					Count: 1,
-					Sum:   4500,
-					Buckets: HistogramBuckets{
-						{
-							Boundaries: 0,
-							Lower:      4466.7196729968955,
-							Upper:      4870.992343051145,
-							Count:      1,
-						},
-					},
-				},
+				Histogram: genSampleHistogram(),
 			},
 			want: true,
 		},
@@ -115,18 +93,7 @@ func TestEqualSamples(t *testing.T) {
 			in2: &Sample{
 				Metric:    Metric{"foo": "bar"},
 				Timestamp: 0,
-				Histogram: SampleHistogram{
-					Count: 1,
-					Sum:   4500,
-					Buckets: HistogramBuckets{
-						{
-							Boundaries: 0,
-							Lower:      4466.7196729968955,
-							Upper:      4870.992343051145,
-							Count:      1,
-						},
-					},
-				},
+				Histogram: genSampleHistogram(),
 			},
 			want: false,
 		},
@@ -150,18 +117,7 @@ func TestEqualSamples(t *testing.T) {
 			in2: &Sample{
 				Metric:    Metric{"foo": "bar"},
 				Timestamp: 0,
-				Histogram: SampleHistogram{
-					Count: 1,
-					Sum:   4500,
-					Buckets: HistogramBuckets{
-						{
-							Boundaries: 0,
-							Lower:      4466.7196729968955,
-							Upper:      4870.992343051145,
-							Count:      1,
-						},
-					},
-				},
+				Histogram: genSampleHistogram(),
 			},
 			want: false,
 		},
@@ -185,18 +141,7 @@ func TestEqualSamples(t *testing.T) {
 			in2: &Sample{
 				Metric:    Metric{"foo": "bar"},
 				Timestamp: 0,
-				Histogram: SampleHistogram{
-					Count: 1,
-					Sum:   4500,
-					Buckets: HistogramBuckets{
-						{
-							Boundaries: 0,
-							Lower:      4466.7196729968955,
-							Upper:      4870.992343051145,
-							Count:      1,
-						},
-					},
-				},
+				Histogram: genSampleHistogram(),
 			},
 			want: false,
 		},
