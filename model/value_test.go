@@ -64,14 +64,12 @@ func TestEqualSamples(t *testing.T) {
 			in1: &Sample{
 				Metric:    Metric{"foo": "bar"},
 				Timestamp: 0,
-				Histogram: genSampleHistogram(),
-				Type:      STHistogram,
+				Histogram: genSampleHistogramPtr(),
 			},
 			in2: &Sample{
 				Metric:    Metric{"foo": "bar"},
 				Timestamp: 0,
-				Histogram: genSampleHistogram(),
-				Type:      STHistogram,
+				Histogram: genSampleHistogramPtr(),
 			},
 			want: true,
 		},
@@ -79,7 +77,7 @@ func TestEqualSamples(t *testing.T) {
 			in1: &Sample{
 				Metric:    Metric{"foo": "bar"},
 				Timestamp: 0,
-				Histogram: SampleHistogram{
+				Histogram: &SampleHistogram{
 					Count: 2,
 					Sum:   4500,
 					Buckets: HistogramBuckets{
@@ -91,13 +89,11 @@ func TestEqualSamples(t *testing.T) {
 						},
 					},
 				},
-				Type: STHistogram,
 			},
 			in2: &Sample{
 				Metric:    Metric{"foo": "bar"},
 				Timestamp: 0,
-				Histogram: genSampleHistogram(),
-				Type:      STHistogram,
+				Histogram: genSampleHistogramPtr(),
 			},
 			want: false,
 		},
@@ -105,7 +101,7 @@ func TestEqualSamples(t *testing.T) {
 			in1: &Sample{
 				Metric:    Metric{"foo": "bar"},
 				Timestamp: 0,
-				Histogram: SampleHistogram{
+				Histogram: &SampleHistogram{
 					Count: 1,
 					Sum:   4500.01,
 					Buckets: HistogramBuckets{
@@ -117,13 +113,11 @@ func TestEqualSamples(t *testing.T) {
 						},
 					},
 				},
-				Type: STHistogram,
 			},
 			in2: &Sample{
 				Metric:    Metric{"foo": "bar"},
 				Timestamp: 0,
-				Histogram: genSampleHistogram(),
-				Type:      STHistogram,
+				Histogram: genSampleHistogramPtr(),
 			},
 			want: false,
 		},
@@ -131,7 +125,7 @@ func TestEqualSamples(t *testing.T) {
 			in1: &Sample{
 				Metric:    Metric{"foo": "bar"},
 				Timestamp: 0,
-				Histogram: SampleHistogram{
+				Histogram: &SampleHistogram{
 					Count: 1,
 					Sum:   4500,
 					Buckets: HistogramBuckets{
@@ -143,13 +137,11 @@ func TestEqualSamples(t *testing.T) {
 						},
 					},
 				},
-				Type: STHistogram,
 			},
 			in2: &Sample{
 				Metric:    Metric{"foo": "bar"},
 				Timestamp: 0,
-				Histogram: genSampleHistogram(),
-				Type:      STHistogram,
+				Histogram: genSampleHistogramPtr(),
 			},
 			want: false,
 		},
