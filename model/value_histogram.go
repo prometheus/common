@@ -19,7 +19,7 @@ import (
 	"strconv"
 )
 
-type IntString int64
+type IntString uint64
 
 func (v IntString) String() string {
 	return fmt.Sprintf("%d", v)
