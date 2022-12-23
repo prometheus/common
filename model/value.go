@@ -16,20 +16,12 @@ package model
 import (
 	"encoding/json"
 	"fmt"
-	"math"
 	"sort"
 	"strconv"
 	"strings"
 )
 
 var (
-	// ZeroSamplePair is the pseudo zero-value of SamplePair used to signal a
-	// non-existing sample pair. It is a SamplePair with timestamp Earliest and
-	// value 0.0. Note that the natural zero value of SamplePair has a timestamp
-	// of 0, which is possible to appear in a real SamplePair and thus not
-	// suitable to signal a non-existing SamplePair.
-	ZeroSamplePair = SamplePair{Timestamp: Earliest}
-
 	// ZeroSample is the pseudo zero-value of Sample used to signal a
 	// non-existing sample. It is a Sample with timestamp Earliest, value 0.0,
 	// and metric nil. Note that the natural zero value of Sample has a timestamp
@@ -37,77 +29,6 @@ var (
 	// to signal a non-existing Sample.
 	ZeroSample = Sample{Timestamp: Earliest}
 )
-
-// A SampleValue is a representation of a value for a given sample at a given
-// time.
-type SampleValue float64
-
-// MarshalJSON implements json.Marshaler.
-func (v SampleValue) MarshalJSON() ([]byte, error) {
-	return json.Marshal(v.String())
-}
-
-// UnmarshalJSON implements json.Unmarshaler.
-func (v *SampleValue) UnmarshalJSON(b []byte) error {
-	if len(b) < 2 || b[0] != '"' || b[len(b)-1] != '"' {
-		return fmt.Errorf("sample value must be a quoted string")
-	}
-	f, err := strconv.ParseFloat(string(b[1:len(b)-1]), 64)
-	if err != nil {
-		return err
-	}
-	*v = SampleValue(f)
-	return nil
-}
-
-// Equal returns true if the value of v and o is equal or if both are NaN. Note
-// that v==o is false if both are NaN. If you want the conventional float
-// behavior, use == to compare two SampleValues.
-func (v SampleValue) Equal(o SampleValue) bool {
-	if v == o {
-		return true
-	}
-	return math.IsNaN(float64(v)) && math.IsNaN(float64(o))
-}
-
-func (v SampleValue) String() string {
-	return strconv.FormatFloat(float64(v), 'f', -1, 64)
-}
-
-// SamplePair pairs a SampleValue with a Timestamp.
-type SamplePair struct {
-	Timestamp Time
-	Value     SampleValue
-}
-
-// MarshalJSON implements json.Marshaler.
-func (s SamplePair) MarshalJSON() ([]byte, error) {
-	t, err := json.Marshal(s.Timestamp)
-	if err != nil {
-		return nil, err
-	}
-	v, err := json.Marshal(s.Value)
-	if err != nil {
-		return nil, err
-	}
-	return []byte(fmt.Sprintf("[%s,%s]", t, v)), nil
-}
-
-// UnmarshalJSON implements json.Unmarshaler.
-func (s *SamplePair) UnmarshalJSON(b []byte) error {
-	v := [...]json.Unmarshaler{&s.Timestamp, &s.Value}
-	return json.Unmarshal(b, &v)
-}
-
-// Equal returns true if this SamplePair and o have equal Values and equal
-// Timestamps. The semantics of Value equality is defined by SampleValue.Equal.
-func (s *SamplePair) Equal(o *SamplePair) bool {
-	return s == o || (s.Value.Equal(o.Value) && s.Timestamp.Equal(o.Timestamp))
-}
-
-func (s SamplePair) String() string {
-	return fmt.Sprintf("%s @[%s]", s.Value, s.Timestamp)
-}
 
 // Sample is a sample pair associated with a metric.
 type Sample struct {
@@ -259,70 +180,6 @@ func (ss SampleStream) String() string {
 		vals[i] = v.String()
 	}
 	return fmt.Sprintf("%s =>\n%s", ss.Metric, strings.Join(vals, "\n"))
-}
-
-// Value is a generic interface for values resulting from a query evaluation.
-type Value interface {
-	Type() ValueType
-	String() string
-}
-
-func (Matrix) Type() ValueType  { return ValMatrix }
-func (Vector) Type() ValueType  { return ValVector }
-func (*Scalar) Type() ValueType { return ValScalar }
-func (*String) Type() ValueType { return ValString }
-
-type ValueType int
-
-const (
-	ValNone ValueType = iota
-	ValScalar
-	ValVector
-	ValMatrix
-	ValString
-)
-
-// MarshalJSON implements json.Marshaler.
-func (et ValueType) MarshalJSON() ([]byte, error) {
-	return json.Marshal(et.String())
-}
-
-func (et *ValueType) UnmarshalJSON(b []byte) error {
-	var s string
-	if err := json.Unmarshal(b, &s); err != nil {
-		return err
-	}
-	switch s {
-	case "<ValNone>":
-		*et = ValNone
-	case "scalar":
-		*et = ValScalar
-	case "vector":
-		*et = ValVector
-	case "matrix":
-		*et = ValMatrix
-	case "string":
-		*et = ValString
-	default:
-		return fmt.Errorf("unknown value type %q", s)
-	}
-	return nil
-}
-
-func (e ValueType) String() string {
-	switch e {
-	case ValNone:
-		return "<ValNone>"
-	case ValScalar:
-		return "scalar"
-	case ValVector:
-		return "vector"
-	case ValMatrix:
-		return "matrix"
-	case ValString:
-		return "string"
-	}
-	panic("ValueType.String: unhandled value type")
 }
 
 // Scalar is a scalar value evaluated at the set timestamp.
