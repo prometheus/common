@@ -59,10 +59,17 @@ func (s *Sample) Equal(o *Sample) bool {
 }
 
 func (s Sample) String() string {
-	return fmt.Sprintf("%s => %s", s.Metric, SamplePair{
-		Timestamp: s.Timestamp,
-		Value:     s.Value,
-	})
+	if s.Histogram.Count != 0 {
+		return fmt.Sprintf("%s => %s", s.Metric, SampleHistogramPair{
+			Timestamp: s.Timestamp,
+			Histogram: s.Histogram,
+		})
+	} else {
+		return fmt.Sprintf("%s => %s", s.Metric, SamplePair{
+			Timestamp: s.Timestamp,
+			Value:     s.Value,
+		})
+	}
 }
 
 // MarshalJSON implements json.Marshaler.
@@ -175,9 +182,17 @@ type SampleStream struct {
 }
 
 func (ss SampleStream) String() string {
-	vals := make([]string, len(ss.Values))
-	for i, v := range ss.Values {
-		vals[i] = v.String()
+	var vals []string
+	if len(ss.Histograms) > 0 {
+		vals = make([]string, len(ss.Histograms))
+		for i, v := range ss.Histograms {
+			vals[i] = v.String()
+		}
+	} else {
+		vals = make([]string, len(ss.Values))
+		for i, v := range ss.Values {
+			vals[i] = v.String()
+		}
 	}
 	return fmt.Sprintf("%s =>\n%s", ss.Metric, strings.Join(vals, "\n"))
 }

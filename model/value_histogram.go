@@ -135,6 +135,10 @@ type SampleHistogram struct {
 	Buckets HistogramBuckets `json:"buckets"`
 }
 
+func (s SampleHistogram) String() string {
+	return fmt.Sprintf("Count: %d, Sum: %f, Buckets: [redacted]", s.Count, s.Sum)
+}
+
 func (s *SampleHistogram) Equal(o *SampleHistogram) bool {
 	return s == o || (s.Count.Equal(o.Count) && s.Sum.Equal(o.Sum) && s.Buckets.Equal(o.Buckets))
 }
@@ -166,6 +170,10 @@ func (s *SampleHistogramPair) UnmarshalJSON(buf []byte) error {
 		return fmt.Errorf("wrong number of fields: %d != %d", g, e)
 	}
 	return nil
+}
+
+func (s SampleHistogramPair) String() string {
+	return fmt.Sprintf("%s @[%s]", s.Histogram, s.Timestamp)
 }
 
 func (s *SampleHistogramPair) Equal(o *SampleHistogramPair) bool {
