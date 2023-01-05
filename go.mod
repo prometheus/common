@@ -1,6 +1,6 @@
 module github.com/prometheus/common
 
-go 1.18
+go 1.17
 
 require (
 	github.com/go-kit/log v0.2.1
