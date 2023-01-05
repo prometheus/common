@@ -98,21 +98,38 @@ func (s Sample) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&v)
 }
 
+type sampleHistogramPairPtr struct {
+	Timestamp Time
+	Histogram *SampleHistogram
+}
+
+func (s *sampleHistogramPairPtr) UnmarshalJSON(buf []byte) error {
+	tmp := []interface{}{&s.Timestamp, &s.Histogram}
+	wantLen := len(tmp)
+	if err := json.Unmarshal(buf, &tmp); err != nil {
+		return err
+	}
+	if gotLen := len(tmp); gotLen != wantLen {
+		return fmt.Errorf("wrong number of fields: %d != %d", gotLen, wantLen)
+	}
+	return nil
+}
+
 // UnmarshalJSON implements json.Unmarshaler.
 func (s *Sample) UnmarshalJSON(b []byte) error {
 	v := struct {
-		Metric    Metric               `json:"metric"`
-		Value     SamplePair           `json:"value"`
-		Histogram *SampleHistogramPair `json:"histogram"`
+		Metric    Metric                 `json:"metric"`
+		Value     SamplePair             `json:"value"`
+		Histogram sampleHistogramPairPtr `json:"histogram"`
 	}{
 		Metric: s.Metric,
 		Value: SamplePair{
 			Timestamp: s.Timestamp,
 			Value:     s.Value,
 		},
-		Histogram: &SampleHistogramPair{
+		Histogram: sampleHistogramPairPtr{
 			Timestamp: s.Timestamp,
-			Histogram: *s.Histogram,
+			Histogram: s.Histogram,
 		},
 	}
 
@@ -121,9 +138,9 @@ func (s *Sample) UnmarshalJSON(b []byte) error {
 	}
 
 	s.Metric = v.Metric
-	if v.Histogram != nil {
+	if v.Histogram.Histogram != nil {
 		s.Timestamp = v.Histogram.Timestamp
-		s.Histogram = &v.Histogram.Histogram
+		s.Histogram = v.Histogram.Histogram
 	} else {
 		s.Timestamp = v.Value.Timestamp
 		s.Value = v.Value.Value
