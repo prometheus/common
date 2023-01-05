@@ -16,14 +16,49 @@ package model
 import (
 	"encoding/json"
 	"reflect"
+	"regexp"
 	"testing"
+)
+
+var (
+	noWhitespace = regexp.MustCompile(`\s`)
 )
 
 func genSampleHistogram() SampleHistogram {
 	return SampleHistogram{
-		Count: 1,
-		Sum:   4500,
+		Count: 6,
+		Sum:   3897,
 		Buckets: HistogramBuckets{
+			{
+				Boundaries: 1,
+				Lower:      -4870.992343051145,
+				Upper:      -4466.7196729968955,
+				Count:      1,
+			},
+			{
+				Boundaries: 1,
+				Lower:      -861.0779292198035,
+				Upper:      -789.6119426088657,
+				Count:      1,
+			},
+			{
+				Boundaries: 1,
+				Lower:      -558.3399591246119,
+				Upper:      -512,
+				Count:      1,
+			},
+			{
+				Boundaries: 0,
+				Lower:      2048,
+				Upper:      2233.3598364984477,
+				Count:      1,
+			},
+			{
+				Boundaries: 0,
+				Lower:      2896.3093757400984,
+				Upper:      3158.4477704354626,
+				Count:      1,
+			},
 			{
 				Boundaries: 0,
 				Lower:      4466.7196729968955,
@@ -45,7 +80,51 @@ func TestSampleHistogramPairJSON(t *testing.T) {
 		value SampleHistogramPair
 	}{
 		{
-			plain: `[1234.567,{"count":"1","sum":"4500","buckets":[[0,"4466.7196729968955","4870.992343051145","1"]]}]`,
+			plain: `[
+				1234.567,
+				{
+					"count":"6",
+					"sum":"3897",
+					"buckets":[
+						[
+							1,
+							"-4870.992343051145",
+							"-4466.7196729968955",
+							"1"
+						],
+						[
+							1,
+							"-861.0779292198035",
+							"-789.6119426088657",
+							"1"
+						],
+						[
+							1,
+							"-558.3399591246119",
+							"-512",
+							"1"
+						],
+						[
+							0,
+							"2048",
+							"2233.3598364984477",
+							"1"
+						],
+						[
+							0,
+							"2896.3093757400984",
+							"3158.4477704354626",
+							"1"
+						],
+						[
+							0,
+							"4466.7196729968955",
+							"4870.992343051145",
+							"1"
+						]
+					]
+				}
+			]`,
 			value: SampleHistogramPair{
 				Histogram: genSampleHistogram(),
 				Timestamp: 1234567,
@@ -60,8 +139,9 @@ func TestSampleHistogramPairJSON(t *testing.T) {
 			continue
 		}
 
-		if string(b) != test.plain {
-			t.Errorf("encoding error: expected %q, got %q", test.plain, b)
+		trimmed := noWhitespace.ReplaceAllString(test.plain, "")
+		if string(b) != trimmed {
+			t.Errorf("encoding error: expected %q, got %q", trimmed, b)
 			continue
 		}
 
@@ -84,7 +164,56 @@ func TestSampleHistogramJSON(t *testing.T) {
 		value Sample
 	}{
 		{
-			plain: `{"metric":{"__name__":"test_metric"},"histogram":[1234.567,{"count":"1","sum":"4500","buckets":[[0,"4466.7196729968955","4870.992343051145","1"]]}]}`,
+			plain: `{
+				"metric":{
+					"__name__":"test_metric"
+				},
+				"histogram":[
+					1234.567,
+					{
+						"count":"6",
+						"sum":"3897",
+						"buckets":[
+							[
+								1,
+								"-4870.992343051145",
+								"-4466.7196729968955",
+								"1"
+							],
+							[
+								1,
+								"-861.0779292198035",
+								"-789.6119426088657",
+								"1"
+							],
+							[
+								1,
+								"-558.3399591246119",
+								"-512",
+								"1"
+							],
+							[
+								0,
+								"2048",
+								"2233.3598364984477",
+								"1"
+							],
+							[
+								0,
+								"2896.3093757400984",
+								"3158.4477704354626",
+								"1"
+							],
+							[
+								0,
+								"4466.7196729968955",
+								"4870.992343051145",
+								"1"
+							]
+						]
+					}
+				]
+			}`,
 			value: Sample{
 				Metric: Metric{
 					MetricNameLabel: "test_metric",
@@ -102,8 +231,9 @@ func TestSampleHistogramJSON(t *testing.T) {
 			continue
 		}
 
-		if string(b) != test.plain {
-			t.Errorf("encoding error: expected %q, got %q", test.plain, b)
+		trimmed := noWhitespace.ReplaceAllString(test.plain, "")
+		if string(b) != trimmed {
+			t.Errorf("encoding error: expected %q, got %q", trimmed, b)
 			continue
 		}
 
@@ -126,7 +256,58 @@ func TestVectorHistogramJSON(t *testing.T) {
 		value Vector
 	}{
 		{
-			plain: `[{"metric":{"__name__":"test_metric"},"histogram":[1234.567,{"count":"1","sum":"4500","buckets":[[0,"4466.7196729968955","4870.992343051145","1"]]}]}]`,
+			plain: `[
+				{
+					"metric":{
+						"__name__":"test_metric"
+					},
+					"histogram":[
+						1234.567,
+						{
+							"count":"6",
+							"sum":"3897",
+							"buckets":[
+							[
+								1,
+								"-4870.992343051145",
+								"-4466.7196729968955",
+								"1"
+							],
+							[
+								1,
+								"-861.0779292198035",
+								"-789.6119426088657",
+								"1"
+							],
+							[
+								1,
+								"-558.3399591246119",
+								"-512",
+								"1"
+							],
+							[
+								0,
+								"2048",
+								"2233.3598364984477",
+								"1"
+							],
+							[
+								0,
+								"2896.3093757400984",
+								"3158.4477704354626",
+								"1"
+							],
+							[
+								0,
+								"4466.7196729968955",
+								"4870.992343051145",
+								"1"
+							]
+							]
+						}
+					]
+				}
+			]`,
 			value: Vector{&Sample{
 				Metric: Metric{
 					MetricNameLabel: "test_metric",
@@ -136,7 +317,108 @@ func TestVectorHistogramJSON(t *testing.T) {
 			}},
 		},
 		{
-			plain: `[{"metric":{"__name__":"test_metric"},"histogram":[1234.567,{"count":"1","sum":"4500","buckets":[[0,"4466.7196729968955","4870.992343051145","1"]]}]},{"metric":{"foo":"bar"},"histogram":[1.234,{"count":"1","sum":"4500","buckets":[[0,"4466.7196729968955","4870.992343051145","1"]]}]}]`,
+			plain: `[
+				{
+					"metric":{
+						"__name__":"test_metric"
+					},
+					"histogram":[
+						1234.567,
+						{
+							"count":"6",
+							"sum":"3897",
+							"buckets":[
+							[
+								1,
+								"-4870.992343051145",
+								"-4466.7196729968955",
+								"1"
+							],
+							[
+								1,
+								"-861.0779292198035",
+								"-789.6119426088657",
+								"1"
+							],
+							[
+								1,
+								"-558.3399591246119",
+								"-512",
+								"1"
+							],
+							[
+								0,
+								"2048",
+								"2233.3598364984477",
+								"1"
+							],
+							[
+								0,
+								"2896.3093757400984",
+								"3158.4477704354626",
+								"1"
+							],
+							[
+								0,
+								"4466.7196729968955",
+								"4870.992343051145",
+								"1"
+							]
+							]
+						}
+					]
+				},
+				{
+					"metric":{
+						"foo":"bar"
+					},
+					"histogram":[
+						1.234,
+						{
+							"count":"6",
+							"sum":"3897",
+							"buckets":[
+							[
+								1,
+								"-4870.992343051145",
+								"-4466.7196729968955",
+								"1"
+							],
+							[
+								1,
+								"-861.0779292198035",
+								"-789.6119426088657",
+								"1"
+							],
+							[
+								1,
+								"-558.3399591246119",
+								"-512",
+								"1"
+							],
+							[
+								0,
+								"2048",
+								"2233.3598364984477",
+								"1"
+							],
+							[
+								0,
+								"2896.3093757400984",
+								"3158.4477704354626",
+								"1"
+							],
+							[
+								0,
+								"4466.7196729968955",
+								"4870.992343051145",
+								"1"
+							]
+							]
+						}
+					]
+				}
+			]`,
 			value: Vector{
 				&Sample{
 					Metric: Metric{
@@ -163,8 +445,9 @@ func TestVectorHistogramJSON(t *testing.T) {
 			continue
 		}
 
-		if string(b) != test.plain {
-			t.Errorf("encoding error: expected %q, got %q", test.plain, b)
+		trimmed := noWhitespace.ReplaceAllString(test.plain, "")
+		if string(b) != trimmed {
+			t.Errorf("encoding error: expected %q, got %q", trimmed, b)
 			continue
 		}
 
@@ -191,7 +474,202 @@ func TestMatrixHistogramJSON(t *testing.T) {
 			value: Matrix{},
 		},
 		{
-			plain: `[{"metric":{"__name__":"test_metric"},"histograms":[[1234.567,{"count":"1","sum":"4500","buckets":[[0,"4466.7196729968955","4870.992343051145","1"]]}],[12345.678,{"count":"1","sum":"4500","buckets":[[0,"4466.7196729968955","4870.992343051145","1"]]}]]},{"metric":{"foo":"bar"},"histograms":[[2234.567,{"count":"1","sum":"4500","buckets":[[0,"4466.7196729968955","4870.992343051145","1"]]}],[22345.678,{"count":"1","sum":"4500","buckets":[[0,"4466.7196729968955","4870.992343051145","1"]]}]]}]`,
+			plain: `[
+				{
+					"metric":{
+						"__name__":"test_metric"
+					},
+					"histograms":[
+						[
+							1234.567,
+							{
+							"count":"6",
+							"sum":"3897",
+							"buckets":[
+								[
+									1,
+									"-4870.992343051145",
+									"-4466.7196729968955",
+									"1"
+								],
+								[
+									1,
+									"-861.0779292198035",
+									"-789.6119426088657",
+									"1"
+								],
+								[
+									1,
+									"-558.3399591246119",
+									"-512",
+									"1"
+								],
+								[
+									0,
+									"2048",
+									"2233.3598364984477",
+									"1"
+								],
+								[
+									0,
+									"2896.3093757400984",
+									"3158.4477704354626",
+									"1"
+								],
+								[
+									0,
+									"4466.7196729968955",
+									"4870.992343051145",
+									"1"
+								]
+							]
+							}
+						],
+						[
+							12345.678,
+							{
+							"count":"6",
+							"sum":"3897",
+							"buckets":[
+								[
+									1,
+									"-4870.992343051145",
+									"-4466.7196729968955",
+									"1"
+								],
+								[
+									1,
+									"-861.0779292198035",
+									"-789.6119426088657",
+									"1"
+								],
+								[
+									1,
+									"-558.3399591246119",
+									"-512",
+									"1"
+								],
+								[
+									0,
+									"2048",
+									"2233.3598364984477",
+									"1"
+								],
+								[
+									0,
+									"2896.3093757400984",
+									"3158.4477704354626",
+									"1"
+								],
+								[
+									0,
+									"4466.7196729968955",
+									"4870.992343051145",
+									"1"
+								]
+							]
+							}
+						]
+					]
+				},
+				{
+					"metric":{
+						"foo":"bar"
+					},
+					"histograms":[
+						[
+							2234.567,
+							{
+							"count":"6",
+							"sum":"3897",
+							"buckets":[
+								[
+									1,
+									"-4870.992343051145",
+									"-4466.7196729968955",
+									"1"
+								],
+								[
+									1,
+									"-861.0779292198035",
+									"-789.6119426088657",
+									"1"
+								],
+								[
+									1,
+									"-558.3399591246119",
+									"-512",
+									"1"
+								],
+								[
+									0,
+									"2048",
+									"2233.3598364984477",
+									"1"
+								],
+								[
+									0,
+									"2896.3093757400984",
+									"3158.4477704354626",
+									"1"
+								],
+								[
+									0,
+									"4466.7196729968955",
+									"4870.992343051145",
+									"1"
+								]
+							]
+							}
+						],
+						[
+							22345.678,
+							{
+							"count":"6",
+							"sum":"3897",
+							"buckets":[
+								[
+									1,
+									"-4870.992343051145",
+									"-4466.7196729968955",
+									"1"
+								],
+								[
+									1,
+									"-861.0779292198035",
+									"-789.6119426088657",
+									"1"
+								],
+								[
+									1,
+									"-558.3399591246119",
+									"-512",
+									"1"
+								],
+								[
+									0,
+									"2048",
+									"2233.3598364984477",
+									"1"
+								],
+								[
+									0,
+									"2896.3093757400984",
+									"3158.4477704354626",
+									"1"
+								],
+								[
+									0,
+									"4466.7196729968955",
+									"4870.992343051145",
+									"1"
+								]
+							]
+							}
+						]
+					]
+				}
+			]`,
 			value: Matrix{
 				&SampleStream{
 					Metric: Metric{
@@ -234,8 +712,9 @@ func TestMatrixHistogramJSON(t *testing.T) {
 			continue
 		}
 
-		if string(b) != test.plain {
-			t.Errorf("encoding error: expected %q, got %q", test.plain, b)
+		trimmed := noWhitespace.ReplaceAllString(test.plain, "")
+		if string(b) != trimmed {
+			t.Errorf("encoding error: expected %q, got %q", trimmed, b)
 			continue
 		}
 
