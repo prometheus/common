@@ -162,6 +162,13 @@ func TestInvalidSampleHistogramPairJSON(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected error when trying to marshal invalid SampleHistogramPair %s", string(d))
 	}
+
+	var s2 SampleHistogramPair
+	plain := "[0.001,null]"
+	err = json.Unmarshal([]byte(plain), &s2)
+	if err == nil {
+		t.Errorf("expected error when trying to unmarshal invalid SampleHistogramPair %s", plain)
+	}
 }
 
 func TestSampleHistogramJSON(t *testing.T) {

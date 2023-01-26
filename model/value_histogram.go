@@ -163,6 +163,9 @@ func (s *SampleHistogramPair) UnmarshalJSON(buf []byte) error {
 	if gotLen := len(tmp); gotLen != wantLen {
 		return fmt.Errorf("wrong number of fields: %d != %d", gotLen, wantLen)
 	}
+	if s.Histogram == nil {
+		return fmt.Errorf("histogram is null")
+	}
 	return nil
 }
 
