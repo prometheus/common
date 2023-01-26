@@ -24,8 +24,8 @@ var (
 	noWhitespace = regexp.MustCompile(`\s`)
 )
 
-func genSampleHistogram() SampleHistogram {
-	return SampleHistogram{
+func genSampleHistogram() *SampleHistogram {
+	return &SampleHistogram{
 		Count: 6,
 		Sum:   3897,
 		Buckets: HistogramBuckets{
@@ -67,11 +67,6 @@ func genSampleHistogram() SampleHistogram {
 			},
 		},
 	}
-}
-
-func genSampleHistogramPtr() *SampleHistogram {
-	h := genSampleHistogram()
-	return &h
 }
 
 func TestSampleHistogramPairJSON(t *testing.T) {
@@ -218,7 +213,7 @@ func TestSampleHistogramJSON(t *testing.T) {
 				Metric: Metric{
 					MetricNameLabel: "test_metric",
 				},
-				Histogram: genSampleHistogramPtr(),
+				Histogram: genSampleHistogram(),
 				Timestamp: 1234567,
 			},
 		},
@@ -312,7 +307,7 @@ func TestVectorHistogramJSON(t *testing.T) {
 				Metric: Metric{
 					MetricNameLabel: "test_metric",
 				},
-				Histogram: genSampleHistogramPtr(),
+				Histogram: genSampleHistogram(),
 				Timestamp: 1234567,
 			}},
 		},
@@ -424,14 +419,14 @@ func TestVectorHistogramJSON(t *testing.T) {
 					Metric: Metric{
 						MetricNameLabel: "test_metric",
 					},
-					Histogram: genSampleHistogramPtr(),
+					Histogram: genSampleHistogram(),
 					Timestamp: 1234567,
 				},
 				&Sample{
 					Metric: Metric{
 						"foo": "bar",
 					},
-					Histogram: genSampleHistogramPtr(),
+					Histogram: genSampleHistogram(),
 					Timestamp: 1234,
 				},
 			},

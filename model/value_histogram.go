@@ -135,7 +135,7 @@ func (s *SampleHistogram) Equal(o *SampleHistogram) bool {
 
 type SampleHistogramPair struct {
 	Timestamp Time
-	Histogram SampleHistogram
+	Histogram *SampleHistogram
 }
 
 func (s SampleHistogramPair) MarshalJSON() ([]byte, error) {
@@ -167,5 +167,5 @@ func (s SampleHistogramPair) String() string {
 }
 
 func (s *SampleHistogramPair) Equal(o *SampleHistogramPair) bool {
-	return s == o || (s.Histogram.Equal(&o.Histogram) && s.Timestamp.Equal(o.Timestamp))
+	return s == o || (s.Histogram.Equal(o.Histogram) && s.Timestamp.Equal(o.Timestamp))
 }
