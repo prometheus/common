@@ -24,8 +24,8 @@ var (
 	noWhitespace = regexp.MustCompile(`\s`)
 )
 
-func genSampleHistogram() SampleHistogram {
-	return SampleHistogram{
+func genSampleHistogram() *SampleHistogram {
+	return &SampleHistogram{
 		Count: 6,
 		Sum:   3897,
 		Buckets: HistogramBuckets{
@@ -67,11 +67,6 @@ func genSampleHistogram() SampleHistogram {
 			},
 		},
 	}
-}
-
-func genSampleHistogramPtr() *SampleHistogram {
-	h := genSampleHistogram()
-	return &h
 }
 
 func TestSampleHistogramPairJSON(t *testing.T) {
@@ -158,6 +153,24 @@ func TestSampleHistogramPairJSON(t *testing.T) {
 	}
 }
 
+func TestInvalidSampleHistogramPairJSON(t *testing.T) {
+	s1 := SampleHistogramPair{
+		Timestamp: 1,
+		Histogram: nil,
+	}
+	d, err := json.Marshal(s1)
+	if err == nil {
+		t.Errorf("expected error when trying to marshal invalid SampleHistogramPair %s", string(d))
+	}
+
+	var s2 SampleHistogramPair
+	plain := "[0.001,null]"
+	err = json.Unmarshal([]byte(plain), &s2)
+	if err == nil {
+		t.Errorf("expected error when trying to unmarshal invalid SampleHistogramPair %s", plain)
+	}
+}
+
 func TestSampleHistogramJSON(t *testing.T) {
 	input := []struct {
 		plain string
@@ -218,7 +231,7 @@ func TestSampleHistogramJSON(t *testing.T) {
 				Metric: Metric{
 					MetricNameLabel: "test_metric",
 				},
-				Histogram: genSampleHistogramPtr(),
+				Histogram: genSampleHistogram(),
 				Timestamp: 1234567,
 			},
 		},
@@ -312,7 +325,7 @@ func TestVectorHistogramJSON(t *testing.T) {
 				Metric: Metric{
 					MetricNameLabel: "test_metric",
 				},
-				Histogram: genSampleHistogramPtr(),
+				Histogram: genSampleHistogram(),
 				Timestamp: 1234567,
 			}},
 		},
@@ -424,14 +437,14 @@ func TestVectorHistogramJSON(t *testing.T) {
 					Metric: Metric{
 						MetricNameLabel: "test_metric",
 					},
-					Histogram: genSampleHistogramPtr(),
+					Histogram: genSampleHistogram(),
 					Timestamp: 1234567,
 				},
 				&Sample{
 					Metric: Metric{
 						"foo": "bar",
 					},
-					Histogram: genSampleHistogramPtr(),
+					Histogram: genSampleHistogram(),
 					Timestamp: 1234,
 				},
 			},

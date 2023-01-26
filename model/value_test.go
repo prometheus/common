@@ -64,12 +64,12 @@ func TestEqualSamples(t *testing.T) {
 			in1: &Sample{
 				Metric:    Metric{"foo": "bar"},
 				Timestamp: 0,
-				Histogram: genSampleHistogramPtr(),
+				Histogram: genSampleHistogram(),
 			},
 			in2: &Sample{
 				Metric:    Metric{"foo": "bar"},
 				Timestamp: 0,
-				Histogram: genSampleHistogramPtr(),
+				Histogram: genSampleHistogram(),
 			},
 			want: true,
 		},
@@ -93,7 +93,7 @@ func TestEqualSamples(t *testing.T) {
 			in2: &Sample{
 				Metric:    Metric{"foo": "bar"},
 				Timestamp: 0,
-				Histogram: genSampleHistogramPtr(),
+				Histogram: genSampleHistogram(),
 			},
 			want: false,
 		},
@@ -117,7 +117,7 @@ func TestEqualSamples(t *testing.T) {
 			in2: &Sample{
 				Metric:    Metric{"foo": "bar"},
 				Timestamp: 0,
-				Histogram: genSampleHistogramPtr(),
+				Histogram: genSampleHistogram(),
 			},
 			want: false,
 		},
@@ -141,7 +141,7 @@ func TestEqualSamples(t *testing.T) {
 			in2: &Sample{
 				Metric:    Metric{"foo": "bar"},
 				Timestamp: 0,
-				Histogram: genSampleHistogramPtr(),
+				Histogram: genSampleHistogram(),
 			},
 			want: false,
 		},
