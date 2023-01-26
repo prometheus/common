@@ -135,7 +135,7 @@ func (s *SampleHistogram) Equal(o *SampleHistogram) bool {
 
 type SampleHistogramPair struct {
 	Timestamp Time
-	// Histogram should never bill nil, it's only stored as pointer for efficiency
+	// Histogram should never be nil, it's only stored as pointer for efficiency.
 	Histogram *SampleHistogram
 }
 
