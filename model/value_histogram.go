@@ -135,6 +135,7 @@ func (s *SampleHistogram) Equal(o *SampleHistogram) bool {
 
 type SampleHistogramPair struct {
 	Timestamp Time
+	// Histogram should never bill nil, it's only stored as pointer for efficiency
 	Histogram *SampleHistogram
 }
 
@@ -142,6 +143,9 @@ func (s SampleHistogramPair) MarshalJSON() ([]byte, error) {
 	t, err := json.Marshal(s.Timestamp)
 	if err != nil {
 		return nil, err
+	}
+	if s.Histogram == nil {
+		return nil, fmt.Errorf("SampleHistogramPair.MarshalJSON: cannot marshal nil Histogram")
 	}
 	v, err := json.Marshal(s.Histogram)
 	if err != nil {

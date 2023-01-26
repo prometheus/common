@@ -153,6 +153,17 @@ func TestSampleHistogramPairJSON(t *testing.T) {
 	}
 }
 
+func TestInvalidSampleHistogramPairJSON(t *testing.T) {
+	s1 := SampleHistogramPair{
+		Timestamp: 1,
+		Histogram: nil,
+	}
+	d, err := json.Marshal(s1)
+	if err == nil {
+		t.Errorf("expected error when trying to marshal invalid SampleHistogramPair %s", string(d))
+	}
+}
+
 func TestSampleHistogramJSON(t *testing.T) {
 	input := []struct {
 		plain string
