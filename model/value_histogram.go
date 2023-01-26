@@ -43,7 +43,7 @@ func (v *FloatString) UnmarshalJSON(b []byte) error {
 }
 
 type HistogramBucket struct {
-	Boundaries int
+	Boundaries int32
 	Lower      FloatString
 	Upper      FloatString
 	Count      FloatString
