@@ -76,3 +76,31 @@ func MarshalHistogramBucket(b HistogramBucket, stream *jsoniter.Stream) {
 	MarshalValue(b.Count, stream)
 	stream.WriteArrayEnd()
 }
+
+// adapted from https://github.com/prometheus/prometheus/blob/main/web/api/v1/api.go
+func MarshalHistogram(h SampleHistogram, stream *jsoniter.Stream) {
+	stream.WriteObjectStart()
+	stream.WriteObjectField(`count`)
+	MarshalValue(h.Count, stream)
+	stream.WriteMore()
+	stream.WriteObjectField(`sum`)
+	MarshalValue(h.Sum, stream)
+
+	bucketFound := false
+	for _, bucket := range h.Buckets {
+		if bucket.Count == 0 {
+			continue // No need to expose empty buckets in JSON.
+		}
+		stream.WriteMore()
+		if !bucketFound {
+			stream.WriteObjectField(`buckets`)
+			stream.WriteArrayStart()
+		}
+		bucketFound = true
+		MarshalHistogramBucket(*bucket, stream)
+	}
+	if bucketFound {
+		stream.WriteArrayEnd()
+	}
+	stream.WriteObjectEnd()
+}

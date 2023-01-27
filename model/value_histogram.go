@@ -25,6 +25,7 @@ import (
 
 func init() {
 	jsoniter.RegisterTypeEncoderFunc("model.HistogramBucket", marshalHistogramBucketJSON, marshalHistogramBucketJSONIsEmpty)
+	jsoniter.RegisterTypeEncoderFunc("model.SampleHistogramPair", marshalSampleHistogramPairJSON, marshalSampleHistogramPairJSONIsEmpty)
 }
 
 type FloatString float64
@@ -136,20 +137,25 @@ type SampleHistogramPair struct {
 	Histogram *SampleHistogram
 }
 
+// marshalSampleHistogramPairJSON writes `[ts, "val"]`.
+func marshalSampleHistogramPairJSON(ptr unsafe.Pointer, stream *jsoniter.Stream) {
+	p := *((*SampleHistogramPair)(ptr))
+	stream.WriteArrayStart()
+	MarshalTimestamp(int64(p.Timestamp), stream)
+	stream.WriteMore()
+	MarshalHistogram(*p.Histogram, stream)
+	stream.WriteArrayEnd()
+}
+
+func marshalSampleHistogramPairJSONIsEmpty(ptr unsafe.Pointer) bool {
+	return false
+}
+
 func (s SampleHistogramPair) MarshalJSON() ([]byte, error) {
-	jsoni := jsoniter.ConfigCompatibleWithStandardLibrary
-	t, err := jsoni.Marshal(s.Timestamp)
-	if err != nil {
-		return nil, err
-	}
 	if s.Histogram == nil {
 		return nil, fmt.Errorf("histogram is nil")
 	}
-	v, err := jsoni.Marshal(s.Histogram)
-	if err != nil {
-		return nil, err
-	}
-	return []byte(fmt.Sprintf("[%s,%s]", t, v)), nil
+	return jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(s)
 }
 
 func (s *SampleHistogramPair) UnmarshalJSON(buf []byte) error {
