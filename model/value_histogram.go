@@ -24,8 +24,8 @@ import (
 )
 
 func init() {
-	jsoniter.RegisterTypeEncoderFunc("model.HistogramBucket", marshalHistogramBucketJSON, marshalHistogramBucketJSONIsEmpty)
-	jsoniter.RegisterTypeEncoderFunc("model.SampleHistogramPair", marshalSampleHistogramPairJSON, marshalSampleHistogramPairJSONIsEmpty)
+	jsoniter.RegisterTypeEncoderFunc("model.HistogramBucket", marshalHistogramBucketJSON, marshalJSONIsEmpty)
+	jsoniter.RegisterTypeEncoderFunc("model.SampleHistogramPair", marshalSampleHistogramPairJSON, marshalJSONIsEmpty)
 }
 
 type FloatString float64
@@ -61,10 +61,6 @@ type HistogramBucket struct {
 func marshalHistogramBucketJSON(ptr unsafe.Pointer, stream *jsoniter.Stream) {
 	b := *((*HistogramBucket)(ptr))
 	MarshalHistogramBucket(b, stream)
-}
-
-func marshalHistogramBucketJSONIsEmpty(ptr unsafe.Pointer) bool {
-	return false
 }
 
 func (s *HistogramBucket) UnmarshalJSON(buf []byte) error {
@@ -145,10 +141,6 @@ func marshalSampleHistogramPairJSON(ptr unsafe.Pointer, stream *jsoniter.Stream)
 	stream.WriteMore()
 	MarshalHistogram(*p.Histogram, stream)
 	stream.WriteArrayEnd()
-}
-
-func marshalSampleHistogramPairJSONIsEmpty(ptr unsafe.Pointer) bool {
-	return false
 }
 
 func (s SampleHistogramPair) MarshalJSON() ([]byte, error) {

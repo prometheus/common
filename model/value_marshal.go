@@ -16,9 +16,14 @@ package model
 import (
 	"math"
 	"strconv"
+	"unsafe"
 
 	jsoniter "github.com/json-iterator/go"
 )
+
+func marshalJSONIsEmpty(ptr unsafe.Pointer) bool {
+	return false
+}
 
 // from https://github.com/prometheus/prometheus/blob/main/util/jsonutil/marshal.go
 // MarshalTimestamp marshals a point timestamp using the passed jsoniter stream.
@@ -43,10 +48,9 @@ func MarshalTimestamp(t int64, stream *jsoniter.Stream) {
 	}
 }
 
-// adapted from https://github.com/prometheus/prometheus/blob/main/util/jsonutil/marshal.go
+// from https://github.com/prometheus/prometheus/blob/main/util/jsonutil/marshal.go
 // MarshalValue marshals a point value using the passed jsoniter stream.
-func MarshalValue(f FloatString, stream *jsoniter.Stream) {
-	v := float64(f)
+func MarshalValue(v float64, stream *jsoniter.Stream) {
 	stream.WriteRaw(`"`)
 	// Taken from https://github.com/json-iterator/go/blob/master/stream_float.go#L71 as a workaround
 	// to https://github.com/json-iterator/go/issues/365 (jsoniter, to follow json standard, doesn't allow inf/nan).
@@ -69,11 +73,11 @@ func MarshalHistogramBucket(b HistogramBucket, stream *jsoniter.Stream) {
 	stream.WriteArrayStart()
 	stream.WriteInt32(b.Boundaries)
 	stream.WriteMore()
-	MarshalValue(b.Lower, stream)
+	MarshalValue(float64(b.Lower), stream)
 	stream.WriteMore()
-	MarshalValue(b.Upper, stream)
+	MarshalValue(float64(b.Upper), stream)
 	stream.WriteMore()
-	MarshalValue(b.Count, stream)
+	MarshalValue(float64(b.Count), stream)
 	stream.WriteArrayEnd()
 }
 
@@ -81,10 +85,10 @@ func MarshalHistogramBucket(b HistogramBucket, stream *jsoniter.Stream) {
 func MarshalHistogram(h SampleHistogram, stream *jsoniter.Stream) {
 	stream.WriteObjectStart()
 	stream.WriteObjectField(`count`)
-	MarshalValue(h.Count, stream)
+	MarshalValue(float64(h.Count), stream)
 	stream.WriteMore()
 	stream.WriteObjectField(`sum`)
-	MarshalValue(h.Sum, stream)
+	MarshalValue(float64(h.Sum), stream)
 
 	bucketFound := false
 	for _, bucket := range h.Buckets {
