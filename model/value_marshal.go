@@ -25,7 +25,6 @@ func marshalJSONIsEmpty(ptr unsafe.Pointer) bool {
 	return false
 }
 
-// from https://github.com/prometheus/prometheus/blob/main/util/jsonutil/marshal.go
 // MarshalTimestamp marshals a point timestamp using the passed jsoniter stream.
 func MarshalTimestamp(t int64, stream *jsoniter.Stream) {
 	// Write out the timestamp as a float divided by 1000.
@@ -48,7 +47,6 @@ func MarshalTimestamp(t int64, stream *jsoniter.Stream) {
 	}
 }
 
-// from https://github.com/prometheus/prometheus/blob/main/util/jsonutil/marshal.go
 // MarshalValue marshals a point value using the passed jsoniter stream.
 func MarshalValue(v float64, stream *jsoniter.Stream) {
 	stream.WriteRaw(`"`)
@@ -68,7 +66,8 @@ func MarshalValue(v float64, stream *jsoniter.Stream) {
 	stream.WriteRaw(`"`)
 }
 
-// adapted from https://github.com/prometheus/prometheus/blob/main/web/api/v1/api.go
+// MarshalHistogramBucket writes something like: [ 3, "-0.25", "0.25", "3"]
+// See MarshalHistogram to understand what the numbers mean
 func MarshalHistogramBucket(b HistogramBucket, stream *jsoniter.Stream) {
 	stream.WriteArrayStart()
 	stream.WriteInt32(b.Boundaries)
@@ -81,7 +80,29 @@ func MarshalHistogramBucket(b HistogramBucket, stream *jsoniter.Stream) {
 	stream.WriteArrayEnd()
 }
 
-// adapted from https://github.com/prometheus/prometheus/blob/main/web/api/v1/api.go
+// MarshalHistogram writes something like:
+//
+//	{
+//	    "count": "42",
+//	    "sum": "34593.34",
+//	    "buckets": [
+//	      [ 3, "-0.25", "0.25", "3"],
+//	      [ 0, "0.25", "0.5", "12"],
+//	      [ 0, "0.5", "1", "21"],
+//	      [ 0, "2", "4", "6"]
+//	    ]
+//	}
+//
+// The 1st element in each bucket array determines if the boundaries are
+// inclusive (AKA closed) or exclusive (AKA open):
+//
+//	0: lower exclusive, upper inclusive
+//	1: lower inclusive, upper exclusive
+//	2: both exclusive
+//	3: both inclusive
+//
+// The 2nd and 3rd elements are the lower and upper boundary. The 4th element is
+// the bucket count.
 func MarshalHistogram(h SampleHistogram, stream *jsoniter.Stream) {
 	stream.WriteObjectStart()
 	stream.WriteObjectField(`count`)
