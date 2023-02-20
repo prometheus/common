@@ -14,6 +14,7 @@
 package expfmt
 
 import (
+	"errors"
 	"math"
 	"strings"
 	"testing"
@@ -666,4 +667,40 @@ func BenchmarkParseError(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		testTextParseError(b)
 	}
+}
+
+func TestTextParserStartOfLine(t *testing.T) {
+	t.Run("EOF", func(t *testing.T) {
+		p := TextParser{}
+		in := strings.NewReader("")
+		p.reset(in)
+		fn := p.startOfLine()
+		if fn != nil {
+			t.Errorf("Unexpected non-nil function: %v", fn)
+		}
+		if p.err != nil {
+			t.Errorf("Unexpected error: %v", p.err)
+		}
+	})
+
+	t.Run("OtherError", func(t *testing.T) {
+		p := TextParser{}
+		in := &errReader{err: errors.New("unexpected error")}
+		p.reset(in)
+		fn := p.startOfLine()
+		if fn != nil {
+			t.Errorf("Unexpected non-nil function: %v", fn)
+		}
+		if p.err != in.err {
+			t.Errorf("Unexpected error: %v, expected %v", p.err, in.err)
+		}
+	})
+}
+
+type errReader struct {
+	err error
+}
+
+func (r *errReader) Read(p []byte) (int, error) {
+	return 0, r.err
 }
