@@ -95,6 +95,8 @@ func colorFn(keyvals ...interface{}) term.FgBgColor {
 			continue
 		}
 		switch keyvals[i+1] {
+		case "info":
+			return term.FgBgColor{Fg: term.Green}
 		case "debug":
 			return term.FgBgColor{Fg: term.Blue}
 		case "warn":
