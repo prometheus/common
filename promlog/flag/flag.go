@@ -18,6 +18,12 @@ import (
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
+// ColorFlagName is the canonical flag name to enable color logging.
+const ColorFlagName = "log.color"
+
+// ColorFlagHelp is the help description for the log.color flag.
+const ColorFlagHelp = "Enable colors in the console log. Use --no-log.color to disable."
+
 // LevelFlagName is the canonical flag name to configure the allowed log level
 // within Prometheus projects.
 const LevelFlagName = "log.level"
@@ -35,6 +41,10 @@ const FormatFlagHelp = "Output format of log messages. One of: [logfmt, json]"
 // AddFlags adds the flags used by this package to the Kingpin application.
 // To use the default Kingpin application, call AddFlags(kingpin.CommandLine)
 func AddFlags(a *kingpin.Application, config *promlog.Config) {
+	config.Color = &promlog.Color{}
+	a.Flag(ColorFlagName, ColorFlagHelp).
+		Default("true").SetValue(config.Color)
+
 	config.Level = &promlog.AllowedLevel{}
 	a.Flag(LevelFlagName, LevelFlagHelp).
 		Default("info").SetValue(config.Level)

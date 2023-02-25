@@ -19,6 +19,7 @@ package promlog
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -36,6 +37,33 @@ var (
 		"2006-01-02T15:04:05.000Z07:00",
 	)
 )
+
+// Color is a settable boolean for controlling color output.
+type Color struct {
+	s       string
+	enabled bool
+}
+
+func (c *Color) Set(s string) error {
+	switch s {
+	case "true":
+		c.enabled = true
+	case "false":
+		c.enabled = false
+	default:
+		return fmt.Errorf("unrecognized boolean %q", s)
+	}
+	c.s = s
+	return nil
+}
+
+func (c *Color) Enabled() bool {
+	return c.enabled
+}
+
+func (c *Color) String() string {
+	return strconv.FormatBool(c.enabled)
+}
 
 // AllowedLevel is a settable identifier for the minimum level a log entry
 // must be have.
@@ -124,6 +152,7 @@ func (f *AllowedFormat) Set(s string) error {
 
 // Config is a struct containing configurable settings for the logger
 type Config struct {
+	Color  *Color
 	Level  *AllowedLevel
 	Format *AllowedFormat
 }
@@ -131,14 +160,21 @@ type Config struct {
 // New returns a new leveled oklog logger. Each logged line will be annotated
 // with a timestamp. The output always goes to stderr.
 func New(config *Config) log.Logger {
+	if config.Color == nil {
+		config.Color = &Color{s: "true", enabled: true}
+	}
 	var l log.Logger
 	syncWriter := log.NewSyncWriter(os.Stderr)
 	if config.Format != nil && config.Format.s == "json" {
 		l = log.NewJSONLogger(syncWriter)
 	} else {
-		// Returns a new logger with color logging capabilites if we're in a terminal, otherwise we
-		// just get a standard go-kit logger.
-		l = term.NewLogger(syncWriter, log.NewLogfmtLogger, colorFn)
+		if config.Color.Enabled() {
+			// Returns a new logger with color logging capabilites if we're in a terminal, otherwise we
+			// just get a standard go-kit logger.
+			l = term.NewLogger(syncWriter, log.NewLogfmtLogger, colorFn)
+		} else {
+			l = log.NewJSONLogger(syncWriter)
+		}
 	}
 
 	if config.Level != nil {
@@ -154,11 +190,22 @@ func New(config *Config) log.Logger {
 // with a timestamp. The output always goes to stderr. Some properties can be
 // changed, like the level.
 func NewDynamic(config *Config) *logger {
+	if config.Color == nil {
+		config.Color = &Color{s: "true", enabled: true}
+	}
 	var l log.Logger
+	syncWriter := log.NewSyncWriter(os.Stderr)
+
 	if config.Format != nil && config.Format.s == "json" {
-		l = log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+		l = log.NewJSONLogger(syncWriter)
 	} else {
-		l = log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
+		if config.Color.Enabled() {
+			// Returns a new logger with color logging capabilites if we're in a terminal, otherwise we
+			// just get a standard go-kit logger.
+			l = term.NewLogger(syncWriter, log.NewLogfmtLogger, colorFn)
+		} else {
+			l = log.NewJSONLogger(syncWriter)
+		}
 	}
 
 	lo := &logger{
