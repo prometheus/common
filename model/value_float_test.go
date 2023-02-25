@@ -20,6 +20,42 @@ import (
 	"testing"
 )
 
+var (
+	samplePairMatrixPlain = `[{"metric":{"__name__":"test_metric"},"values":[[1234.567,"123.1"],[12345.678,"123.12"]]},{"metric":{"foo":"bar"},"values":[[2234.567,"223.1"],[22345.678,"223.12"]]}]`
+	samplePairMatrixValue = Matrix{
+		&SampleStream{
+			Metric: Metric{
+				MetricNameLabel: "test_metric",
+			},
+			Values: []SamplePair{
+				{
+					Value:     123.1,
+					Timestamp: 1234567,
+				},
+				{
+					Value:     123.12,
+					Timestamp: 12345678,
+				},
+			},
+		},
+		&SampleStream{
+			Metric: Metric{
+				"foo": "bar",
+			},
+			Values: []SamplePair{
+				{
+					Value:     223.1,
+					Timestamp: 2234567,
+				},
+				{
+					Value:     223.12,
+					Timestamp: 22345678,
+				},
+			},
+		},
+	}
+)
+
 func TestEqualValues(t *testing.T) {
 	tests := map[string]struct {
 		in1, in2 SampleValue
@@ -231,39 +267,8 @@ func TestMatrixJSON(t *testing.T) {
 			value: Matrix{},
 		},
 		{
-			plain: `[{"metric":{"__name__":"test_metric"},"values":[[1234.567,"123.1"],[12345.678,"123.12"]]},{"metric":{"foo":"bar"},"values":[[2234.567,"223.1"],[22345.678,"223.12"]]}]`,
-			value: Matrix{
-				&SampleStream{
-					Metric: Metric{
-						MetricNameLabel: "test_metric",
-					},
-					Values: []SamplePair{
-						{
-							Value:     123.1,
-							Timestamp: 1234567,
-						},
-						{
-							Value:     123.12,
-							Timestamp: 12345678,
-						},
-					},
-				},
-				&SampleStream{
-					Metric: Metric{
-						"foo": "bar",
-					},
-					Values: []SamplePair{
-						{
-							Value:     223.1,
-							Timestamp: 2234567,
-						},
-						{
-							Value:     223.12,
-							Timestamp: 22345678,
-						},
-					},
-				},
-			},
+			plain: samplePairMatrixPlain,
+			value: samplePairMatrixValue,
 		},
 	}
 
@@ -288,6 +293,15 @@ func TestMatrixJSON(t *testing.T) {
 
 		if !reflect.DeepEqual(mat, test.value) {
 			t.Errorf("decoding error: expected %v, got %v", test.value, mat)
+		}
+	}
+}
+
+func BenchmarkJSONMarshallingSamplePairMatrix(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_, err := json.Marshal(samplePairMatrixValue)
+		if err != nil {
+			b.Fatal("error marshalling")
 		}
 	}
 }

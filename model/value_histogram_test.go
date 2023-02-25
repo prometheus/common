@@ -22,10 +22,239 @@ import (
 
 var (
 	noWhitespace = regexp.MustCompile(`\s`)
+
+	sampleHistogramPairMatrixPlain = `[
+		{
+			"metric":{
+				"__name__":"test_metric"
+			},
+			"histograms":[
+				[
+					1234.567,
+					{
+					"count":"6",
+					"sum":"3897",
+					"buckets":[
+						[
+							1,
+							"-4870.992343051145",
+							"-4466.7196729968955",
+							"1"
+						],
+						[
+							1,
+							"-861.0779292198035",
+							"-789.6119426088657",
+							"1"
+						],
+						[
+							1,
+							"-558.3399591246119",
+							"-512",
+							"1"
+						],
+						[
+							0,
+							"2048",
+							"2233.3598364984477",
+							"1"
+						],
+						[
+							0,
+							"2896.3093757400984",
+							"3158.4477704354626",
+							"1"
+						],
+						[
+							0,
+							"4466.7196729968955",
+							"4870.992343051145",
+							"1"
+						]
+					]
+					}
+				],
+				[
+					12345.678,
+					{
+					"count":"6",
+					"sum":"3897",
+					"buckets":[
+						[
+							1,
+							"-4870.992343051145",
+							"-4466.7196729968955",
+							"1"
+						],
+						[
+							1,
+							"-861.0779292198035",
+							"-789.6119426088657",
+							"1"
+						],
+						[
+							1,
+							"-558.3399591246119",
+							"-512",
+							"1"
+						],
+						[
+							0,
+							"2048",
+							"2233.3598364984477",
+							"1"
+						],
+						[
+							0,
+							"2896.3093757400984",
+							"3158.4477704354626",
+							"1"
+						],
+						[
+							0,
+							"4466.7196729968955",
+							"4870.992343051145",
+							"1"
+						]
+					]
+					}
+				]
+			]
+		},
+		{
+			"metric":{
+				"foo":"bar"
+			},
+			"histograms":[
+				[
+					2234.567,
+					{
+					"count":"6",
+					"sum":"3897",
+					"buckets":[
+						[
+							1,
+							"-4870.992343051145",
+							"-4466.7196729968955",
+							"1"
+						],
+						[
+							1,
+							"-861.0779292198035",
+							"-789.6119426088657",
+							"1"
+						],
+						[
+							1,
+							"-558.3399591246119",
+							"-512",
+							"1"
+						],
+						[
+							0,
+							"2048",
+							"2233.3598364984477",
+							"1"
+						],
+						[
+							0,
+							"2896.3093757400984",
+							"3158.4477704354626",
+							"1"
+						],
+						[
+							0,
+							"4466.7196729968955",
+							"4870.992343051145",
+							"1"
+						]
+					]
+					}
+				],
+				[
+					22345.678,
+					{
+					"count":"6",
+					"sum":"3897",
+					"buckets":[
+						[
+							1,
+							"-4870.992343051145",
+							"-4466.7196729968955",
+							"1"
+						],
+						[
+							1,
+							"-861.0779292198035",
+							"-789.6119426088657",
+							"1"
+						],
+						[
+							1,
+							"-558.3399591246119",
+							"-512",
+							"1"
+						],
+						[
+							0,
+							"2048",
+							"2233.3598364984477",
+							"1"
+						],
+						[
+							0,
+							"2896.3093757400984",
+							"3158.4477704354626",
+							"1"
+						],
+						[
+							0,
+							"4466.7196729968955",
+							"4870.992343051145",
+							"1"
+						]
+					]
+					}
+				]
+			]
+		}
+	]`
+	sampleHistogramPairMatrixValue = Matrix{
+		&SampleStream{
+			Metric: Metric{
+				MetricNameLabel: "test_metric",
+			},
+			Histograms: []SampleHistogramPair{
+				{
+					Histogram: genSampleHistogram(),
+					Timestamp: 1234567,
+				},
+				{
+					Histogram: genSampleHistogram(),
+					Timestamp: 12345678,
+				},
+			},
+		},
+		&SampleStream{
+			Metric: Metric{
+				"foo": "bar",
+			},
+			Histograms: []SampleHistogramPair{
+				{
+					Histogram: genSampleHistogram(),
+					Timestamp: 2234567,
+				},
+				{
+					Histogram: genSampleHistogram(),
+					Timestamp: 22345678,
+				},
+			},
+		},
+	}
 )
 
-func genSampleHistogram() SampleHistogram {
-	return SampleHistogram{
+func genSampleHistogram() *SampleHistogram {
+	return &SampleHistogram{
 		Count: 6,
 		Sum:   3897,
 		Buckets: HistogramBuckets{
@@ -67,11 +296,6 @@ func genSampleHistogram() SampleHistogram {
 			},
 		},
 	}
-}
-
-func genSampleHistogramPtr() *SampleHistogram {
-	h := genSampleHistogram()
-	return &h
 }
 
 func TestSampleHistogramPairJSON(t *testing.T) {
@@ -158,6 +382,24 @@ func TestSampleHistogramPairJSON(t *testing.T) {
 	}
 }
 
+func TestInvalidSampleHistogramPairJSON(t *testing.T) {
+	s1 := SampleHistogramPair{
+		Timestamp: 1,
+		Histogram: nil,
+	}
+	d, err := json.Marshal(s1)
+	if err == nil {
+		t.Errorf("expected error when trying to marshal invalid SampleHistogramPair %s", string(d))
+	}
+
+	var s2 SampleHistogramPair
+	plain := "[0.001,null]"
+	err = json.Unmarshal([]byte(plain), &s2)
+	if err == nil {
+		t.Errorf("expected error when trying to unmarshal invalid SampleHistogramPair %s", plain)
+	}
+}
+
 func TestSampleHistogramJSON(t *testing.T) {
 	input := []struct {
 		plain string
@@ -218,7 +460,7 @@ func TestSampleHistogramJSON(t *testing.T) {
 				Metric: Metric{
 					MetricNameLabel: "test_metric",
 				},
-				Histogram: genSampleHistogramPtr(),
+				Histogram: genSampleHistogram(),
 				Timestamp: 1234567,
 			},
 		},
@@ -312,7 +554,7 @@ func TestVectorHistogramJSON(t *testing.T) {
 				Metric: Metric{
 					MetricNameLabel: "test_metric",
 				},
-				Histogram: genSampleHistogramPtr(),
+				Histogram: genSampleHistogram(),
 				Timestamp: 1234567,
 			}},
 		},
@@ -424,14 +666,14 @@ func TestVectorHistogramJSON(t *testing.T) {
 					Metric: Metric{
 						MetricNameLabel: "test_metric",
 					},
-					Histogram: genSampleHistogramPtr(),
+					Histogram: genSampleHistogram(),
 					Timestamp: 1234567,
 				},
 				&Sample{
 					Metric: Metric{
 						"foo": "bar",
 					},
-					Histogram: genSampleHistogramPtr(),
+					Histogram: genSampleHistogram(),
 					Timestamp: 1234,
 				},
 			},
@@ -474,234 +716,8 @@ func TestMatrixHistogramJSON(t *testing.T) {
 			value: Matrix{},
 		},
 		{
-			plain: `[
-				{
-					"metric":{
-						"__name__":"test_metric"
-					},
-					"histograms":[
-						[
-							1234.567,
-							{
-							"count":"6",
-							"sum":"3897",
-							"buckets":[
-								[
-									1,
-									"-4870.992343051145",
-									"-4466.7196729968955",
-									"1"
-								],
-								[
-									1,
-									"-861.0779292198035",
-									"-789.6119426088657",
-									"1"
-								],
-								[
-									1,
-									"-558.3399591246119",
-									"-512",
-									"1"
-								],
-								[
-									0,
-									"2048",
-									"2233.3598364984477",
-									"1"
-								],
-								[
-									0,
-									"2896.3093757400984",
-									"3158.4477704354626",
-									"1"
-								],
-								[
-									0,
-									"4466.7196729968955",
-									"4870.992343051145",
-									"1"
-								]
-							]
-							}
-						],
-						[
-							12345.678,
-							{
-							"count":"6",
-							"sum":"3897",
-							"buckets":[
-								[
-									1,
-									"-4870.992343051145",
-									"-4466.7196729968955",
-									"1"
-								],
-								[
-									1,
-									"-861.0779292198035",
-									"-789.6119426088657",
-									"1"
-								],
-								[
-									1,
-									"-558.3399591246119",
-									"-512",
-									"1"
-								],
-								[
-									0,
-									"2048",
-									"2233.3598364984477",
-									"1"
-								],
-								[
-									0,
-									"2896.3093757400984",
-									"3158.4477704354626",
-									"1"
-								],
-								[
-									0,
-									"4466.7196729968955",
-									"4870.992343051145",
-									"1"
-								]
-							]
-							}
-						]
-					]
-				},
-				{
-					"metric":{
-						"foo":"bar"
-					},
-					"histograms":[
-						[
-							2234.567,
-							{
-							"count":"6",
-							"sum":"3897",
-							"buckets":[
-								[
-									1,
-									"-4870.992343051145",
-									"-4466.7196729968955",
-									"1"
-								],
-								[
-									1,
-									"-861.0779292198035",
-									"-789.6119426088657",
-									"1"
-								],
-								[
-									1,
-									"-558.3399591246119",
-									"-512",
-									"1"
-								],
-								[
-									0,
-									"2048",
-									"2233.3598364984477",
-									"1"
-								],
-								[
-									0,
-									"2896.3093757400984",
-									"3158.4477704354626",
-									"1"
-								],
-								[
-									0,
-									"4466.7196729968955",
-									"4870.992343051145",
-									"1"
-								]
-							]
-							}
-						],
-						[
-							22345.678,
-							{
-							"count":"6",
-							"sum":"3897",
-							"buckets":[
-								[
-									1,
-									"-4870.992343051145",
-									"-4466.7196729968955",
-									"1"
-								],
-								[
-									1,
-									"-861.0779292198035",
-									"-789.6119426088657",
-									"1"
-								],
-								[
-									1,
-									"-558.3399591246119",
-									"-512",
-									"1"
-								],
-								[
-									0,
-									"2048",
-									"2233.3598364984477",
-									"1"
-								],
-								[
-									0,
-									"2896.3093757400984",
-									"3158.4477704354626",
-									"1"
-								],
-								[
-									0,
-									"4466.7196729968955",
-									"4870.992343051145",
-									"1"
-								]
-							]
-							}
-						]
-					]
-				}
-			]`,
-			value: Matrix{
-				&SampleStream{
-					Metric: Metric{
-						MetricNameLabel: "test_metric",
-					},
-					Histograms: []SampleHistogramPair{
-						{
-							Histogram: genSampleHistogram(),
-							Timestamp: 1234567,
-						},
-						{
-							Histogram: genSampleHistogram(),
-							Timestamp: 12345678,
-						},
-					},
-				},
-				&SampleStream{
-					Metric: Metric{
-						"foo": "bar",
-					},
-					Histograms: []SampleHistogramPair{
-						{
-							Histogram: genSampleHistogram(),
-							Timestamp: 2234567,
-						},
-						{
-							Histogram: genSampleHistogram(),
-							Timestamp: 22345678,
-						},
-					},
-				},
-			},
+			plain: sampleHistogramPairMatrixPlain,
+			value: sampleHistogramPairMatrixValue,
 		},
 	}
 
@@ -727,6 +743,15 @@ func TestMatrixHistogramJSON(t *testing.T) {
 
 		if !reflect.DeepEqual(mat, test.value) {
 			t.Errorf("decoding error: expected %v, got %v", test.value, mat)
+		}
+	}
+}
+
+func BenchmarkJSONMarshallingSampleHistogramPairMatrix(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_, err := json.Marshal(sampleHistogramPairMatrixValue)
+		if err != nil {
+			b.Fatal("error marshalling")
 		}
 	}
 }

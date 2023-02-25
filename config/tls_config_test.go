@@ -127,8 +127,88 @@ func TestInvalidTLSConfig(t *testing.T) {
 	}
 }
 
-func TestStringer(t *testing.T) {
+func TestTLSVersionStringer(t *testing.T) {
 	if s := (TLSVersion)(tls.VersionTLS13); s.String() != "TLS13" {
 		t.Fatalf("tls.VersionTLS13 string should be TLS13, got %s", s.String())
+	}
+}
+
+func TestTLSVersionMarshalYAML(t *testing.T) {
+	var tests = []struct {
+		input    TLSVersion
+		expected string
+		err      error
+	}{
+		{
+			input:    TLSVersions["TLS13"],
+			expected: "TLS13\n",
+			err:      nil,
+		},
+		{
+			input:    TLSVersions["TLS10"],
+			expected: "TLS10\n",
+			err:      nil,
+		},
+		{
+			input:    TLSVersion(999),
+			expected: "",
+			err:      fmt.Errorf("unknown TLS version: 999"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("MarshalYAML(%d)", test.input), func(t *testing.T) {
+			actualBytes, err := yaml.Marshal(&test.input)
+			if err != nil {
+				if test.err == nil || err.Error() != test.err.Error() {
+					t.Fatalf("error %v, expected %v", err, test.err)
+				}
+				return
+			}
+			actual := string(actualBytes)
+			if actual != test.expected {
+				t.Fatalf("returned %s, expected %s", actual, test.expected)
+			}
+		})
+	}
+}
+
+func TestTLSVersionMarshalJSON(t *testing.T) {
+	var tests = []struct {
+		input    TLSVersion
+		expected string
+		err      error
+	}{
+		{
+			input:    TLSVersions["TLS13"],
+			expected: `"TLS13"`,
+			err:      nil,
+		},
+		{
+			input:    TLSVersions["TLS10"],
+			expected: `"TLS10"`,
+			err:      nil,
+		},
+		{
+			input:    TLSVersion(999),
+			expected: "",
+			err:      fmt.Errorf("unknown TLS version: 999"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("MarshalJSON(%d)", test.input), func(t *testing.T) {
+			actualBytes, err := json.Marshal(&test.input)
+			if err != nil {
+				if test.err == nil || !strings.HasSuffix(err.Error(), test.err.Error()) {
+					t.Fatalf("error %v, expected %v", err, test.err)
+				}
+				return
+			}
+			actual := string(actualBytes)
+			if actual != test.expected {
+				t.Fatalf("returned %s, expected %s", actual, test.expected)
+			}
+		})
 	}
 }
