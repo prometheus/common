@@ -367,3 +367,14 @@ func TestTimeJSON(t *testing.T) {
 	}
 
 }
+
+func BenchmarkParseDuration(b *testing.B) {
+	const data = "30s"
+
+	for i := 0; i < b.N; i++ {
+		_, err := ParseDuration(data)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
