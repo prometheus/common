@@ -119,6 +119,18 @@ var invalidHTTPClientConfigs = []struct {
 		httpClientConfigFile: "testdata/http.conf.oauth2-no-token-url.bad.yaml",
 		errMsg:               "oauth2 token_url must be configured",
 	},
+	{
+		httpClientConfigFile: "testdata/http.conf.proxy-from-env.bad.yaml",
+		errMsg:               "if proxy_from_environment is configured, proxy_url must not be configured",
+	},
+	{
+		httpClientConfigFile: "testdata/http.conf.no-proxy.bad.yaml",
+		errMsg:               "if proxy_from_environment is configured, no_proxy must not be configured",
+	},
+	{
+		httpClientConfigFile: "testdata/http.conf.no-proxy-without-proxy-url.bad.yaml",
+		errMsg:               "if no_proxy is configured, proxy_url must also be configured",
+	},
 }
 
 func newTestServer(handler func(w http.ResponseWriter, r *http.Request)) (*httptest.Server, error) {
@@ -1688,4 +1700,141 @@ func loadHTTPConfigJSONFile(filename string) (*HTTPClientConfig, []byte, error) 
 		return nil, nil, err
 	}
 	return cfg, content, nil
+}
+
+func TestProxyConfig_Proxy(t *testing.T) {
+	var proxyServer *httptest.Server
+
+	defer func() {
+		if proxyServer != nil {
+			proxyServer.Close()
+		}
+	}()
+
+	proxyServerHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "Hello, %s", r.URL.Path)
+	})
+
+	proxyServer = httptest.NewServer(proxyServerHandler)
+
+	testCases := []struct {
+		name             string
+		proxyConfig      string
+		expectedProxyURL string
+		targetURL        string
+		proxyEnv         string
+		noProxyEnv       string
+	}{
+		{
+			name:             "proxy from environment",
+			proxyConfig:      `proxy_from_environment: true`,
+			expectedProxyURL: proxyServer.URL,
+			proxyEnv:         proxyServer.URL,
+			targetURL:        "http://prometheus.io/",
+		},
+		{
+			name:             "proxy_from_environment with no_proxy",
+			proxyConfig:      `proxy_from_environment: true`,
+			expectedProxyURL: "",
+			proxyEnv:         proxyServer.URL,
+			noProxyEnv:       "prometheus.io",
+			targetURL:        "http://prometheus.io/",
+		},
+		{
+			name:             "proxy_from_environment and localhost",
+			proxyConfig:      `proxy_from_environment: true`,
+			expectedProxyURL: "",
+			proxyEnv:         proxyServer.URL,
+			targetURL:        "http://localhost/",
+		},
+		{
+			name:             "valid proxy_url and localhost",
+			proxyConfig:      fmt.Sprintf(`proxy_url: %s`, proxyServer.URL),
+			expectedProxyURL: proxyServer.URL,
+			targetURL:        "http://localhost/",
+		},
+		{
+			name: "valid proxy_url and no_proxy and localhost",
+			proxyConfig: fmt.Sprintf(`proxy_url: %s
+no_proxy: prometheus.io`, proxyServer.URL),
+			expectedProxyURL: "",
+			targetURL:        "http://localhost/",
+		},
+		{
+			name:             "valid proxy_url",
+			proxyConfig:      fmt.Sprintf(`proxy_url: %s`, proxyServer.URL),
+			expectedProxyURL: proxyServer.URL,
+			targetURL:        "http://prometheus.io/",
+		},
+		{
+			name: "valid proxy url and no_proxy",
+			proxyConfig: fmt.Sprintf(`proxy_url: %s
+no_proxy: prometheus.io`, proxyServer.URL),
+			expectedProxyURL: "",
+			targetURL:        "http://prometheus.io/",
+		},
+		{
+			name: "valid proxy url and no_proxies",
+			proxyConfig: fmt.Sprintf(`proxy_url: %s
+no_proxy: promcon.io,prometheus.io,cncf.io`, proxyServer.URL),
+			expectedProxyURL: "",
+			targetURL:        "http://prometheus.io/",
+		},
+		{
+			name: "valid proxy url and no_proxies that do not include target",
+			proxyConfig: fmt.Sprintf(`proxy_url: %s
+no_proxy: promcon.io,cncf.io`, proxyServer.URL),
+			expectedProxyURL: proxyServer.URL,
+			targetURL:        "http://prometheus.io/",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if proxyServer != nil {
+				defer proxyServer.Close()
+			}
+
+			var proxyConfig ProxyConfig
+
+			err := yaml.Unmarshal([]byte(tc.proxyConfig), &proxyConfig)
+			if err != nil {
+				t.Errorf("failed to unmarshal proxy config: %v", err)
+				return
+			}
+
+			if tc.proxyEnv != "" {
+				currentProxy := os.Getenv("HTTP_PROXY")
+				t.Cleanup(func() { os.Setenv("HTTP_PROXY", currentProxy) })
+				os.Setenv("HTTP_PROXY", tc.proxyEnv)
+			}
+
+			if tc.noProxyEnv != "" {
+				currentProxy := os.Getenv("NO_PROXY")
+				t.Cleanup(func() { os.Setenv("NO_PROXY", currentProxy) })
+				os.Setenv("NO_PROXY", tc.noProxyEnv)
+			}
+
+			req := httptest.NewRequest("GET", tc.targetURL, nil)
+
+			proxyFunc := proxyConfig.Proxy()
+			resultURL, err := proxyFunc(req)
+
+			if err != nil {
+				t.Fatalf("expected no error, but got: %v", err)
+				return
+			}
+			if tc.expectedProxyURL == "" && resultURL != nil {
+				t.Fatalf("expected no result URL, but got: %s", resultURL.String())
+				return
+			}
+			if tc.expectedProxyURL != "" && resultURL == nil {
+				t.Fatalf("expected result URL, but got nil")
+				return
+			}
+			if tc.expectedProxyURL != "" && resultURL.String() != tc.expectedProxyURL {
+				t.Fatalf("expected result URL: %s, but got: %s", tc.expectedProxyURL, resultURL.String())
+			}
+		})
+	}
 }
