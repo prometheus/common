@@ -28,6 +28,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/mwitkow/go-conntrack"
@@ -43,6 +44,7 @@ var (
 	DefaultHTTPClientConfig = HTTPClientConfig{
 		FollowRedirects: true,
 		EnableHTTP2:     true,
+		DSCP:            0,
 	}
 
 	// defaultHTTPClientOptions holds the default HTTP client options.
@@ -309,6 +311,8 @@ type HTTPClientConfig struct {
 	EnableHTTP2 bool `yaml:"enable_http2" json:"enable_http2"`
 	// Proxy configuration.
 	ProxyConfig `yaml:",inline"`
+	// DSCP configuration
+	DSCP int `yaml:"dscp" json:"dscp"`
 }
 
 // SetDirectory joins any relative file paths with dir.
@@ -1158,4 +1162,23 @@ func (c *ProxyConfig) Proxy() (fn func(*http.Request) (*url.URL, error)) {
 // ProxyConnectHeader() return the Proxy Connext Headers.
 func (c *ProxyConfig) GetProxyConnectHeader() http.Header {
 	return c.ProxyConnectHeader.HTTPHeader()
+}
+
+type DSCPDialer struct {
+	DSCP int
+}
+
+func (d *DSCPDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	conn, err := (&net.Dialer{
+		Control: func(network, address string, c syscall.RawConn) error {
+			return c.Control(func(fd uintptr) {
+				if network == "tcp6" || network == "udp6" {
+					_ = syscall.SetsockoptInt(int(fd), syscall.IPPROTO_IPV6, syscall.IPV6_TCLASS, d.DSCP<<2)
+				} else {
+					_ = syscall.SetsockoptInt(int(fd), syscall.IPPROTO_IP, syscall.IP_TOS, d.DSCP<<2)
+				}
+			})
+		}}).DialContext(ctx, network, addr)
+
+	return conn, err
 }
