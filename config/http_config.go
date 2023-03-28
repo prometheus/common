@@ -28,12 +28,13 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/mwitkow/go-conntrack"
 	"golang.org/x/net/http/httpproxy"
 	"golang.org/x/net/http2"
+	"golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv6"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 	"gopkg.in/yaml.v2"
@@ -1169,16 +1170,18 @@ type DSCPDialer struct {
 }
 
 func (d *DSCPDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
-	conn, err := (&net.Dialer{
-		Control: func(network, address string, c syscall.RawConn) error {
-			return c.Control(func(fd uintptr) {
-				if network == "tcp6" || network == "udp6" {
-					_ = syscall.SetsockoptInt(int(fd), syscall.IPPROTO_IPV6, syscall.IPV6_TCLASS, d.DSCP<<2)
-				} else {
-					_ = syscall.SetsockoptInt(int(fd), syscall.IPPROTO_IP, syscall.IP_TOS, d.DSCP<<2)
-				}
-			})
-		}}).DialContext(ctx, network, addr)
+	conn, err := (&net.Dialer{}).DialContext(ctx, network, addr)
 
-	return conn, err
+	if err != nil {
+		return conn, err
+	}
+
+	err = ipv6.NewConn(conn).SetTrafficClass(d.DSCP << 2)
+	if err != nil {
+		// fallback to IPv4
+		// err is ignored. It's probably not implemented on this platform if it fails
+		_ = ipv4.NewConn(conn).SetTOS(d.DSCP << 2)
+	}
+
+	return conn, nil
 }
