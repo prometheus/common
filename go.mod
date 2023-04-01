@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/alecthomas/kingpin/v2 v2.3.1
 	github.com/go-kit/log v0.2.1
-	github.com/golang/protobuf v1.5.2
+	github.com/golang/protobuf v1.5.3
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/matttproud/golang_protobuf_extensions v1.0.4
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f
