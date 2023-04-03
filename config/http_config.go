@@ -1171,7 +1171,6 @@ type DSCPDialer struct {
 
 func (d *DSCPDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	conn, err := (&net.Dialer{}).DialContext(ctx, network, addr)
-
 	if err != nil {
 		return conn, err
 	}
