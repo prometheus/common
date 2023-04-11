@@ -784,6 +784,26 @@ func TestTLSConfigInvalidCA(t *testing.T) {
 				InsecureSkipVerify: false},
 			errorMessage: fmt.Sprintf("unable to read specified client key (%s):", MissingKey),
 		},
+		{
+			configTLSConfig: TLSConfig{
+				CAFile:             "",
+				Cert:               readFile(t, ClientCertificatePath),
+				CertFile:           ClientCertificatePath,
+				KeyFile:            ClientKeyNoPassPath,
+				ServerName:         "",
+				InsecureSkipVerify: false},
+			errorMessage: "at most one of cert and cert_file must be configured",
+		},
+		{
+			configTLSConfig: TLSConfig{
+				CAFile:             "",
+				CertFile:           ClientCertificatePath,
+				Key:                Secret(readFile(t, ClientKeyNoPassPath)),
+				KeyFile:            ClientKeyNoPassPath,
+				ServerName:         "",
+				InsecureSkipVerify: false},
+			errorMessage: "at most one of key and key_file must be configured",
+		},
 	}
 
 	for _, anInvalididTLSConfig := range invalidTLSConfig {
@@ -1028,6 +1048,127 @@ func TestTLSRoundTripper(t *testing.T) {
 				return
 			}
 
+			if err != nil {
+				t.Fatalf("Can't connect to the test server")
+			}
+
+			b, err := io.ReadAll(r.Body)
+			r.Body.Close()
+			if err != nil {
+				t.Errorf("Can't read the server response body")
+			}
+
+			got := strings.TrimSpace(string(b))
+			if ExpectedMessage != got {
+				t.Errorf("The expected message %q differs from the obtained message %q", ExpectedMessage, got)
+			}
+		})
+	}
+}
+
+func TestTLSRoundTripper_Inline(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, ExpectedMessage)
+	}
+	testServer, err := newTestServer(handler)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	defer testServer.Close()
+
+	testCases := []struct {
+		caText, caFile     string
+		certText, certFile string
+		keyText, keyFile   string
+
+		errMsg string
+	}{
+		{
+			// File-based everything.
+			caFile:   TLSCAChainPath,
+			certFile: ClientCertificatePath,
+			keyFile:  ClientKeyNoPassPath,
+		},
+		{
+			// Inline CA.
+			caText:   readFile(t, TLSCAChainPath),
+			certFile: ClientCertificatePath,
+			keyFile:  ClientKeyNoPassPath,
+		},
+		{
+			// Inline cert.
+			caFile:   TLSCAChainPath,
+			certText: readFile(t, ClientCertificatePath),
+			keyFile:  ClientKeyNoPassPath,
+		},
+		{
+			// Inline key.
+			caFile:   TLSCAChainPath,
+			certFile: ClientCertificatePath,
+			keyText:  readFile(t, ClientKeyNoPassPath),
+		},
+		{
+			// Inline everything.
+			caText:   readFile(t, TLSCAChainPath),
+			certText: readFile(t, ClientCertificatePath),
+			keyText:  readFile(t, ClientKeyNoPassPath),
+		},
+
+		{
+			// Invalid inline CA.
+			caText:   "badca",
+			certText: readFile(t, ClientCertificatePath),
+			keyText:  readFile(t, ClientKeyNoPassPath),
+
+			errMsg: "unable to use inline CA cert",
+		},
+		{
+			// Invalid cert.
+			caText:   readFile(t, TLSCAChainPath),
+			certText: "badcert",
+			keyText:  readFile(t, ClientKeyNoPassPath),
+
+			errMsg: "failed to find any PEM data in certificate input",
+		},
+		{
+			// Invalid key.
+			caText:   readFile(t, TLSCAChainPath),
+			certText: readFile(t, ClientCertificatePath),
+			keyText:  "badkey",
+
+			errMsg: "failed to find any PEM data in key input",
+		},
+	}
+
+	for i, tc := range testCases {
+		tc := tc
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			cfg := HTTPClientConfig{
+				TLSConfig: TLSConfig{
+					CA:                 tc.caText,
+					CAFile:             tc.caFile,
+					Cert:               tc.certText,
+					CertFile:           tc.certFile,
+					Key:                Secret(tc.keyText),
+					KeyFile:            tc.keyFile,
+					InsecureSkipVerify: false},
+			}
+
+			c, err := NewClientFromConfig(cfg, "test")
+			if tc.errMsg != "" {
+				if !strings.Contains(err.Error(), tc.errMsg) {
+					t.Fatalf("Expected error message to contain %q, got %q", tc.errMsg, err)
+				}
+				return
+			} else if err != nil {
+				t.Fatalf("Error creating HTTP Client: %v", err)
+			}
+
+			req, err := http.NewRequest(http.MethodGet, testServer.URL, nil)
+			if err != nil {
+				t.Fatalf("Error creating HTTP request: %v", err)
+			}
+			r, err := c.Do(req)
 			if err != nil {
 				t.Fatalf("Can't connect to the test server")
 			}
@@ -1837,4 +1978,15 @@ no_proxy: promcon.io,cncf.io`, proxyServer.URL),
 			}
 		})
 	}
+}
+
+func readFile(t *testing.T, filename string) string {
+	t.Helper()
+
+	content, err := os.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("Failed to read file %q: %s", filename, err)
+	}
+
+	return string(content)
 }
