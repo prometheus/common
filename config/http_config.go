@@ -949,21 +949,6 @@ func (c *TLSConfig) roundTripperSettings() TLSRoundTripperSettings {
 	}
 }
 
-// readCertAndKey reads the cert and key files from the disk.
-func readCertAndKey(certFile, keyFile string) ([]byte, []byte, error) {
-	certData, err := os.ReadFile(certFile)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	keyData, err := os.ReadFile(keyFile)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return certData, keyData, nil
-}
-
 // getClientCertificate reads the pair of client cert and key from disk and returns a tls.Certificate.
 func (c *TLSConfig) getClientCertificate(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 	var (
