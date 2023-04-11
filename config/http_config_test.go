@@ -774,7 +774,7 @@ func TestTLSConfigInvalidCA(t *testing.T) {
 				KeyFile:            ClientKeyNoPassPath,
 				ServerName:         "",
 				InsecureSkipVerify: false},
-			errorMessage: fmt.Sprintf("unable to read specified client cert (%s) & key (%s):", MissingCert, ClientKeyNoPassPath),
+			errorMessage: fmt.Sprintf("unable to read specified client cert (%s):", MissingCert),
 		}, {
 			configTLSConfig: TLSConfig{
 				CAFile:             "",
@@ -782,7 +782,7 @@ func TestTLSConfigInvalidCA(t *testing.T) {
 				KeyFile:            MissingKey,
 				ServerName:         "",
 				InsecureSkipVerify: false},
-			errorMessage: fmt.Sprintf("unable to read specified client cert (%s) & key (%s):", ClientCertificatePath, MissingKey),
+			errorMessage: fmt.Sprintf("unable to read specified client key (%s):", MissingKey),
 		},
 	}
 
