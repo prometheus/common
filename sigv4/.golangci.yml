@@ -1,0 +1,26 @@
+issues:
+  exclude-rules:
+    - path: sigv4_config.go
+      text: exported
+
+linters:
+  enable:
+    - gocritic
+    - gofumpt
+    - goimports
+    - gosimple
+    - misspell
+    - nolintlint
+    - revive
+    - unconvert
+    - unused
+
+linters-settings:
+  goimports:
+    local-prefixes: github.com/prometheus
+
+output:
+  sort-results: true
+
+run:
+  timeout: 5m

@@ -472,11 +472,11 @@ func writeExemplar(w enhancedWriter, e *dto.Exemplar) (int, error) {
 		if err != nil {
 			return written, err
 		}
-		err = (*e).Timestamp.CheckValid()
+		err = e.Timestamp.CheckValid()
 		if err != nil {
 			return written, err
 		}
-		ts := (*e).Timestamp.AsTime()
+		ts := e.Timestamp.AsTime()
 		// TODO(beorn7): Format this directly from components of ts to
 		// avoid overflow/underflow and precision issues of the float
 		// conversion.

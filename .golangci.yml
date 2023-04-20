@@ -1,0 +1,28 @@
+issues:
+  exclude-rules:
+    - path: promlog/log.go
+      text: unexported-return
+    - path: expfmt/expfmt.go
+      text: var-naming
+
+linters:
+  enable:
+    - gocritic
+    - gofumpt
+    - goimports
+    - gosimple
+    - misspell
+    - nolintlint
+    - revive
+    - unconvert
+    - unused
+
+linters-settings:
+  goimports:
+    local-prefixes: github.com/prometheus
+
+output:
+  sort-results: true
+
+run:
+  timeout: 5m

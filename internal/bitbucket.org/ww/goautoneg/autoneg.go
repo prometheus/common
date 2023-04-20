@@ -52,14 +52,14 @@ type Accept struct {
 }
 
 // For internal use, so that we can use the sort interface
-type accept_slice []Accept
+type acceptSlice []Accept
 
-func (accept accept_slice) Len() int {
+func (accept acceptSlice) Len() int {
 	slice := []Accept(accept)
 	return len(slice)
 }
 
-func (accept accept_slice) Less(i, j int) bool {
+func (accept acceptSlice) Less(i, j int) bool {
 	slice := []Accept(accept)
 	ai, aj := slice[i], slice[j]
 	if ai.Q > aj.Q {
@@ -74,7 +74,7 @@ func (accept accept_slice) Less(i, j int) bool {
 	return false
 }
 
-func (accept accept_slice) Swap(i, j int) {
+func (accept acceptSlice) Swap(i, j int) {
 	slice := []Accept(accept)
 	slice[i], slice[j] = slice[j], slice[i]
 }
@@ -93,8 +93,8 @@ func ParseAccept(header string) (accept []Accept) {
 
 		mrp := strings.Split(part, ";")
 
-		media_range := mrp[0]
-		sp := strings.Split(media_range, "/")
+		mediaRange := mrp[0]
+		sp := strings.Split(mediaRange, "/")
 		a.Type = strings.Trim(sp[0], " ")
 
 		switch {
@@ -127,7 +127,7 @@ func ParseAccept(header string) (accept []Accept) {
 		accept = append(accept, a)
 	}
 
-	slice := accept_slice(accept)
+	slice := acceptSlice(accept)
 	sort.Sort(slice)
 
 	return
@@ -135,7 +135,7 @@ func ParseAccept(header string) (accept []Accept) {
 
 // Negotiate the most appropriate content_type given the accept header
 // and a list of alternatives.
-func Negotiate(header string, alternatives []string) (content_type string) {
+func Negotiate(header string, alternatives []string) (contentType string) {
 	asp := make([][]string, 0, len(alternatives))
 	for _, ctype := range alternatives {
 		asp = append(asp, strings.SplitN(ctype, "/", 2))
@@ -143,15 +143,15 @@ func Negotiate(header string, alternatives []string) (content_type string) {
 	for _, clause := range ParseAccept(header) {
 		for i, ctsp := range asp {
 			if clause.Type == ctsp[0] && clause.SubType == ctsp[1] {
-				content_type = alternatives[i]
+				contentType = alternatives[i]
 				return
 			}
 			if clause.Type == ctsp[0] && clause.SubType == "*" {
-				content_type = alternatives[i]
+				contentType = alternatives[i]
 				return
 			}
 			if clause.Type == "*" && clause.SubType == "*" {
-				content_type = alternatives[i]
+				contentType = alternatives[i]
 				return
 			}
 		}

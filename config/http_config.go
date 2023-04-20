@@ -70,7 +70,7 @@ var TLSVersions = map[string]TLSVersion{
 
 func (tv *TLSVersion) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var s string
-	err := unmarshal((*string)(&s))
+	err := unmarshal(&s)
 	if err != nil {
 		return err
 	}
@@ -251,12 +251,12 @@ func (o *OAuth2) UnmarshalJSON(data []byte) error {
 }
 
 // SetDirectory joins any relative file paths with dir.
-func (a *OAuth2) SetDirectory(dir string) {
-	if a == nil {
+func (o *OAuth2) SetDirectory(dir string) {
+	if o == nil {
 		return
 	}
-	a.ClientSecretFile = JoinDir(dir, a.ClientSecretFile)
-	a.TLSConfig.SetDirectory(dir)
+	o.ClientSecretFile = JoinDir(dir, o.ClientSecretFile)
+	o.TLSConfig.SetDirectory(dir)
 }
 
 // LoadHTTPConfig parses the YAML input s into a HTTPClientConfig.
@@ -1104,9 +1104,9 @@ func (t *tlsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 
 	t.mtx.RLock()
-	equal := bytes.Equal(caHash[:], t.hashCAData) &&
-		bytes.Equal(certHash[:], t.hashCertData) &&
-		bytes.Equal(keyHash[:], t.hashKeyData)
+	equal := bytes.Equal(caHash, t.hashCAData) &&
+		bytes.Equal(certHash, t.hashCertData) &&
+		bytes.Equal(keyHash, t.hashKeyData)
 	rt := t.rt
 	t.mtx.RUnlock()
 	if equal {
@@ -1129,9 +1129,9 @@ func (t *tlsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	t.mtx.Lock()
 	t.rt = rt
-	t.hashCAData = caHash[:]
-	t.hashCertData = certHash[:]
-	t.hashKeyData = keyHash[:]
+	t.hashCAData = caHash
+	t.hashCertData = certHash
+	t.hashKeyData = keyHash
 	t.mtx.Unlock()
 
 	return rt.RoundTrip(req)

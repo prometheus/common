@@ -16,14 +16,13 @@ package config
 import (
 	"bytes"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
-
-	"encoding/json"
 
 	"gopkg.in/yaml.v2"
 )
@@ -59,32 +58,40 @@ var expectedTLSConfigs = []struct {
 	{
 		filename: "tls_config.empty.good.json",
 		config:   &tls.Config{},
-	}, {
+	},
+	{
 		filename: "tls_config.insecure.good.json",
 		config:   &tls.Config{InsecureSkipVerify: true},
-	}, {
+	},
+	{
 		filename: "tls_config.tlsversion.good.json",
 		config:   &tls.Config{MinVersion: tls.VersionTLS11},
-	}, {
+	},
+	{
 		filename: "tls_config.max_version.good.json",
 		config:   &tls.Config{MaxVersion: tls.VersionTLS12},
 	},
 	{
 		filename: "tls_config.empty.good.yml",
 		config:   &tls.Config{},
-	}, {
+	},
+	{
 		filename: "tls_config.insecure.good.yml",
 		config:   &tls.Config{InsecureSkipVerify: true},
-	}, {
+	},
+	{
 		filename: "tls_config.tlsversion.good.yml",
 		config:   &tls.Config{MinVersion: tls.VersionTLS11},
-	}, {
+	},
+	{
 		filename: "tls_config.max_version.good.yml",
 		config:   &tls.Config{MaxVersion: tls.VersionTLS12},
-	}, {
+	},
+	{
 		filename: "tls_config.max_and_min_version.good.yml",
 		config:   &tls.Config{MaxVersion: tls.VersionTLS12, MinVersion: tls.VersionTLS11},
-	}, {
+	},
+	{
 		filename: "tls_config.max_and_min_version_same.good.yml",
 		config:   &tls.Config{MaxVersion: tls.VersionTLS12, MinVersion: tls.VersionTLS12},
 	},
@@ -134,7 +141,7 @@ func TestTLSVersionStringer(t *testing.T) {
 }
 
 func TestTLSVersionMarshalYAML(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		input    TLSVersion
 		expected string
 		err      error
@@ -174,7 +181,7 @@ func TestTLSVersionMarshalYAML(t *testing.T) {
 }
 
 func TestTLSVersionMarshalJSON(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		input    TLSVersion
 		expected string
 		err      error

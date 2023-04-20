@@ -18,8 +18,9 @@ import (
 	"net/http"
 	"testing"
 
-	dto "github.com/prometheus/client_model/go"
 	"google.golang.org/protobuf/proto"
+
+	dto "github.com/prometheus/client_model/go"
 )
 
 func TestNegotiate(t *testing.T) {
@@ -102,6 +103,7 @@ func TestNegotiateOpenMetrics(t *testing.T) {
 		})
 	}
 }
+
 func TestEncode(t *testing.T) {
 	var buff bytes.Buffer
 	delimEncoder := NewEncoder(&buff, FmtProtoDelim)

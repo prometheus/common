@@ -46,26 +46,26 @@ var chrome = "application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q
 
 func TestParseAccept(t *testing.T) {
 	alternatives := []string{"text/html", "image/png"}
-	content_type := Negotiate(chrome, alternatives)
-	if content_type != "image/png" {
-		t.Errorf("got %s expected image/png", content_type)
+	contentType := Negotiate(chrome, alternatives)
+	if contentType != "image/png" {
+		t.Errorf("got %s expected image/png", contentType)
 	}
 
 	alternatives = []string{"text/html", "text/plain", "text/n3"}
-	content_type = Negotiate(chrome, alternatives)
-	if content_type != "text/html" {
-		t.Errorf("got %s expected text/html", content_type)
+	contentType = Negotiate(chrome, alternatives)
+	if contentType != "text/html" {
+		t.Errorf("got %s expected text/html", contentType)
 	}
 
 	alternatives = []string{"text/n3", "text/plain"}
-	content_type = Negotiate(chrome, alternatives)
-	if content_type != "text/plain" {
-		t.Errorf("got %s expected text/plain", content_type)
+	contentType = Negotiate(chrome, alternatives)
+	if contentType != "text/plain" {
+		t.Errorf("got %s expected text/plain", contentType)
 	}
 
 	alternatives = []string{"text/n3", "application/rdf+xml"}
-	content_type = Negotiate(chrome, alternatives)
-	if content_type != "text/n3" {
-		t.Errorf("got %s expected text/n3", content_type)
+	contentType = Negotiate(chrome, alternatives)
+	if contentType != "text/n3" {
+		t.Errorf("got %s expected text/n3", contentType)
 	}
 }

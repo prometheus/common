@@ -23,8 +23,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	signer "github.com/aws/aws-sdk-go/aws/signer/v4"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/stretchr/testify/require"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func TestSigV4_Inferred_Region(t *testing.T) {

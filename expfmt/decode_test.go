@@ -22,9 +22,9 @@ import (
 	"strings"
 	"testing"
 
-	dto "github.com/prometheus/client_model/go"
 	"google.golang.org/protobuf/proto"
 
+	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/model"
 )
 
@@ -100,8 +100,7 @@ mf2 4
 }
 
 func TestProtoDecoder(t *testing.T) {
-
-	var testTime = model.Now()
+	testTime := model.Now()
 
 	scenarios := []struct {
 		in       string
@@ -369,7 +368,7 @@ func TestProtoDecoder(t *testing.T) {
 }
 
 func testDiscriminatorHTTPHeader(t testing.TB) {
-	var scenarios = []struct {
+	scenarios := []struct {
 		input  map[string]string
 		output Format
 	}{
@@ -435,7 +434,7 @@ func TestExtractSamples(t *testing.T) {
 			Help: proto.String("Help for foo."),
 			Type: dto.MetricType_COUNTER.Enum(),
 			Metric: []*dto.Metric{
-				&dto.Metric{
+				{
 					Counter: &dto.Counter{
 						Value: proto.Float64(4711),
 					},
@@ -447,7 +446,7 @@ func TestExtractSamples(t *testing.T) {
 			Help: proto.String("Help for bar."),
 			Type: dto.MetricType_GAUGE.Enum(),
 			Metric: []*dto.Metric{
-				&dto.Metric{
+				{
 					Gauge: &dto.Gauge{
 						Value: proto.Float64(3.14),
 					},
@@ -459,7 +458,7 @@ func TestExtractSamples(t *testing.T) {
 			Help: proto.String("Help for bad."),
 			Type: dto.MetricType(42).Enum(),
 			Metric: []*dto.Metric{
-				&dto.Metric{
+				{
 					Gauge: &dto.Gauge{
 						Value: proto.Float64(2.7),
 					},

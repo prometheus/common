@@ -49,28 +49,28 @@ type HistogramBucket struct {
 	Count      FloatString
 }
 
-func (s HistogramBucket) MarshalJSON() ([]byte, error) {
-	b, err := json.Marshal(s.Boundaries)
+func (hb HistogramBucket) MarshalJSON() ([]byte, error) {
+	b, err := json.Marshal(hb.Boundaries)
 	if err != nil {
 		return nil, err
 	}
-	l, err := json.Marshal(s.Lower)
+	l, err := json.Marshal(hb.Lower)
 	if err != nil {
 		return nil, err
 	}
-	u, err := json.Marshal(s.Upper)
+	u, err := json.Marshal(hb.Upper)
 	if err != nil {
 		return nil, err
 	}
-	c, err := json.Marshal(s.Count)
+	c, err := json.Marshal(hb.Count)
 	if err != nil {
 		return nil, err
 	}
 	return []byte(fmt.Sprintf("[%s,%s,%s,%s]", b, l, u, c)), nil
 }
 
-func (s *HistogramBucket) UnmarshalJSON(buf []byte) error {
-	tmp := []interface{}{&s.Boundaries, &s.Lower, &s.Upper, &s.Count}
+func (hb *HistogramBucket) UnmarshalJSON(buf []byte) error {
+	tmp := []interface{}{&hb.Boundaries, &hb.Lower, &hb.Upper, &hb.Count}
 	wantLen := len(tmp)
 	if err := json.Unmarshal(buf, &tmp); err != nil {
 		return err
@@ -81,26 +81,26 @@ func (s *HistogramBucket) UnmarshalJSON(buf []byte) error {
 	return nil
 }
 
-func (s *HistogramBucket) Equal(o *HistogramBucket) bool {
-	return s == o || (s.Boundaries == o.Boundaries && s.Lower == o.Lower && s.Upper == o.Upper && s.Count == o.Count)
+func (hb *HistogramBucket) Equal(o *HistogramBucket) bool {
+	return hb == o || (hb.Boundaries == o.Boundaries && hb.Lower == o.Lower && hb.Upper == o.Upper && hb.Count == o.Count)
 }
 
-func (b HistogramBucket) String() string {
+func (hb HistogramBucket) String() string {
 	var sb strings.Builder
-	lowerInclusive := b.Boundaries == 1 || b.Boundaries == 3
-	upperInclusive := b.Boundaries == 0 || b.Boundaries == 3
+	lowerInclusive := hb.Boundaries == 1 || hb.Boundaries == 3
+	upperInclusive := hb.Boundaries == 0 || hb.Boundaries == 3
 	if lowerInclusive {
 		sb.WriteRune('[')
 	} else {
 		sb.WriteRune('(')
 	}
-	fmt.Fprintf(&sb, "%g,%g", b.Lower, b.Upper)
+	fmt.Fprintf(&sb, "%g,%g", hb.Lower, hb.Upper)
 	if upperInclusive {
 		sb.WriteRune(']')
 	} else {
 		sb.WriteRune(')')
 	}
-	fmt.Fprintf(&sb, ":%v", b.Count)
+	fmt.Fprintf(&sb, ":%v", hb.Count)
 	return sb.String()
 }
 

@@ -20,9 +20,9 @@ import (
 	"mime"
 	"net/http"
 
-	dto "github.com/prometheus/client_model/go"
-
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
+
+	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/model"
 )
 
@@ -72,8 +72,7 @@ func ResponseFormat(h http.Header) Format {
 // NewDecoder returns a new decoder based on the given input format.
 // If the input format does not imply otherwise, a text format decoder is returned.
 func NewDecoder(r io.Reader, format Format) Decoder {
-	switch format {
-	case FmtProtoDelim:
+	if format == FmtProtoDelim {
 		return &protoDecoder{r: r}
 	}
 	return &textDecoder{r: r}
