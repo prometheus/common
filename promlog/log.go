@@ -112,10 +112,10 @@ type Config struct {
 // with a timestamp. The output always goes to stderr.
 func New(config *Config) log.Logger {
 	if config.Format != nil && config.Format.s == "json" {
-		return NewWithLogger(log.NewJSONLogger(os.Stderr), config)
-	} else {
-		return NewWithLogger(log.NewLogfmtLogger(os.Stderr), config)
+		return NewWithLogger(log.NewJSONLogger(log.NewSyncWriter(os.Stderr)), config)
 	}
+
+	return NewWithLogger(log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr)), config)
 }
 
 // NewWithLogger returns a new leveled oklog logger with a custom log.Logger.
@@ -135,10 +135,10 @@ func NewWithLogger(l log.Logger, config *Config) log.Logger {
 // changed, like the level.
 func NewDynamic(config *Config) *logger {
 	if config.Format != nil && config.Format.s == "json" {
-		return NewDynamicWithLogger(log.NewJSONLogger(os.Stderr), config)
-	} else {
-		return NewDynamicWithLogger(log.NewLogfmtLogger(os.Stderr), config)
+		return NewDynamicWithLogger(log.NewJSONLogger(log.NewSyncWriter(os.Stderr)), config)
 	}
+
+	return NewDynamicWithLogger(log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr)), config)
 }
 
 // NewDynamicWithLogger returns a new leveled logger with a custom io.Writer.
