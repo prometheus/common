@@ -525,6 +525,14 @@ func (p *TextParser) readingType() stateFn {
 		return nil
 	}
 	p.currentMF.Type = dto.MetricType(metricType).Enum()
+	if p.currentMF.GetType() == dto.MetricType_INFO {
+		// Add suffix _info if metric name does not end with it.
+		if !strings.HasSuffix(*p.currentMF.Name, "_info") {
+			delete(p.metricFamiliesByName, *p.currentMF.Name)
+			p.currentMF.Name = proto.String(*p.currentMF.Name + "_info")
+			p.metricFamiliesByName[*p.currentMF.Name] = p.currentMF
+		}
+	}
 	return p.startOfLine
 }
 
