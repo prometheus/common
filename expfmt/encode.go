@@ -99,8 +99,11 @@ func NegotiateIncludingOpenMetrics(h http.Header) Format {
 		if ac.Type == "text" && ac.SubType == "plain" && (ver == TextVersion || ver == "") {
 			return FmtText
 		}
-		if ac.Type+"/"+ac.SubType == OpenMetricsType && (ver == OpenMetricsVersion || ver == "") {
-			return FmtOpenMetrics
+		if ac.Type+"/"+ac.SubType == OpenMetricsType && (ver == OpenMetricsVersion_0_0_1 || ver == OpenMetricsVersion_1_0_0 || ver == "") {
+			if ver == OpenMetricsVersion_0_0_1 {
+				return FmtOpenMetrics_0_0_1
+			}
+			return FmtOpenMetrics_1_0_0
 		}
 	}
 	return FmtText
@@ -146,7 +149,7 @@ func NewEncoder(w io.Writer, format Format) Encoder {
 			},
 			close: func() error { return nil },
 		}
-	case FmtOpenMetrics:
+	case FmtOpenMetrics_0_0_1, FmtOpenMetrics_1_0_0:
 		return encoderCloser{
 			encode: func(v *dto.MetricFamily) error {
 				_, err := MetricFamilyToOpenMetrics(w, v)
