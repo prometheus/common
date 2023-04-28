@@ -72,7 +72,7 @@ func TestNegotiateOpenMetrics(t *testing.T) {
 		{
 			name:              "OM format, no version",
 			acceptHeaderValue: "application/openmetrics-text",
-			expectedFmt:       string(FmtOpenMetrics_1_0_0),
+			expectedFmt:       string(FmtOpenMetrics_0_0_1),
 		},
 		{
 			name:              "OM format, 0.0.1 version",

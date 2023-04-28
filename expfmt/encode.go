@@ -100,10 +100,10 @@ func NegotiateIncludingOpenMetrics(h http.Header) Format {
 			return FmtText
 		}
 		if ac.Type+"/"+ac.SubType == OpenMetricsType && (ver == OpenMetricsVersion_0_0_1 || ver == OpenMetricsVersion_1_0_0 || ver == "") {
-			if ver == OpenMetricsVersion_0_0_1 {
-				return FmtOpenMetrics_0_0_1
+			if ver == OpenMetricsVersion_1_0_0 {
+				return FmtOpenMetrics_1_0_0
 			}
-			return FmtOpenMetrics_1_0_0
+			return FmtOpenMetrics_0_0_1
 		}
 	}
 	return FmtText
