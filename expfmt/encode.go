@@ -18,9 +18,9 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/golang/protobuf/proto" //nolint:staticcheck // Ignore SA1019. Need to keep deprecated package for compatibility.
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg"
+	"google.golang.org/protobuf/encoding/prototext"
 
 	dto "github.com/prometheus/client_model/go"
 )
@@ -136,7 +136,7 @@ func NewEncoder(w io.Writer, format Format) Encoder {
 	case FmtProtoText:
 		return encoderCloser{
 			encode: func(v *dto.MetricFamily) error {
-				_, err := fmt.Fprintln(w, proto.MarshalTextString(v))
+				_, err := fmt.Fprintln(w, prototext.Format(v))
 				return err
 			},
 			close: func() error { return nil },
