@@ -20,16 +20,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"  //nolint:staticcheck // Ignore SA1019. Need to keep deprecated package for compatibility.
-	"github.com/golang/protobuf/ptypes" //nolint:staticcheck // Ignore SA1019. Need to keep deprecated package for compatibility.
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	dto "github.com/prometheus/client_model/go"
 )
 
 func TestCreateOpenMetrics(t *testing.T) {
-	openMetricsTimestamp, err := ptypes.TimestampProto(time.Unix(12345, 600000000)) //nolint:staticcheck // Ignore SA1019. Need to keep deprecated package for compatibility.
-
-	if err != nil {
+	openMetricsTimestamp := timestamppb.New(time.Unix(12345, 600000000))
+	if err := openMetricsTimestamp.CheckValid(); err != nil {
 		t.Error(err)
 	}
 
