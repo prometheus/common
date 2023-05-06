@@ -1838,3 +1838,14 @@ no_proxy: promcon.io,cncf.io`, proxyServer.URL),
 		})
 	}
 }
+
+func TestDSCPDialContext(t *testing.T) {
+	cfg := HTTPClientConfig{DSCP: 46}
+	dialer := &DSCPDialer{DSCP: cfg.DSCP}
+	httpClientOption := WithDialContextFunc(dialer.DialContext)
+
+	_, err := NewClientFromConfig(cfg, "test", httpClientOption)
+	if err != nil {
+		t.Fatalf("Can't create a client from this config: %+v", cfg)
+	}
+}

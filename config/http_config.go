@@ -33,6 +33,8 @@ import (
 	"github.com/mwitkow/go-conntrack"
 	"golang.org/x/net/http/httpproxy"
 	"golang.org/x/net/http2"
+	"golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv6"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 	"gopkg.in/yaml.v2"
@@ -43,6 +45,7 @@ var (
 	DefaultHTTPClientConfig = HTTPClientConfig{
 		FollowRedirects: true,
 		EnableHTTP2:     true,
+		DSCP:            0,
 	}
 
 	// defaultHTTPClientOptions holds the default HTTP client options.
@@ -309,6 +312,8 @@ type HTTPClientConfig struct {
 	EnableHTTP2 bool `yaml:"enable_http2" json:"enable_http2"`
 	// Proxy configuration.
 	ProxyConfig `yaml:",inline"`
+	// DSCP configuration
+	DSCP int `yaml:"dscp" json:"dscp"`
 }
 
 // SetDirectory joins any relative file paths with dir.
@@ -1158,4 +1163,24 @@ func (c *ProxyConfig) Proxy() (fn func(*http.Request) (*url.URL, error)) {
 // ProxyConnectHeader() return the Proxy Connext Headers.
 func (c *ProxyConfig) GetProxyConnectHeader() http.Header {
 	return c.ProxyConnectHeader.HTTPHeader()
+}
+
+type DSCPDialer struct {
+	DSCP int
+}
+
+func (d *DSCPDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	conn, err := (&net.Dialer{}).DialContext(ctx, network, addr)
+	if err != nil {
+		return conn, err
+	}
+
+	err = ipv6.NewConn(conn).SetTrafficClass(d.DSCP << 2)
+	if err != nil {
+		// fallback to IPv4
+		// err is ignored. It's probably not implemented on this platform if it fails
+		_ = ipv4.NewConn(conn).SetTOS(d.DSCP << 2)
+	}
+
+	return conn, nil
 }
