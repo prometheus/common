@@ -3,7 +3,7 @@ module github.com/prometheus/common/sigv4
 go 1.18
 
 require (
-	github.com/aws/aws-sdk-go v1.43.26
+	github.com/aws/aws-sdk-go v1.44.262
 	github.com/prometheus/client_golang v1.15.1
 	github.com/prometheus/common v0.43.0
 	github.com/stretchr/testify v1.8.0
