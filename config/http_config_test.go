@@ -84,6 +84,10 @@ var invalidHTTPClientConfigs = []struct {
 		errMsg:               "at most one of basic_auth password & password_file must be configured",
 	},
 	{
+		httpClientConfigFile: "testdata/http.conf.basic-auth.bad-username.yaml",
+		errMsg:               "at most one of basic_auth username & username_file must be configured",
+	},
+	{
 		httpClientConfigFile: "testdata/http.conf.mix-bearer-and-creds.bad.yaml",
 		errMsg:               "authorization is not compatible with bearer_token & bearer_token_file",
 	},
@@ -890,6 +894,32 @@ func TestBasicAuthPasswordFile(t *testing.T) {
 	}
 	if string(rt.password) != "" {
 		t.Errorf("Bad HTTP client password: %s", rt.password)
+	}
+	if string(rt.passwordFile) != "testdata/basic-auth-password" {
+		t.Errorf("Bad HTTP client passwordFile: %s", rt.passwordFile)
+	}
+}
+
+func TestBasicUsernameFile(t *testing.T) {
+	cfg, _, err := LoadHTTPConfigFile("testdata/http.conf.basic-auth.username-file.good.yaml")
+	if err != nil {
+		t.Fatalf("Error loading HTTP client config: %v", err)
+	}
+	client, err := NewClientFromConfig(*cfg, "test")
+	if err != nil {
+		t.Fatalf("Error creating HTTP Client: %v", err)
+	}
+
+	rt, ok := client.Transport.(*basicAuthRoundTripper)
+	if !ok {
+		t.Fatalf("Error casting to basic auth transport, %v", client.Transport)
+	}
+
+	if rt.username != "" {
+		t.Errorf("Bad HTTP client username: %s", rt.username)
+	}
+	if string(rt.usernameFile) != "testdata/basic-auth-username" {
+		t.Errorf("Bad HTTP client usernameFile: %s", rt.usernameFile)
 	}
 	if string(rt.passwordFile) != "testdata/basic-auth-password" {
 		t.Errorf("Bad HTTP client passwordFile: %s", rt.passwordFile)
