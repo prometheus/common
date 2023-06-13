@@ -62,6 +62,7 @@ func NewSigV4RoundTripper(cfg *SigV4Config, next http.RoundTripper) (http.RoundT
 	sess, err := session.NewSessionWithOptions(session.Options{
 		Config: aws.Config{
 			Region:      aws.String(cfg.Region),
+			Endpoint:    aws.String(cfg.Endpoint),
 			Credentials: creds,
 		},
 		Profile: cfg.Profile,
