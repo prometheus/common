@@ -12,7 +12,7 @@ require (
 	github.com/prometheus/client_model v0.4.0
 	golang.org/x/net v0.10.0
 	golang.org/x/oauth2 v0.8.0
-	google.golang.org/protobuf v1.30.0
+	google.golang.org/protobuf v1.31.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
