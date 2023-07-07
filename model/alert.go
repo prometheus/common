@@ -34,6 +34,8 @@ type Alert struct {
 	// Extra key/value information which does not define alert identity.
 	Annotations LabelSet `json:"annotations"`
 
+	ActiveAt time.Time `json:"activeAt,omitempty"`
+
 	// The known time range for this alert. Both ends are optional.
 	StartsAt     time.Time `json:"startsAt,omitempty"`
 	EndsAt       time.Time `json:"endsAt,omitempty"`
@@ -83,8 +85,14 @@ func (a *Alert) Status() AlertStatus {
 
 // Validate checks whether the alert data is inconsistent.
 func (a *Alert) Validate() error {
+	if a.ActiveAt.IsZero() {
+		return fmt.Errorf("active time missing")
+	}
 	if a.StartsAt.IsZero() {
 		return fmt.Errorf("start time missing")
+	}
+	if a.StartsAt.Before(a.ActiveAt) {
+		return fmt.Errorf("active time must be before start time")
 	}
 	if !a.EndsAt.IsZero() && a.EndsAt.Before(a.StartsAt) {
 		return fmt.Errorf("start time must be before end time")

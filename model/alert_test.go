@@ -31,18 +31,27 @@ func TestAlertValidate(t *testing.T) {
 		{
 			alert: &Alert{
 				Labels:   LabelSet{"a": "b"},
-				StartsAt: ts,
+				ActiveAt: ts,
+				StartsAt: ts.Add(time.Second),
 			},
 		},
 		{
 			alert: &Alert{
 				Labels: LabelSet{"a": "b"},
 			},
+			err: "active time missing",
+		},
+		{
+			alert: &Alert{
+				Labels:   LabelSet{"a": "b"},
+				ActiveAt: ts,
+			},
 			err: "start time missing",
 		},
 		{
 			alert: &Alert{
 				Labels:   LabelSet{"a": "b"},
+				ActiveAt: ts,
 				StartsAt: ts,
 				EndsAt:   ts,
 			},
@@ -50,6 +59,15 @@ func TestAlertValidate(t *testing.T) {
 		{
 			alert: &Alert{
 				Labels:   LabelSet{"a": "b"},
+				ActiveAt: ts,
+				StartsAt: ts.Add(time.Second),
+				EndsAt:   ts.Add(1 * time.Minute),
+			},
+		},
+		{
+			alert: &Alert{
+				Labels:   LabelSet{"a": "b"},
+				ActiveAt: ts,
 				StartsAt: ts,
 				EndsAt:   ts.Add(1 * time.Minute),
 			},
@@ -57,6 +75,16 @@ func TestAlertValidate(t *testing.T) {
 		{
 			alert: &Alert{
 				Labels:   LabelSet{"a": "b"},
+				ActiveAt: ts,
+				StartsAt: ts.Add(-1 * time.Minute),
+				EndsAt:   ts.Add(-1 * time.Minute),
+			},
+			err: "active time must be before start time",
+		},
+		{
+			alert: &Alert{
+				Labels:   LabelSet{"a": "b"},
+				ActiveAt: ts,
 				StartsAt: ts,
 				EndsAt:   ts.Add(-1 * time.Minute),
 			},
@@ -64,6 +92,7 @@ func TestAlertValidate(t *testing.T) {
 		},
 		{
 			alert: &Alert{
+				ActiveAt: ts,
 				StartsAt: ts,
 			},
 			err: "at least one label pair required",
@@ -71,6 +100,7 @@ func TestAlertValidate(t *testing.T) {
 		{
 			alert: &Alert{
 				Labels:   LabelSet{"a": "b", "!bad": "label"},
+				ActiveAt: ts,
 				StartsAt: ts,
 			},
 			err: "invalid label set: invalid name",
@@ -78,6 +108,7 @@ func TestAlertValidate(t *testing.T) {
 		{
 			alert: &Alert{
 				Labels:   LabelSet{"a": "b", "bad": "\xfflabel"},
+				ActiveAt: ts,
 				StartsAt: ts,
 			},
 			err: "invalid label set: invalid value",
@@ -86,6 +117,7 @@ func TestAlertValidate(t *testing.T) {
 			alert: &Alert{
 				Labels:      LabelSet{"a": "b"},
 				Annotations: LabelSet{"!bad": "label"},
+				ActiveAt:    ts,
 				StartsAt:    ts,
 			},
 			err: "invalid annotations: invalid name",
@@ -94,6 +126,7 @@ func TestAlertValidate(t *testing.T) {
 			alert: &Alert{
 				Labels:      LabelSet{"a": "b"},
 				Annotations: LabelSet{"bad": "\xfflabel"},
+				ActiveAt:    ts,
 				StartsAt:    ts,
 			},
 			err: "invalid annotations: invalid value",
