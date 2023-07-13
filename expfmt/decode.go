@@ -23,6 +23,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
+
 	"github.com/prometheus/common/model"
 )
 
@@ -64,6 +65,48 @@ func ResponseFormat(h http.Header) Format {
 			return FmtUnknown
 		}
 		return FmtText
+	}
+
+	return FmtUnknown
+}
+
+// ResponseFormatIncludingOpenMetrics works like ResponseFormat but includes
+// FmtOpenMetrics as an option for the result. Note that this function is
+// temporary and will disappear once FmtOpenMetrics is fully supported and as
+// such may be returned by the normal ResponseFormat function.
+func ResponseFormatIncludingOpenMetrics(h http.Header) Format {
+	ct := h.Get(hdrContentType)
+
+	mediatype, params, err := mime.ParseMediaType(ct)
+	if err != nil {
+		return FmtUnknown
+	}
+
+	const textType = "text/plain"
+
+	switch mediatype {
+	case ProtoType:
+		if p, ok := params["proto"]; ok && p != ProtoProtocol {
+			return FmtUnknown
+		}
+		if e, ok := params["encoding"]; ok && e != "delimited" {
+			return FmtUnknown
+		}
+		return FmtProtoDelim
+
+	case textType:
+		if v, ok := params["version"]; ok && v != TextVersion {
+			return FmtUnknown
+		}
+		return FmtText
+
+	case OpenMetricsType:
+		switch params["version"] {
+		case OpenMetricsVersion_1_0_0:
+			return FmtOpenMetrics_1_0_0
+		case OpenMetricsVersion_0_0_1, "":
+			return FmtOpenMetrics_0_0_1
+		}
 	}
 
 	return FmtUnknown
