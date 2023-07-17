@@ -41,8 +41,9 @@ func TestCreateOpenMetrics(t *testing.T) {
 	}()
 
 	scenarios := []struct {
-		in  *dto.MetricFamily
-		out string
+		in      *dto.MetricFamily
+		options []ToOpenMetricsOption
+		out     string
 	}{
 		// 0: Counter, timestamp given, no _total suffix.
 		{
@@ -306,6 +307,7 @@ unknown_name{name_1="value 1"} -1.23e-45
 									Value:    proto.Float64(0),
 								},
 							},
+							CreatedTimestamp: openMetricsTimestamp,
 						},
 					},
 					{
@@ -336,10 +338,12 @@ unknown_name{name_1="value 1"} -1.23e-45
 									Value:    proto.Float64(3),
 								},
 							},
+							CreatedTimestamp: openMetricsTimestamp,
 						},
 					},
 				},
 			},
+			options: []ToOpenMetricsOption{WithCreatedLines()},
 			out: `# HELP summary_name summary docstring
 # TYPE summary_name summary
 summary_name{quantile="0.5"} -1.23
@@ -347,11 +351,13 @@ summary_name{quantile="0.9"} 0.2342354
 summary_name{quantile="0.99"} 0.0
 summary_name_sum -3.4567
 summary_name_count 42
+summary_name_created 12345.6
 summary_name{name_1="value 1",name_2="value 2",quantile="0.5"} 1.0
 summary_name{name_1="value 1",name_2="value 2",quantile="0.9"} 2.0
 summary_name{name_1="value 1",name_2="value 2",quantile="0.99"} 3.0
 summary_name_sum{name_1="value 1",name_2="value 2"} 2010.1971
 summary_name_count{name_1="value 1",name_2="value 2"} 4711
+summary_name_created{name_1="value 1",name_2="value 2"} 12345.6
 `,
 		},
 		// 7: Histogram
@@ -387,10 +393,12 @@ summary_name_count{name_1="value 1",name_2="value 2"} 4711
 									CumulativeCount: proto.Uint64(2693),
 								},
 							},
+							CreatedTimestamp: openMetricsTimestamp,
 						},
 					},
 				},
 			},
+			options: []ToOpenMetricsOption{WithCreatedLines()},
 			out: `# HELP request_duration_microseconds The response latency.
 # TYPE request_duration_microseconds histogram
 request_duration_microseconds_bucket{le="100.0"} 123
@@ -400,6 +408,7 @@ request_duration_microseconds_bucket{le="172.8"} 1524
 request_duration_microseconds_bucket{le="+Inf"} 2693
 request_duration_microseconds_sum 1.7560473e+06
 request_duration_microseconds_count 2693
+request_duration_microseconds_created 12345.6
 `,
 		},
 		// 8: Histogram with missing +Inf bucket.
@@ -522,7 +531,30 @@ request_duration_microseconds_count 2693
 				Metric: []*dto.Metric{
 					{
 						Counter: &dto.Counter{
-							Value: proto.Float64(42),
+							Value:            proto.Float64(42),
+							CreatedTimestamp: openMetricsTimestamp,
+						},
+					},
+				},
+			},
+			options: []ToOpenMetricsOption{WithCreatedLines()},
+			out: `# HELP foos Number of foos.
+# TYPE foos counter
+foos_total 42.0
+foos_created 12345.6
+`,
+		},
+		// 11: Simple Counter without created line.
+		{
+			in: &dto.MetricFamily{
+				Name: proto.String("foos_total"),
+				Help: proto.String("Number of foos."),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					&dto.Metric{
+						Counter: &dto.Counter{
+							Value:            proto.Float64(42),
+							CreatedTimestamp: openMetricsTimestamp,
 						},
 					},
 				},
@@ -532,7 +564,7 @@ request_duration_microseconds_count 2693
 foos_total 42.0
 `,
 		},
-		// 11: No metric.
+		// 12: No metric.
 		{
 			in: &dto.MetricFamily{
 				Name:   proto.String("name_total"),
@@ -548,7 +580,7 @@ foos_total 42.0
 
 	for i, scenario := range scenarios {
 		out := bytes.NewBuffer(make([]byte, 0, len(scenario.out)))
-		n, err := MetricFamilyToOpenMetrics(out, scenario.in)
+		n, err := MetricFamilyToOpenMetrics(out, scenario.in, scenario.options...)
 		if err != nil {
 			t.Errorf("%d. error: %s", i, err)
 			continue
