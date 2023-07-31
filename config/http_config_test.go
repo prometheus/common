@@ -39,18 +39,23 @@ import (
 )
 
 const (
-	TLSCAChainPath        = "testdata/tls-ca-chain.pem"
-	ServerCertificatePath = "testdata/server.crt"
-	ServerKeyPath         = "testdata/server.key"
-	ClientCertificatePath = "testdata/client.crt"
-	ClientKeyNoPassPath   = "testdata/client.key"
-	InvalidCA             = "testdata/client.key"
-	WrongClientCertPath   = "testdata/self-signed-client.crt"
-	WrongClientKeyPath    = "testdata/self-signed-client.key"
-	EmptyFile             = "testdata/empty"
-	MissingCA             = "missing/ca.crt"
-	MissingCert           = "missing/cert.crt"
-	MissingKey            = "missing/secret.key"
+	TLSCAChainPath              = "testdata/tls-ca-chain.pem"
+	TLSCACHainNoRootPath        = "testdata/tls-ca-no-root.pem"
+	ServerCertificatePath       = "testdata/server.crt"
+	ServerKeyPath               = "testdata/server.key"
+	ServerCertificatePath_CRL   = "testdata/server_revoked.crt"
+	ServerKeyPath_CRL           = "testdata/server_revoked.key"
+	ClientCertificatePath       = "testdata/client.crt"
+	ClientKeyNoPassPath         = "testdata/client.key"
+	InvalidCA                   = "testdata/client.key"
+	WrongClientCertPath         = "testdata/self-signed-client.crt"
+	WrongClientKeyPath          = "testdata/self-signed-client.key"
+	EmptyFile                   = "testdata/empty"
+	MissingCA                   = "missing/ca.crt"
+	MissingCert                 = "missing/cert.crt"
+	MissingKey                  = "missing/secret.key"
+	FullCRLChainPath            = "testdata/crl_chain_all_empty.pem"
+	FullCRLChainCertReovkedPath = "testdata/crl_chain_cert_revoked.pem"
 
 	ExpectedMessage                   = "I'm here to serve you!!!"
 	ExpectedError                     = "expected error"
@@ -143,6 +148,33 @@ func newTestServer(handler func(w http.ResponseWriter, r *http.Request)) (*httpt
 	serverCertificate, err := tls.LoadX509KeyPair(ServerCertificatePath, ServerKeyPath)
 	if err != nil {
 		return nil, fmt.Errorf("Can't load X509 key pair %s - %s", ServerCertificatePath, ServerKeyPath)
+	}
+
+	rootCAs := x509.NewCertPool()
+	rootCAs.AppendCertsFromPEM(tlsCAChain)
+
+	testServer.TLS = &tls.Config{
+		Certificates: make([]tls.Certificate, 1),
+		RootCAs:      rootCAs,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientCAs:    rootCAs}
+	testServer.TLS.Certificates[0] = serverCertificate
+
+	testServer.StartTLS()
+
+	return testServer, nil
+}
+
+func newTestCRLServer(handler func(w http.ResponseWriter, r *http.Request), serverCertPath, serverKeyPath string) (*httptest.Server, error) {
+	testServer := httptest.NewUnstartedServer(http.HandlerFunc(handler))
+
+	tlsCAChain, err := os.ReadFile(TLSCAChainPath)
+	if err != nil {
+		return nil, fmt.Errorf("Can't read %s", TLSCAChainPath)
+	}
+	serverCertificate, err := tls.LoadX509KeyPair(serverCertPath, serverKeyPath)
+	if err != nil {
+		return nil, fmt.Errorf("Can't load X509 key pair %s - %s", serverCertPath, serverKeyPath)
 	}
 
 	rootCAs := x509.NewCertPool()
@@ -1977,6 +2009,224 @@ no_proxy: promcon.io,cncf.io`, proxyServer.URL),
 				t.Fatalf("expected result URL: %s, but got: %s", tc.expectedProxyURL, resultURL.String())
 			}
 		})
+	}
+}
+
+// Test with empty CRL and irrelevant CRL.
+func TestNewClientFromEmptyCRLConfig(t *testing.T) {
+	var newClientValidConfig = []struct {
+		clientConfig HTTPClientConfig
+		handler      func(w http.ResponseWriter, r *http.Request)
+	}{
+		{ // Full chain of CA and empty CRL.
+			clientConfig: HTTPClientConfig{
+				TLSConfig: TLSConfig{
+					CAFile:             TLSCAChainPath,
+					CertFile:           ClientCertificatePath,
+					KeyFile:            ClientKeyNoPassPath,
+					ServerName:         "",
+					CRLFile:            FullCRLChainPath,
+					InsecureSkipVerify: false},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprint(w, ExpectedMessage)
+			},
+		}, { // Full chain of CA and single empty intermediate CRL.
+			clientConfig: HTTPClientConfig{
+				TLSConfig: TLSConfig{
+					CAFile:             TLSCAChainPath,
+					CertFile:           ClientCertificatePath,
+					KeyFile:            ClientKeyNoPassPath,
+					ServerName:         "",
+					CRLFile:            "testdata/crl_inter_empty.pem",
+					InsecureSkipVerify: false},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprint(w, ExpectedMessage)
+			},
+		}, { // Full chain of CA and single empty root CRL.
+			clientConfig: HTTPClientConfig{
+				TLSConfig: TLSConfig{
+					CAFile:             TLSCAChainPath,
+					CertFile:           ClientCertificatePath,
+					KeyFile:            ClientKeyNoPassPath,
+					ServerName:         "",
+					CRLFile:            "testdata/crl_root_empty.pem",
+					InsecureSkipVerify: false},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprint(w, ExpectedMessage)
+			},
+		}, { // Missing root in the chain of CA and full chain of CRL.
+			clientConfig: HTTPClientConfig{
+				TLSConfig: TLSConfig{
+					CAFile:             TLSCACHainNoRootPath,
+					CertFile:           ClientCertificatePath,
+					KeyFile:            ClientKeyNoPassPath,
+					ServerName:         "",
+					CRLFile:            FullCRLChainPath,
+					InsecureSkipVerify: false},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprint(w, ExpectedMessage)
+			},
+		}, { // TLS Config contain a pair of irrelevant CA and CRL
+			clientConfig: HTTPClientConfig{
+				TLSConfig: TLSConfig{
+					CAFile:             "testdata/tls-ca-chain-add-irlvt-ca.pem",
+					CertFile:           ClientCertificatePath,
+					KeyFile:            ClientKeyNoPassPath,
+					ServerName:         "",
+					CRLFile:            "testdata/crl_chain_irlvt_cert_revoked.pem",
+					InsecureSkipVerify: false},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprint(w, ExpectedMessage)
+			},
+		}, { // Full chain of CA and CRL, the Intermediate CA revoke the peer certificate,
+			//  set true to InsecureSkipVerify should skip the verifyPeerCertificate.
+			clientConfig: HTTPClientConfig{
+				TLSConfig: TLSConfig{
+					CAFile:             TLSCAChainPath,
+					CertFile:           ClientCertificatePath,
+					KeyFile:            ClientKeyNoPassPath,
+					ServerName:         "",
+					CRLFile:            FullCRLChainCertReovkedPath,
+					InsecureSkipVerify: true},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprint(w, ExpectedMessage)
+			},
+		},
+	}
+
+	for _, validConfig := range newClientValidConfig {
+		testServer, err := newTestCRLServer((validConfig.handler), ServerCertificatePath_CRL, ServerKeyPath_CRL)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		defer testServer.Close()
+
+		client, err := NewClientFromConfig(validConfig.clientConfig, "test")
+		if err != nil {
+			t.Errorf("Can't create a client from this config: %+v", validConfig.clientConfig)
+			continue
+		}
+
+		_, err = client.Get(testServer.URL)
+		if err != nil {
+			t.Errorf("Got Error %q", err)
+		}
+	}
+}
+
+// Test with revoked certificate.
+func TestNewClientFromRevokedCertConfig(t *testing.T) {
+	var newClientValidConfig = []struct {
+		clientConfig HTTPClientConfig
+		handler      func(w http.ResponseWriter, r *http.Request)
+	}{
+		{ // Full chain of CA and CRL, the Intermediate CA revoke the peer certificate.
+			clientConfig: HTTPClientConfig{
+				TLSConfig: TLSConfig{
+					CAFile:             TLSCAChainPath,
+					CertFile:           ClientCertificatePath,
+					KeyFile:            ClientKeyNoPassPath,
+					ServerName:         "",
+					CRLFile:            FullCRLChainCertReovkedPath,
+					InsecureSkipVerify: false},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprint(w, ExpectedMessage)
+			},
+		}, { // Full chain of CA and the single root CA revoke the intermediate CA certificate.
+			clientConfig: HTTPClientConfig{
+				TLSConfig: TLSConfig{
+					CAFile:             TLSCAChainPath,
+					CertFile:           ClientCertificatePath,
+					KeyFile:            ClientKeyNoPassPath,
+					ServerName:         "",
+					CRLFile:            "testdata/crl_chain_inter_ca_cert_revoked.pem",
+					InsecureSkipVerify: false},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprint(w, ExpectedMessage)
+			},
+		}, { // Missing root in the CA Chain and the full chain of CRLs, the Intermediate CA revoke the peer certificate.
+			clientConfig: HTTPClientConfig{
+				TLSConfig: TLSConfig{
+					CAFile:             TLSCACHainNoRootPath,
+					CertFile:           ClientCertificatePath,
+					KeyFile:            ClientKeyNoPassPath,
+					ServerName:         "",
+					CRLFile:            FullCRLChainCertReovkedPath,
+					InsecureSkipVerify: false},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprint(w, ExpectedMessage)
+			},
+		},
+	}
+
+	for _, validConfig := range newClientValidConfig {
+		testServer, err := newTestCRLServer((validConfig.handler), ServerCertificatePath_CRL, ServerKeyPath_CRL)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		defer testServer.Close()
+
+		client, err := NewClientFromConfig(validConfig.clientConfig, "test")
+		if err != nil {
+			t.Errorf("Can't create a client from this config: %+v", validConfig.clientConfig)
+			continue
+		}
+
+		_, err = client.Get(testServer.URL)
+		if err == nil || !strings.Contains(err.Error(), "certificate was revoked") {
+			t.Errorf("Expected error %q but got %q", "certificate was revoked", err)
+		}
+	}
+}
+
+// Test with expired CRL.
+func TestNewClientFromExpiredCRLConfig(t *testing.T) {
+	var newClientValidConfig = []struct {
+		clientConfig HTTPClientConfig
+		handler      func(w http.ResponseWriter, r *http.Request)
+	}{
+		{
+			clientConfig: HTTPClientConfig{
+				TLSConfig: TLSConfig{
+					CAFile:             TLSCAChainPath,
+					CertFile:           ClientCertificatePath,
+					KeyFile:            ClientKeyNoPassPath,
+					ServerName:         "",
+					CRLFile:            "testdata/crl_cert_revoked_expired.pem",
+					InsecureSkipVerify: false},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprint(w, ExpectedMessage)
+			},
+		},
+	}
+
+	for _, validConfig := range newClientValidConfig {
+		testServer, err := newTestCRLServer((validConfig.handler), ServerCertificatePath_CRL, ServerKeyPath_CRL)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		defer testServer.Close()
+
+		client, err := NewClientFromConfig(validConfig.clientConfig, "test")
+		if err != nil {
+			t.Errorf("Can't create a client from this config: %+v", validConfig.clientConfig)
+			continue
+		}
+
+		_, err = client.Get(testServer.URL)
+		if err == nil || !strings.Contains(err.Error(), "certificate revocation list is outdated") {
+			t.Errorf("Expected error %q but got %q", "certificate revocation list is outdated", err)
+		}
 	}
 }
 
