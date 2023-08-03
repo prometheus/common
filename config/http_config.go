@@ -1356,47 +1356,12 @@ func (c *TLSConfig) verifyPeerCertificate(rawCerts [][]byte, verifiedChains [][]
 	// against valid CRLs.
 	cAs = append(cAs, verifiedChains[0][0])
 
-	for _, cert := range cAs {
-		for _, crl := range crlsList {
-			for _, revokedCertificate := range crl.RevokedCertificates {
-				if revokedCertificate.SerialNumber.Cmp(cert.SerialNumber) == 0 {
-					return fmt.Errorf("certificate was revoked")
-				}
-			}
-		}
+	err = validRevocationStatus(cAs, crlsList)
+	if err != nil {
+		return err
 	}
 
 	return nil
-}
-
-// Parse all CRLs and return a slice of valid CRLs.
-func parseCRLs(rawCRL []byte, cAs []*x509.Certificate) ([]*x509.RevocationList, error) {
-	var crls []*x509.RevocationList
-	for p, r := pem.Decode(rawCRL); p != nil; p, r = pem.Decode(r) {
-		if p.Type != "X509 CRL" {
-			return nil, fmt.Errorf("unable to decode raw certificate revocation list")
-		}
-		crl, err := x509.ParseRevocationList(p.Bytes)
-		if err != nil {
-			return nil, err
-		}
-
-		// Check CRL exipry status.
-		if crl.NextUpdate.Before(time.Now()) {
-			return nil, fmt.Errorf("certificate revocation list is outdated")
-		}
-
-		// Check each CRL is signed by any CA, if not, ignore the CRL.
-		// Otherwise, append to the valid slice of CRL.
-		for _, ca := range cAs {
-			err = crl.CheckSignatureFrom(ca)
-			if err == nil {
-				crls = append(crls, crl)
-				break
-			}
-		}
-	}
-	return crls, nil
 }
 
 // Parse raw certificates with padding structure.

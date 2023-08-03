@@ -2139,7 +2139,7 @@ func TestNewClientFromRevokedCertConfig(t *testing.T) {
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprint(w, ExpectedMessage)
 			},
-		}, { // Full chain of CA and the single root CA revoke the intermediate CA certificate.
+		}, { // Full chain of CA and CRL, the single root CA revoke the intermediate CA certificate.
 			clientConfig: HTTPClientConfig{
 				TLSConfig: TLSConfig{
 					CAFile:             TLSCAChainPath,
@@ -2152,7 +2152,8 @@ func TestNewClientFromRevokedCertConfig(t *testing.T) {
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprint(w, ExpectedMessage)
 			},
-		}, { // Missing root in the CA Chain and the full chain of CRLs, the Intermediate CA revoke the peer certificate.
+		}, { // Missing root in the CA Chain and the full chain of CRLs,
+			//  the Intermediate CA revoke the peer certificate.
 			clientConfig: HTTPClientConfig{
 				TLSConfig: TLSConfig{
 					CAFile:             TLSCACHainNoRootPath,
