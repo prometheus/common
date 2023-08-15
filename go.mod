@@ -6,7 +6,7 @@ require (
 	github.com/alecthomas/kingpin/v2 v2.3.2
 	github.com/go-kit/log v0.2.1
 	github.com/julienschmidt/httprouter v1.3.0
-	github.com/matttproud/golang_protobuf_extensions v1.0.4
+	github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f
 	github.com/prometheus/client_golang v1.17.0
 	github.com/prometheus/client_model v0.4.1-0.20230718164431-9a2bf3000d16
