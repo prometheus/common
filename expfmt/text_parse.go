@@ -18,14 +18,15 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"strconv"
 	"strings"
 
 	dto "github.com/prometheus/client_model/go"
 
-	"github.com/golang/protobuf/proto" //nolint:staticcheck // Ignore SA1019. Need to keep deprecated package for compatibility.
 	"github.com/prometheus/common/model"
+	"google.golang.org/protobuf/proto"
 )
 
 // A stateFn is a function that represents a state in a state machine. By
@@ -50,14 +51,18 @@ func (e ParseError) Error() string {
 // zero value is ready to use.
 type TextParser struct {
 	metricFamiliesByName map[string]*dto.MetricFamily
-	buf                  *bufio.Reader // Where the parsed input is read through.
-	err                  error         // Most recent error.
-	lineCount            int           // Tracks the line count for error messages.
-	currentByte          byte          // The most recent byte read.
-	currentToken         bytes.Buffer  // Re-used each time a token has to be gathered from multiple bytes.
-	currentMF            *dto.MetricFamily
-	currentMetric        *dto.Metric
-	currentLabelPair     *dto.LabelPair
+
+	buf *bufio.Reader // Where the parsed input is read through.
+
+	err              error // Most recent error.
+	lineCount        int   // Tracks the line count for error messages.
+	batchSize        int
+	batchCallback    BatchCallback
+	currentByte      byte         // The most recent byte read.
+	currentToken     bytes.Buffer // Re-used each time a token has to be gathered from multiple bytes.
+	currentMF        *dto.MetricFamily
+	currentMetric    *dto.Metric
+	currentLabelPair *dto.LabelPair
 
 	// The remaining member variables are only used for summaries/histograms.
 	currentLabels map[string]string // All labels including '__name__' but excluding 'quantile'/'le'
@@ -72,6 +77,35 @@ type TextParser struct {
 	// count and sum of that summary/histogram.
 	currentIsSummaryCount, currentIsSummarySum     bool
 	currentIsHistogramCount, currentIsHistogramSum bool
+}
+
+type textParserOpt func(*TextParser)
+
+// BatchCallback is the callback during parsing when bach size full.
+type BatchCallback func(mf map[string]*dto.MetricFamily) error
+
+// WithBatchCallback set batch size and batch callback.
+func WithBatchCallback(batchSize int, f BatchCallback) textParserOpt {
+	return func(tp *TextParser) {
+		if batchSize > 0 {
+			tp.batchSize = batchSize
+		}
+		tp.batchCallback = f
+	}
+}
+
+// NewTextParser create a parser with options.
+func NewTextParser(opts ...textParserOpt) *TextParser {
+	p := &TextParser{
+		batchSize: 2,
+	}
+
+	for _, opt := range opts {
+		if opt != nil {
+			opt(p)
+		}
+	}
+	return p
 }
 
 // TextToMetricFamilies reads 'in' as the simple and flat text-based exchange
@@ -102,9 +136,37 @@ func (p *TextParser) TextToMetricFamilies(in io.Reader) (map[string]*dto.MetricF
 	for nextState := p.startOfLine; nextState != nil; nextState = nextState() {
 		// Magic happens here...
 	}
+
+	return p.returnMetrics()
+}
+
+// StreamingParse read 'in' on batch size. Batch callback MUST set
+// during streaming parse.
+func (p *TextParser) StreamingParse(in io.Reader) error {
+
+	if p.batchCallback == nil {
+		return fmt.Errorf("batch callback not set on streaming parser")
+	}
+
+	p.reset(in)
+
+	for nextState := p.startOfLine; nextState != nil; nextState = nextState() {
+		// Magic happens here...
+	}
+
+	mfs, err := p.returnMetrics()
+	if err != nil {
+		return err
+	}
+
+	return p.batchCallback(mfs)
+}
+
+func (p *TextParser) returnMetrics() (map[string]*dto.MetricFamily, error) {
 	// Get rid of empty metric families.
 	for k, mf := range p.metricFamiliesByName {
 		if len(mf.GetMetric()) == 0 {
+			log.Printf("no metric on %q", k)
 			delete(p.metricFamiliesByName, k)
 		}
 	}
@@ -496,10 +558,10 @@ func (p *TextParser) startTimestamp() stateFn {
 // readingHelp represents the state where the last byte read (now in
 // p.currentByte) is the first byte of the docstring after 'HELP'.
 func (p *TextParser) readingHelp() stateFn {
-	// if p.currentMF.Help != nil {
-	// 	p.parseError(fmt.Sprintf("second HELP line for metric name %q", p.currentMF.GetName()))
-	// 	return nil
-	// }
+	if p.currentMF.Help != nil {
+		p.parseError(fmt.Sprintf("second HELP line for metric name %q", p.currentMF.GetName()))
+		return nil
+	}
 	// Rest of line is the docstring.
 	if p.readTokenUntilNewline(true); p.err != nil {
 		return nil // Unexpected end of input.
@@ -511,10 +573,10 @@ func (p *TextParser) readingHelp() stateFn {
 // readingType represents the state where the last byte read (now in
 // p.currentByte) is the first byte of the type hint after 'HELP'.
 func (p *TextParser) readingType() stateFn {
-	// if p.currentMF.Type != nil {
-	// 	p.parseError(fmt.Sprintf("second TYPE line for metric name %q, or TYPE reported after samples", p.currentMF.GetName()))
-	// 	return nil
-	// }
+	if p.currentMF.Type != nil {
+		p.parseError(fmt.Sprintf("second TYPE line for metric name %q, or TYPE reported after samples", p.currentMF.GetName()))
+		return nil
+	}
 	// Rest of line is the type.
 	if p.readTokenUntilNewline(false); p.err != nil {
 		return nil // Unexpected end of input.
@@ -525,14 +587,6 @@ func (p *TextParser) readingType() stateFn {
 		return nil
 	}
 	p.currentMF.Type = dto.MetricType(metricType).Enum()
-	if p.currentMF.GetType() == dto.MetricType_INFO {
-		// Add suffix _info if metric name does not end with it.
-		if !strings.HasSuffix(*p.currentMF.Name, "_info") {
-			delete(p.metricFamiliesByName, *p.currentMF.Name)
-			p.currentMF.Name = proto.String(*p.currentMF.Name + "_info")
-			p.metricFamiliesByName[*p.currentMF.Name] = p.currentMF
-		}
-	}
 	return p.startOfLine
 }
 
@@ -721,6 +775,18 @@ func (p *TextParser) setOrCreateCurrentMF() {
 	}
 	p.currentMF = &dto.MetricFamily{Name: proto.String(name)}
 	p.metricFamiliesByName[name] = p.currentMF
+
+	if p.batchSize > 0 && p.batchCallback != nil && len(p.metricFamiliesByName)%p.batchSize == 0 {
+		mfs, err := p.returnMetrics()
+		if err != nil {
+			// TODO: should we terminate here?
+		} else {
+			p.batchCallback(mfs)
+		}
+
+		// clear memory
+		p.metricFamiliesByName = map[string]*dto.MetricFamily{}
+	}
 }
 
 func isValidLabelNameStart(b byte) bool {
