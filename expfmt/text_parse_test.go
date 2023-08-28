@@ -14,13 +14,15 @@
 package expfmt
 
 import (
+	"bytes"
 	"errors"
+	"io/ioutil"
 	"math"
 	"strings"
 	"testing"
 
-	"github.com/golang/protobuf/proto" //nolint:staticcheck // Ignore SA1019. Need to keep deprecated package for compatibility.
 	dto "github.com/prometheus/client_model/go"
+	"google.golang.org/protobuf/proto"
 )
 
 func testTextParse(t testing.TB) {
@@ -191,10 +193,10 @@ my_summary{n1="val3", quantile="0.2"} 4711
   my_summary{n1="val1",n2="val2",quantile="-12.34",} NaN
 # some
 # funny comments
-# HELP 
+# HELP
 # HELP
 # HELP my_summary
-# HELP my_summary 
+# HELP my_summary
 `,
 			out: []*dto.MetricFamily{
 				&dto.MetricFamily{
@@ -703,4 +705,121 @@ type errReader struct {
 
 func (r *errReader) Read(p []byte) (int, error) {
 	return 0, r.err
+}
+
+func TestBatchParser(t *testing.T) {
+	t.Run("batch", func(t *testing.T) {
+
+		batch := 0
+
+		f := func(mf map[string]*dto.MetricFamily) error {
+			for k, v := range mf {
+				t.Logf("[btc %d] %s: %d metrics", batch, k, len(v.GetMetric()))
+			}
+			batch++
+			return nil
+		}
+
+		in := []byte(`
+# HELP pipeline_last_update_timestamp_seconds Pipeline last update time
+# TYPE pipeline_last_update_timestamp_seconds gauge
+pipeline_last_update_timestamp_seconds{category="logging",name="apache.p",namespace="default"} 1.692155456e+09
+pipeline_last_update_timestamp_seconds{category="logging",name="consul.p",namespace="default"} 1.692155456e+09
+pipeline_last_update_timestamp_seconds{category="logging",name="elasticsearch.p",namespace="default"} 1.692155456e+09
+pipeline_last_update_timestamp_seconds{category="logging",name="jenkins.p",namespace="default"} 1.692155456e+09
+pipeline_last_update_timestamp_seconds{category="logging",name="kafka.p",namespace="default"} 1.692155456e+09
+pipeline_last_update_timestamp_seconds{category="logging",name="mongodb.p",namespace="default"} 1.692155456e+09
+pipeline_last_update_timestamp_seconds{category="logging",name="mysql.p",namespace="default"} 1.692155456e+09
+pipeline_last_update_timestamp_seconds{category="logging",name="nginx.p",namespace="default"} 1.692155456e+09
+pipeline_last_update_timestamp_seconds{category="logging",name="postgresql.p",namespace="default"} 1.692155456e+09
+pipeline_last_update_timestamp_seconds{category="logging",name="rabbitmq.p",namespace="default"} 1.692155456e+09
+pipeline_last_update_timestamp_seconds{category="logging",name="redis.p",namespace="default"} 1.692155456e+09
+pipeline_last_update_timestamp_seconds{category="logging",name="solr.p",namespace="default"} 1.692155456e+09
+pipeline_last_update_timestamp_seconds{category="logging",name="sqlserver.p",namespace="default"} 1.692155456e+09
+pipeline_last_update_timestamp_seconds{category="logging",name="tdengine.p",namespace="default"} 1.692155456e+09
+pipeline_last_update_timestamp_seconds{category="logging",name="tomcat.p",namespace="default"} 1.692155456e+09
+pipeline_last_update_timestamp_seconds{category="metric",name="cpu.p",namespace="default"} 1.692155456e+09
+pipeline_last_update_timestamp_seconds{category="metric",name="disk.p",namespace="default"} 1.692155456e+09
+pipeline_last_update_timestamp_seconds{category="object",name="host_processes.p",namespace="default"} 1.692155456e+09
+# HELP point_total Pipeline processed total points
+# TYPE point_total counter
+pipeline_point_total{category="metric",name="cpu.p",namespace="default"} 43398
+pipeline_point_total{category="metric",name="disk.p",namespace="default"} 86798
+pipeline_point_total{category="object",name="host_processes.p",namespace="default"} 258280
+# HELP process_ctx_switch_total Datakit process context switch count(Linux only)
+# TYPE process_ctx_switch_total counter
+process_ctx_switch_total{type="involuntary"} 3
+process_ctx_switch_total{type="voluntary"} 1755
+# HELP process_io_bytes_total Datakit process IO bytes count
+# TYPE process_io_bytes_total counter
+process_io_bytes_total{type="r"} 1.826816e+06
+process_io_bytes_total{type="w"} 1.8446336e+08
+# HELP process_io_count_total Datakit process IO count
+# TYPE process_io_count_total counter
+process_io_count_total{type="r"} 1.6146766e+07
+process_io_count_total{type="w"} 1.703672e+06
+# HELP prom_collect_points Total number of prom collection points
+# TYPE prom_collect_points summary
+prom_collect_points_sum{source="dataway"} 9.190108e+06
+prom_collect_points_count{source="dataway"} 49746
+prom_collect_points_sum{source="dk-metrics"} 766683
+prom_collect_points_count{source="dk-metrics"} 14466
+# HELP prom_http_get_bytes HTTP get bytes
+# TYPE prom_http_get_bytes summary
+prom_http_get_bytes_sum{source="dataway"} 1.513382658e+09
+prom_http_get_bytes_count{source="dataway"} 49746
+prom_http_get_bytes_sum{source="dk-metrics"} 6.09392072e+08
+prom_http_get_bytes_count{source="dk-metrics"} 14466
+# HELP prom_http_latency_in_second HTTP latency(in second)
+# TYPE prom_http_latency_in_second summary
+prom_http_latency_in_second_sum{source="dataway"} 74067.67200069428
+prom_http_latency_in_second_count{source="dataway"} 73052
+prom_http_latency_in_second_sum{source="dk-metrics"} 14552.999575856045
+prom_http_latency_in_second_count{source="dk-metrics"} 14466
+# HELP rum_loaded_zip_cnt RUM source map currently loaded zip archive count
+# TYPE rum_loaded_zip_cnt gauge
+rum_loaded_zip_cnt{platform="web"} 0
+`)
+		p := NewTextParser(WithBatchCallback(2, f))
+
+		if err := p.StreamingParse(bytes.NewBuffer(in)); err != nil {
+			t.Error(err)
+		}
+
+		// without batch
+		batch = 0
+		p = NewTextParser()
+		mfs, err := p.TextToMetricFamilies(bytes.NewBuffer(in))
+		if err != nil {
+			t.Error(err)
+		}
+		t.Logf("no batch results...")
+		f(mfs)
+	})
+
+	t.Run("large-txt", func(t *testing.T) {
+
+		var totalMf, totalMetric int
+		f := func(mf map[string]*dto.MetricFamily) error {
+			t.Logf("get %d metric family", len(mf))
+			for k, v := range mf {
+				totalMf++
+				t.Logf("%s get %d metrics", k, len(v.GetMetric()))
+				totalMetric += len(v.GetMetric())
+			}
+			return nil
+		}
+
+		largeData, err := ioutil.ReadFile("large-metrics.txt")
+		if err != nil {
+			t.Error(err)
+		}
+
+		p := NewTextParser(WithBatchCallback(2, f))
+		if err := p.StreamingParse(bytes.NewBuffer(largeData)); err != nil {
+			t.Error(err)
+		}
+
+		t.Logf("total: %d/%d", totalMf, totalMetric)
+	})
 }
