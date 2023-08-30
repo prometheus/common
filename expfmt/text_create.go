@@ -62,6 +62,12 @@ var (
 // contains duplicate metrics or invalid metric or label names, the conversion
 // will result in invalid text format output.
 //
+// If metric names conform to the legacy validation pattern, they will be placed
+// outside the brackets in the traditional way, like `foo{}`. If the metric name
+// fails the legacy validation check, it will be placed quoted inside the
+// brackets: `{"foo"}`. As stated above, the input is assumed to be santized and
+// no error will be thrown in this case.
+//
 // This method fulfills the type 'prometheus.encoder'.
 func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (written int, err error) {
 	// Fail-fast checks.
@@ -98,7 +104,7 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (written int, err e
 		if err != nil {
 			return
 		}
-		n, err = w.WriteString(name)
+		n, err = writeName(w, name)
 		written += n
 		if err != nil {
 			return
@@ -124,7 +130,7 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (written int, err e
 	if err != nil {
 		return
 	}
-	n, err = w.WriteString(name)
+	n, err = writeName(w, name)
 	written += n
 	if err != nil {
 		return
@@ -280,21 +286,9 @@ func writeSample(
 	additionalLabelName string, additionalLabelValue float64,
 	value float64,
 ) (int, error) {
-	var written int
-	n, err := w.WriteString(name)
-	written += n
-	if err != nil {
-		return written, err
-	}
-	if suffix != "" {
-		n, err = w.WriteString(suffix)
-		written += n
-		if err != nil {
-			return written, err
-		}
-	}
-	n, err = writeLabelPairs(
-		w, metric.Label, additionalLabelName, additionalLabelValue,
+	written := 0
+	n, err := writeNameAndLabelPairs(
+		w, name+suffix, metric.Label, additionalLabelName, additionalLabelValue,
 	)
 	written += n
 	if err != nil {
@@ -330,32 +324,62 @@ func writeSample(
 	return written, nil
 }
 
-// writeLabelPairs converts a slice of LabelPair proto messages plus the
+// writeNameAndLabelPairs converts a slice of LabelPair proto messages plus the
 // explicitly given additional label pair into text formatted as required by the
 // text format and writes it to 'w'. An empty slice in combination with an empty
 // string 'additionalLabelName' results in nothing being written. Otherwise, the
 // label pairs are written, escaped as required by the text format, and enclosed
 // in '{...}'. The function returns the number of bytes written and any error
 // encountered.
-func writeLabelPairs(
+func writeNameAndLabelPairs(
 	w enhancedWriter,
+	name string,
 	in []*dto.LabelPair,
 	additionalLabelName string, additionalLabelValue float64,
 ) (int, error) {
-	if len(in) == 0 && additionalLabelName == "" {
-		return 0, nil
-	}
 	var (
-		written   int
-		separator byte = '{'
+		written            int
+		separator          byte = '{'
+		metricInsideBraces      = false
 	)
+
+	if name != "" {
+		// If the name does not pass the legacy validity check, we must put the
+		// metric name inside the braces.
+		if !model.IsValidLegacyMetricName(model.LabelValue(name)) {
+			metricInsideBraces = true
+			err := w.WriteByte(separator)
+			written++
+			if err != nil {
+				return written, err
+			}
+			separator = ','
+		}
+		n, err := writeName(w, name)
+		written += n
+		if err != nil {
+			return written, err
+		}
+	}
+
+	if len(in) == 0 && additionalLabelName == "" {
+		if metricInsideBraces {
+			err := w.WriteByte('}')
+			written++
+			if err != nil {
+				return written, err
+			}
+		}
+		return written, nil
+	}
+
 	for _, lp := range in {
 		err := w.WriteByte(separator)
 		written++
 		if err != nil {
 			return written, err
 		}
-		n, err := w.WriteString(lp.GetName())
+		n, err := writeName(w, lp.GetName())
 		written += n
 		if err != nil {
 			return written, err
@@ -461,4 +485,28 @@ func writeInt(w enhancedWriter, i int64) (int, error) {
 	written, err := w.Write(*bp)
 	numBufPool.Put(bp)
 	return written, err
+}
+
+// writeName writes a string as-is if it complies with the legacy naming
+// scheme, or escapes it in double quotes if not.
+func writeName(w enhancedWriter, name string) (int, error) {
+	if !model.IsValidLegacyMetricName(model.LabelValue(name)) {
+		var written int
+		var err error
+		err = w.WriteByte('"')
+		written++
+		if err != nil {
+			return written, err
+		}
+		var n int
+		n, err = writeEscapedString(w, name, true)
+		written += n
+		if err != nil {
+			return written, err
+		}
+		err = w.WriteByte('"')
+		written++
+		return written, err
+	}
+	return w.WriteString(name)
 }
