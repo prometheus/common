@@ -92,7 +92,7 @@ func TestMatcherValidate(t *testing.T) {
 				t.Errorf("%d. Expected error for legacy validation %q but got none", i, c.legacyErr)
 			}
 			if c.utf8Err != "" {
-				t.Errorf("%d. Expected error for utf8 validation %q but got none", i, c.utf8Err)
+				t.Errorf("%d. Expected error for utf-8 validation %q but got none", i, c.utf8Err)
 			}
 			continue
 		}
@@ -105,7 +105,7 @@ func TestMatcherValidate(t *testing.T) {
 		}
 		if utf8Err != nil {
 			if c.utf8Err == "" {
-				t.Errorf("%d. Expected no utf8 validation error but got %q", i, utf8Err)
+				t.Errorf("%d. Expected no utf-8 validation error but got %q", i, utf8Err)
 				continue
 			}
 			if !strings.Contains(utf8Err.Error(), c.utf8Err) {

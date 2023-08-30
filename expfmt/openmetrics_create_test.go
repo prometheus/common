@@ -24,6 +24,8 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	dto "github.com/prometheus/client_model/go"
+
+	"github.com/prometheus/common/model"
 )
 
 func TestCreateOpenMetrics(t *testing.T) {
@@ -31,6 +33,12 @@ func TestCreateOpenMetrics(t *testing.T) {
 	if err := openMetricsTimestamp.CheckValid(); err != nil {
 		t.Error(err)
 	}
+
+	oldDefaultScheme := model.NameEscapingScheme
+	model.NameEscapingScheme = model.NoEscaping
+	defer func() {
+		model.NameEscapingScheme = oldDefaultScheme
+	}()
 
 	scenarios := []struct {
 		in  *dto.MetricFamily
@@ -199,7 +207,7 @@ gauge_name{name_1="val with\nnew line",name_2="val with \\backslash and \"quotes
 gauge_name{name_1="Björn",name_2="佖佥"} 3.14e+42
 `,
 		},
-		// 4: Gauge, utf8, some escaping required, +Inf as value, multi-byte characters in label values.
+		// 4: Gauge, utf-8, some escaping required, +Inf as value, multi-byte characters in label values.
 		{
 			in: &dto.MetricFamily{
 				Name: proto.String("gauge.name\""),

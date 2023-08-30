@@ -22,9 +22,17 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	dto "github.com/prometheus/client_model/go"
+
+	"github.com/prometheus/common/model"
 )
 
 func TestCreate(t *testing.T) {
+	oldDefaultScheme := model.NameEscapingScheme
+	model.NameEscapingScheme = model.NoEscaping
+	defer func() {
+		model.NameEscapingScheme = oldDefaultScheme
+	}()
+
 	scenarios := []struct {
 		in  *dto.MetricFamily
 		out string
@@ -120,7 +128,7 @@ gauge_name{name_1="val with\nnew line",name_2="val with \\backslash and \"quotes
 gauge_name{name_1="Björn",name_2="佖佥"} 3.14e+42
 `,
 		},
-		// 2: Gauge, utf8, +Inf as value, multi-byte characters in label values.
+		// 2: Gauge, utf-8, +Inf as value, multi-byte characters in label values.
 		{
 			in: &dto.MetricFamily{
 				Name: proto.String("gauge.name"),
