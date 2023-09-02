@@ -560,7 +560,7 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, optFuncs ...HT
 		}
 
 		if cfg.BasicAuth != nil {
-			rt = NewBasicAuthRoundTripper(cfg.BasicAuth.Username, cfg.BasicAuth.Password, cfg.BasicAuth.PasswordFile, cfg.BasicAuth.UsernameFile, rt)
+			rt = NewBasicAuthRoundTripper(cfg.BasicAuth.Username, cfg.BasicAuth.Password, cfg.BasicAuth.UsernameFile, cfg.BasicAuth.PasswordFile, rt)
 		}
 
 		if cfg.OAuth2 != nil {
@@ -650,53 +650,46 @@ func (rt *authorizationCredentialsFileRoundTripper) CloseIdleConnections() {
 type basicAuthRoundTripper struct {
 	username     string
 	password     Secret
-	passwordFile string
 	usernameFile string
+	passwordFile string
 	rt           http.RoundTripper
 }
 
 // NewBasicAuthRoundTripper will apply a BASIC auth authorization header to a request unless it has
 // already been set.
-func NewBasicAuthRoundTripper(username string, password Secret, passwordFile string, usernameFile string, rt http.RoundTripper) http.RoundTripper {
-	return &basicAuthRoundTripper{username, password, passwordFile, usernameFile, rt}
+func NewBasicAuthRoundTripper(username string, password Secret, usernameFile, passwordFile string, rt http.RoundTripper) http.RoundTripper {
+	return &basicAuthRoundTripper{username, password, usernameFile, passwordFile, rt}
 }
 
 func (rt *basicAuthRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	var username string
+	var password string
 	if len(req.Header.Get("Authorization")) != 0 {
 		return rt.rt.RoundTrip(req)
 	}
-	username, err := getBasicAuthUsername(*rt)
-	if err != nil {
-		return nil, err
+	if rt.usernameFile != "" {
+		usernameBytes, err := os.ReadFile(rt.usernameFile)
+		if err != nil {
+			return nil, fmt.Errorf("unable to read basic auth username file %s: %s", rt.usernameFile, err)
+		}
+		username = strings.TrimSpace(string(usernameBytes))
+	} else {
+		username = rt.username
 	}
-	password, err := getBasicAuthPassword(*rt)
-	if err != nil {
-		return nil, err
+	if rt.passwordFile != "" {
+		passwordBytes, err := os.ReadFile(rt.passwordFile)
+		if err != nil {
+			return nil, fmt.Errorf("unable to read basic auth password file %s: %s", rt.passwordFile, err)
+		}
+		password = strings.TrimSpace(string(passwordBytes))
+	} else {
+		password = string(rt.password)
 	}
 	req = cloneRequest(req)
 	req.SetBasicAuth(username, password)
 	return rt.rt.RoundTrip(req)
 }
-func getBasicAuthUsername(rt basicAuthRoundTripper) (string, error) {
-	if rt.usernameFile != "" {
-		usernameBytes, err := os.ReadFile(rt.usernameFile)
-		if err != nil {
-			return "", fmt.Errorf("unable to read basic auth password file %s: %s", rt.usernameFile, err)
-		}
-		return strings.TrimSpace(string(usernameBytes)), nil
-	}
-	return rt.username, nil
-}
-func getBasicAuthPassword(rt basicAuthRoundTripper) (string, error) {
-	if rt.passwordFile != "" {
-		passwordBytes, err := os.ReadFile(rt.passwordFile)
-		if err != nil {
-			return "", fmt.Errorf("unable to read basic auth password file %s: %s", rt.passwordFile, err)
-		}
-		return strings.TrimSpace(string(passwordBytes)), nil
-	}
-	return string(rt.password), nil
-}
+
 func (rt *basicAuthRoundTripper) CloseIdleConnections() {
 	if ci, ok := rt.rt.(closeIdler); ok {
 		ci.CloseIdleConnections()
