@@ -657,7 +657,7 @@ type basicAuthRoundTripper struct {
 
 // NewBasicAuthRoundTripper will apply a BASIC auth authorization header to a request unless it has
 // already been set.
-func NewBasicAuthRoundTripper(username string, password Secret, passwordFile string, usernameFile string, rt http.RoundTripper) http.RoundTripper {
+func NewBasicAuthRoundTripper(username string, password Secret,  usernameFile, passwordFile string, rt http.RoundTripper) http.RoundTripper {
 	return &basicAuthRoundTripper{username, password, passwordFile, usernameFile, rt}
 }
 
