@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/aws/aws-sdk-go v1.44.266
 	github.com/prometheus/client_golang v1.15.1
-	github.com/prometheus/common v0.43.0
+	github.com/prometheus/common v0.44.0
 	github.com/stretchr/testify v1.8.2
 	gopkg.in/yaml.v2 v2.4.0
 )
@@ -23,9 +23,9 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.4.0 // indirect
 	github.com/prometheus/procfs v0.9.0 // indirect
-	golang.org/x/net v0.9.0 // indirect
-	golang.org/x/oauth2 v0.7.0 // indirect
-	golang.org/x/sys v0.7.0 // indirect
+	golang.org/x/net v0.10.0 // indirect
+	golang.org/x/oauth2 v0.8.0 // indirect
+	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
