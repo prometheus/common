@@ -37,9 +37,11 @@ const FormatFlagHelp = "Output format of log messages. One of: [logfmt, json]"
 func AddFlags(a *kingpin.Application, config *promlog.Config) {
 	config.Level = &promlog.AllowedLevel{}
 	a.Flag(LevelFlagName, LevelFlagHelp).
+		Envar("LOG_LEVEL").
 		Default("info").SetValue(config.Level)
 
 	config.Format = &promlog.AllowedFormat{}
 	a.Flag(FormatFlagName, FormatFlagHelp).
+		Envar("LOG_FORMAT").
 		Default("logfmt").SetValue(config.Format)
 }
