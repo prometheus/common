@@ -602,7 +602,7 @@ func TestNewClientFromInvalidConfig(t *testing.T) {
 					InsecureSkipVerify: true,
 				},
 			},
-			errorMsg: fmt.Sprintf("unable to load specified CA cert %s:", MissingCA),
+			errorMsg: fmt.Sprintf("unable to read CA cert: unable to read file %s", MissingCA),
 		},
 		{
 			clientConfig: HTTPClientConfig{
@@ -611,7 +611,7 @@ func TestNewClientFromInvalidConfig(t *testing.T) {
 					InsecureSkipVerify: true,
 				},
 			},
-			errorMsg: fmt.Sprintf("unable to use specified CA cert %s", InvalidCA),
+			errorMsg: fmt.Sprintf("unable to use specified CA cert file %s", InvalidCA),
 		},
 	}
 
@@ -702,7 +702,7 @@ func TestMissingBearerAuthFile(t *testing.T) {
 		t.Fatal("No error is returned here")
 	}
 
-	if !strings.Contains(err.Error(), "unable to read authorization credentials file missing/bearer.token: open missing/bearer.token: no such file or directory") {
+	if !strings.Contains(err.Error(), "unable to read authorization credentials: unable to read file missing/bearer.token: open missing/bearer.token: no such file or directory") {
 		t.Fatal("wrong error message being returned")
 	}
 }
@@ -721,7 +721,7 @@ func TestBearerAuthRoundTripper(t *testing.T) {
 	}, nil, nil)
 
 	// Normal flow.
-	bearerAuthRoundTripper := NewAuthorizationCredentialsRoundTripper("Bearer", BearerToken, fakeRoundTripper)
+	bearerAuthRoundTripper := NewAuthorizationCredentialsRoundTripper("Bearer", &inlineSecret{text: BearerToken}, fakeRoundTripper)
 	request, _ := http.NewRequest("GET", "/hitchhiker", nil)
 	request.Header.Set("User-Agent", "Douglas Adams mind")
 	_, err := bearerAuthRoundTripper.RoundTrip(request)
@@ -730,7 +730,7 @@ func TestBearerAuthRoundTripper(t *testing.T) {
 	}
 
 	// Should honor already Authorization header set.
-	bearerAuthRoundTripperShouldNotModifyExistingAuthorization := NewAuthorizationCredentialsRoundTripper("Bearer", newBearerToken, fakeRoundTripper)
+	bearerAuthRoundTripperShouldNotModifyExistingAuthorization := NewAuthorizationCredentialsRoundTripper("Bearer", &inlineSecret{text: newBearerToken}, fakeRoundTripper)
 	request, _ = http.NewRequest("GET", "/hitchhiker", nil)
 	request.Header.Set("Authorization", ExpectedBearer)
 	_, err = bearerAuthRoundTripperShouldNotModifyExistingAuthorization.RoundTrip(request)
@@ -749,7 +749,7 @@ func TestBearerAuthFileRoundTripper(t *testing.T) {
 	}, nil, nil)
 
 	// Normal flow.
-	bearerAuthRoundTripper := NewAuthorizationCredentialsFileRoundTripper("Bearer", BearerTokenFile, fakeRoundTripper)
+	bearerAuthRoundTripper := NewAuthorizationCredentialsRoundTripper("Bearer", &fileSecret{file: BearerTokenFile}, fakeRoundTripper)
 	request, _ := http.NewRequest("GET", "/hitchhiker", nil)
 	request.Header.Set("User-Agent", "Douglas Adams mind")
 	_, err := bearerAuthRoundTripper.RoundTrip(request)
@@ -758,7 +758,7 @@ func TestBearerAuthFileRoundTripper(t *testing.T) {
 	}
 
 	// Should honor already Authorization header set.
-	bearerAuthRoundTripperShouldNotModifyExistingAuthorization := NewAuthorizationCredentialsFileRoundTripper("Bearer", MissingBearerTokenFile, fakeRoundTripper)
+	bearerAuthRoundTripperShouldNotModifyExistingAuthorization := NewAuthorizationCredentialsRoundTripper("Bearer", &fileSecret{file: MissingBearerTokenFile}, fakeRoundTripper)
 	request, _ = http.NewRequest("GET", "/hitchhiker", nil)
 	request.Header.Set("Authorization", ExpectedBearer)
 	_, err = bearerAuthRoundTripperShouldNotModifyExistingAuthorization.RoundTrip(request)
@@ -857,7 +857,7 @@ func TestTLSConfigInvalidCA(t *testing.T) {
 				ServerName:         "",
 				InsecureSkipVerify: false,
 			},
-			errorMessage: fmt.Sprintf("unable to load specified CA cert %s:", MissingCA),
+			errorMessage: fmt.Sprintf("unable to read CA cert: unable to read file %s", MissingCA),
 		},
 		{
 			configTLSConfig: TLSConfig{
@@ -867,7 +867,7 @@ func TestTLSConfigInvalidCA(t *testing.T) {
 				ServerName:         "",
 				InsecureSkipVerify: false,
 			},
-			errorMessage: fmt.Sprintf("unable to read specified client cert (%s):", MissingCert),
+			errorMessage: fmt.Sprintf("unable to read specified client cert: unable to read file %s", MissingCert),
 		},
 		{
 			configTLSConfig: TLSConfig{
@@ -877,7 +877,7 @@ func TestTLSConfigInvalidCA(t *testing.T) {
 				ServerName:         "",
 				InsecureSkipVerify: false,
 			},
-			errorMessage: fmt.Sprintf("unable to read specified client key (%s):", MissingKey),
+			errorMessage: fmt.Sprintf("unable to read specified client key: unable to read file %s", MissingKey),
 		},
 		{
 			configTLSConfig: TLSConfig{
@@ -930,14 +930,11 @@ func TestBasicAuthNoPassword(t *testing.T) {
 		t.Fatalf("Error casting to basic auth transport, %v", client.Transport)
 	}
 
-	if rt.username != "user" {
-		t.Errorf("Bad HTTP client username: %s", rt.username)
+	if username, _ := rt.username.fetch(); username != "user" {
+		t.Errorf("Bad HTTP client username: %s", username)
 	}
-	if string(rt.password) != "" {
-		t.Errorf("Expected empty HTTP client password: %s", rt.password)
-	}
-	if string(rt.passwordFile) != "" {
-		t.Errorf("Expected empty HTTP client passwordFile: %s", rt.passwordFile)
+	if rt.password != nil {
+		t.Errorf("Expected empty HTTP client password")
 	}
 }
 
@@ -956,14 +953,11 @@ func TestBasicAuthNoUsername(t *testing.T) {
 		t.Fatalf("Error casting to basic auth transport, %v", client.Transport)
 	}
 
-	if rt.username != "" {
-		t.Errorf("Got unexpected username: %s", rt.username)
+	if rt.username != nil {
+		t.Errorf("Got unexpected username")
 	}
-	if string(rt.password) != "secret" {
-		t.Errorf("Unexpected HTTP client password: %s", string(rt.password))
-	}
-	if string(rt.passwordFile) != "" {
-		t.Errorf("Expected empty HTTP client passwordFile: %s", rt.passwordFile)
+	if password, _ := rt.password.fetch(); password != "secret" {
+		t.Errorf("Unexpected HTTP client password: %s", password)
 	}
 }
 
@@ -982,14 +976,11 @@ func TestBasicAuthPasswordFile(t *testing.T) {
 		t.Fatalf("Error casting to basic auth transport, %v", client.Transport)
 	}
 
-	if rt.username != "user" {
-		t.Errorf("Bad HTTP client username: %s", rt.username)
+	if username, _ := rt.username.fetch(); username != "user" {
+		t.Errorf("Bad HTTP client username: %s", username)
 	}
-	if string(rt.password) != "" {
-		t.Errorf("Bad HTTP client password: %s", rt.password)
-	}
-	if string(rt.passwordFile) != "testdata/basic-auth-password" {
-		t.Errorf("Bad HTTP client passwordFile: %s", rt.passwordFile)
+	if password, _ := rt.password.fetch(); password != "foobar" {
+		t.Errorf("Bad HTTP client password: %s", password)
 	}
 }
 
@@ -1008,14 +999,11 @@ func TestBasicUsernameFile(t *testing.T) {
 		t.Fatalf("Error casting to basic auth transport, %v", client.Transport)
 	}
 
-	if rt.username != "" {
-		t.Errorf("Bad HTTP client username: %s", rt.username)
+	if username, _ := rt.username.fetch(); username != "testuser" {
+		t.Errorf("Bad HTTP client username: %s", username)
 	}
-	if string(rt.usernameFile) != "testdata/basic-auth-username" {
-		t.Errorf("Bad HTTP client usernameFile: %s", rt.usernameFile)
-	}
-	if string(rt.passwordFile) != "testdata/basic-auth-password" {
-		t.Errorf("Bad HTTP client passwordFile: %s", rt.passwordFile)
+	if password, _ := rt.password.fetch(); password != "foobar" {
+		t.Errorf("Bad HTTP client passwordFile: %s", password)
 	}
 }
 
@@ -1244,7 +1232,7 @@ func TestTLSRoundTripper_Inline(t *testing.T) {
 			certText: readFile(t, ClientCertificatePath),
 			keyText:  readFile(t, ClientKeyNoPassPath),
 
-			errMsg: "unable to use inline CA cert",
+			errMsg: "unable to use specified CA cert inline",
 		},
 		{
 			// Invalid cert.
