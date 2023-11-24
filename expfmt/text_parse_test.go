@@ -16,7 +16,6 @@ package expfmt
 import (
 	"bytes"
 	"errors"
-	"io/ioutil"
 	"math"
 	"strings"
 	"testing"
@@ -810,7 +809,7 @@ rum_loaded_zip_cnt{platform="web"} 0
 			return nil
 		}
 
-		largeData, err := ioutil.ReadFile("large-metrics.txt")
+		largeData, err := io.ReadFile("large-metrics.txt")
 		if err != nil {
 			t.Error(err)
 		}
