@@ -20,7 +20,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/matttproud/golang_protobuf_extensions/pbutil"
+	"github.com/matttproud/golang_protobuf_extensions/v2/pbutil"
 
 	dto "github.com/prometheus/client_model/go"
 )

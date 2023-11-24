@@ -18,8 +18,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/golang/protobuf/proto" //nolint:staticcheck // Ignore SA1019. Need to keep deprecated package for compatibility.
 	dto "github.com/prometheus/client_model/go"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestNegotiate(t *testing.T) {
@@ -63,6 +63,45 @@ func TestNegotiate(t *testing.T) {
 	}
 }
 
+func TestNegotiateOpenMetrics(t *testing.T) {
+	tests := []struct {
+		name              string
+		acceptHeaderValue string
+		expectedFmt       string
+	}{
+		{
+			name:              "OM format, no version",
+			acceptHeaderValue: "application/openmetrics-text",
+			expectedFmt:       string(FmtOpenMetrics_0_0_1),
+		},
+		{
+			name:              "OM format, 0.0.1 version",
+			acceptHeaderValue: "application/openmetrics-text;version=0.0.1",
+			expectedFmt:       string(FmtOpenMetrics_0_0_1),
+		},
+		{
+			name:              "OM format, 1.0.0 version",
+			acceptHeaderValue: "application/openmetrics-text;version=1.0.0",
+			expectedFmt:       string(FmtOpenMetrics_1_0_0),
+		},
+		{
+			name:              "OM format, invalid version",
+			acceptHeaderValue: "application/openmetrics-text;version=0.0.4",
+			expectedFmt:       string(FmtText),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			h := http.Header{}
+			h.Add(hdrAccept, test.acceptHeaderValue)
+			actualFmt := string(NegotiateIncludingOpenMetrics(h))
+			if actualFmt != test.expectedFmt {
+				t.Errorf("expected Negotiate to return format %s, but got %s instead", test.expectedFmt, actualFmt)
+			}
+		})
+	}
+}
 func TestEncode(t *testing.T) {
 	var buff bytes.Buffer
 	delimEncoder := NewEncoder(&buff, FmtProtoDelim)
