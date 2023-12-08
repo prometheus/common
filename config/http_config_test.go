@@ -272,6 +272,27 @@ func TestNewClientFromConfig(t *testing.T) {
 		}, {
 			clientConfig: HTTPClientConfig{
 				Authorization: &Authorization{
+					Type: AuthorizationType,
+				},
+				TLSConfig: TLSConfig{
+					CAFile:             TLSCAChainPath,
+					CertFile:           ClientCertificatePath,
+					KeyFile:            ClientKeyNoPassPath,
+					ServerName:         "",
+					InsecureSkipVerify: false},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				bearer := r.Header.Get("Authorization")
+				if strings.TrimSpace(bearer) != AuthorizationType {
+					fmt.Fprintf(w, "The expected Bearer Authorization (%s) differs from the obtained Bearer Authorization (%s)",
+						AuthorizationType, bearer)
+				} else {
+					fmt.Fprint(w, ExpectedMessage)
+				}
+			},
+		}, {
+			clientConfig: HTTPClientConfig{
+				Authorization: &Authorization{
 					Credentials: AuthorizationCredentials,
 					Type:        AuthorizationType,
 				},
