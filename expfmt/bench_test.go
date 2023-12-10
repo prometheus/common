@@ -16,6 +16,7 @@ package expfmt
 import (
 	"bytes"
 	"compress/gzip"
+	"errors"
 	"io"
 	"os"
 	"testing"
@@ -101,7 +102,7 @@ func BenchmarkParseProto(b *testing.B) {
 		for {
 			family.Reset()
 			if _, err := pbutil.ReadDelimited(in, family); err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				b.Fatal(err)
@@ -129,7 +130,7 @@ func BenchmarkParseProtoGzip(b *testing.B) {
 		for {
 			family.Reset()
 			if _, err := pbutil.ReadDelimited(in, family); err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				b.Fatal(err)
@@ -156,7 +157,7 @@ func BenchmarkParseProtoMap(b *testing.B) {
 		for {
 			family := &dto.MetricFamily{}
 			if _, err := pbutil.ReadDelimited(in, family); err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				b.Fatal(err)

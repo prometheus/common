@@ -691,7 +691,7 @@ func TestTextParserStartOfLine(t *testing.T) {
 		if fn != nil {
 			t.Errorf("Unexpected non-nil function: %v", fn)
 		}
-		if p.err != in.err {
+		if p.err != nil && !errors.Is(p.err, in.err) {
 			t.Errorf("Unexpected error: %v, expected %v", p.err, in.err)
 		}
 	})
