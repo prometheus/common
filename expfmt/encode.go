@@ -19,8 +19,9 @@ import (
 	"net/http"
 
 	"github.com/matttproud/golang_protobuf_extensions/v2/pbutil"
-	"github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg"
 	"google.golang.org/protobuf/encoding/prototext"
+
+	"github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg"
 
 	dto "github.com/prometheus/client_model/go"
 )
