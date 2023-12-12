@@ -42,7 +42,7 @@ func TestCreateOpenMetrics(t *testing.T) {
 
 	scenarios := []struct {
 		in      *dto.MetricFamily
-		options []ToOpenMetricsOption
+		options []EncoderOption
 		out     string
 	}{
 		// 0: Counter, timestamp given, no _total suffix.
@@ -343,7 +343,7 @@ unknown_name{name_1="value 1"} -1.23e-45
 					},
 				},
 			},
-			options: []ToOpenMetricsOption{WithCreatedLines()},
+			options: []EncoderOption{WithCreatedLines()},
 			out: `# HELP summary_name summary docstring
 # TYPE summary_name summary
 summary_name{quantile="0.5"} -1.23
@@ -398,7 +398,7 @@ summary_name_created{name_1="value 1",name_2="value 2"} 12345.6
 					},
 				},
 			},
-			options: []ToOpenMetricsOption{WithCreatedLines()},
+			options: []EncoderOption{WithCreatedLines()},
 			out: `# HELP request_duration_microseconds The response latency.
 # TYPE request_duration_microseconds histogram
 request_duration_microseconds_bucket{le="100.0"} 123
@@ -537,7 +537,7 @@ request_duration_microseconds_count 2693
 					},
 				},
 			},
-			options: []ToOpenMetricsOption{WithCreatedLines()},
+			options: []EncoderOption{WithCreatedLines()},
 			out: `# HELP foos Number of foos.
 # TYPE foos counter
 foos_total 42.0

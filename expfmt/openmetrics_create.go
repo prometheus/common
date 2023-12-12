@@ -28,14 +28,24 @@ import (
 	dto "github.com/prometheus/client_model/go"
 )
 
-type toOpenMetrics struct {
+type encoderOption struct {
 	withCreatedLines bool
 }
 
-type ToOpenMetricsOption func(*toOpenMetrics)
+type EncoderOption func(*encoderOption)
 
-func WithCreatedLines() ToOpenMetricsOption {
-	return func(t *toOpenMetrics) {
+// WithCreatedLines is an EncoderOption that configures the OpenMetrics encoder
+// to include _created lines (See
+// https://github.com/OpenObservability/OpenMetrics/blob/main/specification/OpenMetrics.md#counter-1).
+// Created timestamps can improve the accuracy of series reset detection, but
+// come with a bandwidth cost.
+//
+// At the time of writing, created timestamp ingestion is still experimental in
+// Prometheus and need to be enabled with the feature-flag
+// `--feature-flag=created-timestamp-zero-ingestion`, and breaking changes are
+// still possible. Therefore, it is recommended to use this feature with caution.
+func WithCreatedLines() EncoderOption {
+	return func(t *encoderOption) {
 		t.withCreatedLines = true
 	}
 }
@@ -85,8 +95,8 @@ func WithCreatedLines() ToOpenMetricsOption {
 //
 //   - The value of Counters is not checked. (OpenMetrics doesn't allow counters
 //     with a `NaN` value.)
-func MetricFamilyToOpenMetrics(out io.Writer, in *dto.MetricFamily, options ...ToOpenMetricsOption) (written int, err error) {
-	toOM := toOpenMetrics{}
+func MetricFamilyToOpenMetrics(out io.Writer, in *dto.MetricFamily, options ...EncoderOption) (written int, err error) {
+	toOM := encoderOption{}
 	for _, option := range options {
 		option(&toOM)
 	}
