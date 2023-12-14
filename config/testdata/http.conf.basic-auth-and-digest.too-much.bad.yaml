@@ -1,0 +1,6 @@
+basic_auth:
+  username: user
+  password: foo
+digest_auth:
+  username: user
+  password: foo

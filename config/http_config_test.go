@@ -15,8 +15,10 @@ package config
 
 import (
 	"context"
+	"crypto/md5"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -77,7 +79,7 @@ var invalidHTTPClientConfigs = []struct {
 	},
 	{
 		httpClientConfigFile: "testdata/http.conf.empty.bad.yml",
-		errMsg:               "at most one of basic_auth, oauth2, bearer_token & bearer_token_file must be configured",
+		errMsg:               "at most one of basic_auth, digest_auth, oauth2, bearer_token & bearer_token_file must be configured",
 	},
 	{
 		httpClientConfigFile: "testdata/http.conf.basic-auth.too-much.bad.yaml",
@@ -97,11 +99,15 @@ var invalidHTTPClientConfigs = []struct {
 	},
 	{
 		httpClientConfigFile: "testdata/http.conf.basic-auth-and-auth-creds.too-much.bad.yaml",
-		errMsg:               "at most one of basic_auth, oauth2 & authorization must be configured",
+		errMsg:               "at most one of basic_auth, digest_auth, oauth2 & authorization must be configured",
 	},
 	{
 		httpClientConfigFile: "testdata/http.conf.basic-auth-and-oauth2.too-much.bad.yaml",
-		errMsg:               "at most one of basic_auth, oauth2 & authorization must be configured",
+		errMsg:               "at most one of basic_auth, digest_auth, oauth2 & authorization must be configured",
+	},
+	{
+		httpClientConfigFile: "testdata/http.conf.basic-auth-and-digest.too-much.bad.yaml",
+		errMsg:               "at most one of basic_auth, digest_auth, oauth2 & authorization must be configured",
 	},
 	{
 		httpClientConfigFile: "testdata/http.conf.auth-creds-no-basic.bad.yaml",
@@ -314,6 +320,31 @@ func TestNewClientFromConfig(t *testing.T) {
 			},
 		}, {
 			clientConfig: HTTPClientConfig{
+				BasicAuth: &BasicAuth{
+					Username: ExpectedUsername,
+					Password: ExpectedPassword,
+				},
+				TLSConfig: TLSConfig{
+					CAFile:             TLSCAChainPath,
+					CertFile:           ClientCertificatePath,
+					KeyFile:            ClientKeyNoPassPath,
+					ServerName:         "",
+					InsecureSkipVerify: false},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				username, password, ok := r.BasicAuth()
+				if !ok {
+					fmt.Fprintf(w, "The Authorization header wasn't set")
+				} else if ExpectedUsername != username {
+					fmt.Fprintf(w, "The expected username (%s) differs from the obtained username (%s).", ExpectedUsername, username)
+				} else if ExpectedPassword != password {
+					fmt.Fprintf(w, "The expected password (%s) differs from the obtained password (%s).", ExpectedPassword, password)
+				} else {
+					fmt.Fprint(w, ExpectedMessage)
+				}
+			},
+		}, {
+			clientConfig: HTTPClientConfig{
 				Authorization: &Authorization{
 					CredentialsFile: BearerTokenFile,
 				},
@@ -335,7 +366,7 @@ func TestNewClientFromConfig(t *testing.T) {
 			},
 		}, {
 			clientConfig: HTTPClientConfig{
-				BasicAuth: &BasicAuth{
+				DigestAuth: &DigestAuth{
 					Username: ExpectedUsername,
 					Password: ExpectedPassword,
 				},
@@ -347,14 +378,61 @@ func TestNewClientFromConfig(t *testing.T) {
 					InsecureSkipVerify: false},
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
-				username, password, ok := r.BasicAuth()
-				if !ok {
-					fmt.Fprintf(w, "The Authorization header wasn't set")
-				} else if ExpectedUsername != username {
-					fmt.Fprintf(w, "The expected username (%s) differs from the obtained username (%s).", ExpectedUsername, username)
-				} else if ExpectedPassword != password {
-					fmt.Fprintf(w, "The expected password (%s) differs from the obtained password (%s).", ExpectedPassword, password)
+				// Example server response header:
+				// WWW-Authenticate:  Digest realm="prometheus", nonce="43568ca162f46c3bcc57ecae193b3159", qop="auth", opaque="3bc9f19d8195721e24469ff255750f8c", algorithm=MD5, stale=FALSE
+				//
+				// Example client request header:
+				// Authorization: Digest username="foo", realm="prometheus", nonce="43568ca162f46c3bcc57ecae193b3159", uri="/", cnonce="NDA2M2JmYzQ2YTQ4OTQ0OTQ1NzE0NmI3ZmYyY2YyNzU=", nc=00000001, qop=auth, response="fe543d7eeb2d2f0aba8d100a1f076909", opaque="3bc9f19d8195721e24469ff255750f8c", algorithm=MD5
+
+				const (
+					nonce = "43568ca162f46c3bcc57ecae193b3159"
+					realm = "prometheus"
+				)
+
+				if authHeader := r.Header.Get("Authorization"); authHeader == "" {
+					// first request
+					w.Header().Set("www-authenticate", "Digest realm=\""+realm+"\", nonce=\""+nonce+"\", qop=\"auth\", opaque=\"3bc9f19d8195721e24469ff255750f8c\", algorithm=MD5, stale=FALSE")
+					w.WriteHeader(401)
 				} else {
+					// second, authenticated request
+					if !strings.HasPrefix(authHeader, "Digest") {
+						fmt.Fprint(w, "Request does not contain a valid digest auth header")
+						return
+					}
+
+					digestComponents := make(map[string]string)
+					for _, p := range strings.Split(authHeader, ", ")[1:] {
+						kvParts := strings.Split(p, "=")
+						digestComponents[kvParts[0]] = strings.TrimSpace(strings.Trim(kvParts[1], "\""))
+					}
+
+					if v := digestComponents["realm"]; v != realm {
+						fmt.Fprintf(w, "Digest auth with wrong realm (%s)", v)
+						return
+					}
+					if v := digestComponents["nonce"]; v != nonce {
+						fmt.Fprintf(w, "Digest auth with wrong nonce (%s)", v)
+						return
+					}
+
+					hashMD5 := func(s string) string {
+						hasher := md5.New()
+						hasher.Write([]byte(s))
+						return hex.EncodeToString(hasher.Sum(nil))
+					}
+
+					hash1Str := fmt.Sprintf("%s:%s:%s", ExpectedUsername, realm, ExpectedPassword)
+					hash1 := hashMD5(hash1Str)
+					hash2Str := fmt.Sprintf("GET:%s", digestComponents["uri"])
+					hash2 := hashMD5(hash2Str)
+					responseStr := fmt.Sprintf("%s:%s:%s:%s:%s:%s", hash1, nonce, digestComponents["nc"], digestComponents["cnonce"], digestComponents["qop"], hash2)
+					response := hashMD5(responseStr)
+
+					if response != digestComponents["response"] {
+						fmt.Fprintf(w, "Digest auth failed, response hashes didn't match")
+						return
+					}
+
 					fmt.Fprint(w, ExpectedMessage)
 				}
 			},

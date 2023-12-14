@@ -5,6 +5,7 @@ go 1.20
 require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/go-kit/log v0.2.1
+	github.com/icholy/digest v0.1.22
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f
