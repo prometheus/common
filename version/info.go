@@ -48,7 +48,7 @@ func NewCollector(program string) prometheus.Collector {
 			),
 			ConstLabels: prometheus.Labels{
 				"version":   Version,
-				"revision":  getRevision(),
+				"revision":  GetRevision(),
 				"branch":    Branch,
 				"goversion": GoVersion,
 				"goos":      GoOS,
@@ -75,7 +75,7 @@ func Print(program string) string {
 	m := map[string]string{
 		"program":   program,
 		"version":   Version,
-		"revision":  getRevision(),
+		"revision":  GetRevision(),
 		"branch":    Branch,
 		"buildUser": BuildUser,
 		"buildDate": BuildDate,
@@ -94,7 +94,7 @@ func Print(program string) string {
 
 // Info returns version, branch and revision information.
 func Info() string {
-	return fmt.Sprintf("(version=%s, branch=%s, revision=%s)", Version, Branch, getRevision())
+	return fmt.Sprintf("(version=%s, branch=%s, revision=%s)", Version, Branch, GetRevision())
 }
 
 // BuildContext returns goVersion, platform, buildUser and buildDate information.

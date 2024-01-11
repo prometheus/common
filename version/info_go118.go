@@ -21,7 +21,7 @@ import "runtime/debug"
 var computedRevision string
 var computedTags string
 
-func getRevision() string {
+func GetRevision() string {
 	if Revision != "" {
 		return Revision
 	}
