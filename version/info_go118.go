@@ -18,8 +18,10 @@ package version
 
 import "runtime/debug"
 
-var computedRevision string
-var computedTags string
+var (
+	computedRevision string
+	computedTags     string
+)
 
 func GetRevision() string {
 	if Revision != "" {
