@@ -478,6 +478,9 @@ func (p *TextParser) startTimestamp() stateFn {
 	if p.readTokenUntilWhitespace(); p.err != nil {
 		return nil // Unexpected end of input.
 	}
+	if p.currentToken.String() == "" {
+		return p.startOfLine
+	}
 	timestamp, err := strconv.ParseInt(p.currentToken.String(), 10, 64)
 	if err != nil {
 		// Create a more helpful error message.
@@ -488,7 +491,7 @@ func (p *TextParser) startTimestamp() stateFn {
 	if p.readTokenUntilNewline(false); p.err != nil {
 		return nil // Unexpected end of input.
 	}
-	if p.currentToken.Len() > 0 {
+	if strings.TrimSpace(p.currentToken.String()) != "" {
 		p.parseError(fmt.Sprintf("spurious string after timestamp: %q", p.currentToken.String()))
 		return nil
 	}
@@ -521,7 +524,7 @@ func (p *TextParser) readingType() stateFn {
 	if p.readTokenUntilNewline(false); p.err != nil {
 		return nil // Unexpected end of input.
 	}
-	metricType, ok := dto.MetricType_value[strings.ToUpper(p.currentToken.String())]
+	metricType, ok := dto.MetricType_value[strings.ToUpper(strings.TrimSpace(p.currentToken.String()))]
 	if !ok {
 		p.parseError(fmt.Sprintf("unknown metric type %q", p.currentToken.String()))
 		return nil

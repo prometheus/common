@@ -385,6 +385,45 @@ request_duration_microseconds_count 2693
 				},
 			},
 		},
+		// 5: Trailing white space in TYPE declaration.
+		{
+			in: `
+# TYPE name counter 
+name {labelname="val1"} 1 
+name {labelname="val2"} 0.23 1234567890 
+`,
+			out: []*dto.MetricFamily{
+				{
+					Name: proto.String("name"),
+					Type: dto.MetricType_COUNTER.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Label: []*dto.LabelPair{
+								{
+									Name:  proto.String("labelname"),
+									Value: proto.String("val1"),
+								},
+							},
+							Counter: &dto.Counter{
+								Value: proto.Float64(1),
+							},
+						},
+						{
+							Label: []*dto.LabelPair{
+								{
+									Name:  proto.String("labelname"),
+									Value: proto.String("val2"),
+								},
+							},
+							Counter: &dto.Counter{
+								Value: proto.Float64(0.23),
+							},
+							TimestampMs: proto.Int64(1234567890),
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for i, scenario := range scenarios {
