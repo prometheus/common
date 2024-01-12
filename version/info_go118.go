@@ -30,7 +30,7 @@ func GetRevision() string {
 	return computedRevision
 }
 
-func getTags() string {
+func GetTags() string {
 	return computedTags
 }
 
