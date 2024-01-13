@@ -311,7 +311,7 @@ type HTTPClientConfig struct {
 	EnableHTTP2 bool `yaml:"enable_http2" json:"enable_http2"`
 	// Host optionally overrides the Host header to send.
 	// If empty, the host from the URL will be used.
-	Host string `yaml:"host" json:"host"`
+	Host string `yaml:"host,omitempty" json:"host,omitempty"`
 	// Proxy configuration.
 	ProxyConfig `yaml:",inline"`
 }
