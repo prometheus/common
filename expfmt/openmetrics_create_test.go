@@ -419,6 +419,31 @@ foos_total 42.0
 # TYPE name counter
 `,
 		},
+		// 9: Simple Counter with exemplar that has empty label set:
+		// ignore the exemplar, since OpenMetrics spec requires labels.
+		{
+			in: &dto.MetricFamily{
+				Name: proto.String("foos_total"),
+				Help: proto.String("Number of foos."),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Counter: &dto.Counter{
+							Value: proto.Float64(42),
+							Exemplar: &dto.Exemplar{
+								Label:     []*dto.LabelPair{},
+								Value:     proto.Float64(1),
+								Timestamp: openMetricsTimestamp,
+							},
+						},
+					},
+				},
+			},
+			out: `# HELP foos Number of foos.
+# TYPE foos counter
+foos_total 42.0
+`,
+		},
 	}
 
 	for i, scenario := range scenarios {
