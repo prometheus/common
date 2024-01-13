@@ -30,6 +30,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/icholy/digest"
 	"github.com/mwitkow/go-conntrack"
 	"golang.org/x/net/http/httpproxy"
 	"golang.org/x/net/http2"
@@ -141,6 +142,11 @@ func (a *BasicAuth) SetDirectory(dir string) {
 	}
 	a.PasswordFile = JoinDir(dir, a.PasswordFile)
 	a.UsernameFile = JoinDir(dir, a.UsernameFile)
+}
+
+type DigestAuth struct {
+	Username string `yaml:"username" json:"username"`
+	Password Secret `yaml:"password,omitempty" json:"password,omitempty"`
 }
 
 // Authorization contains HTTP authorization credentials.
@@ -288,7 +294,8 @@ func LoadHTTPConfigFile(filename string) (*HTTPClientConfig, []byte, error) {
 // HTTPClientConfig configures an HTTP client.
 type HTTPClientConfig struct {
 	// The HTTP basic authentication credentials for the targets.
-	BasicAuth *BasicAuth `yaml:"basic_auth,omitempty" json:"basic_auth,omitempty"`
+	BasicAuth  *BasicAuth  `yaml:"basic_auth,omitempty" json:"basic_auth,omitempty"`
+	DigestAuth *DigestAuth `yaml:"digest_auth,omitempty" json:"digest_auth,omitempty"`
 	// The HTTP authorization credentials for the targets.
 	Authorization *Authorization `yaml:"authorization,omitempty" json:"authorization,omitempty"`
 	// The OAuth2 client credentials used to fetch a token for the targets.
@@ -333,8 +340,8 @@ func (c *HTTPClientConfig) Validate() error {
 	if len(c.BearerToken) > 0 && len(c.BearerTokenFile) > 0 {
 		return fmt.Errorf("at most one of bearer_token & bearer_token_file must be configured")
 	}
-	if (c.BasicAuth != nil || c.OAuth2 != nil) && (len(c.BearerToken) > 0 || len(c.BearerTokenFile) > 0) {
-		return fmt.Errorf("at most one of basic_auth, oauth2, bearer_token & bearer_token_file must be configured")
+	if (c.BasicAuth != nil || c.OAuth2 != nil || c.DigestAuth != nil) && (len(c.BearerToken) > 0 || len(c.BearerTokenFile) > 0) {
+		return fmt.Errorf("at most one of basic_auth, digest_auth, oauth2, bearer_token & bearer_token_file must be configured")
 	}
 	if c.BasicAuth != nil && (string(c.BasicAuth.Username) != "" && c.BasicAuth.UsernameFile != "") {
 		return fmt.Errorf("at most one of basic_auth username & username_file must be configured")
@@ -356,8 +363,8 @@ func (c *HTTPClientConfig) Validate() error {
 		if strings.ToLower(c.Authorization.Type) == "basic" {
 			return fmt.Errorf(`authorization type cannot be set to "basic", use "basic_auth" instead`)
 		}
-		if c.BasicAuth != nil || c.OAuth2 != nil {
-			return fmt.Errorf("at most one of basic_auth, oauth2 & authorization must be configured")
+		if c.BasicAuth != nil || c.OAuth2 != nil || c.DigestAuth != nil {
+			return fmt.Errorf("at most one of basic_auth, digest_auth, oauth2 & authorization must be configured")
 		}
 	} else {
 		if len(c.BearerToken) > 0 {
@@ -373,7 +380,10 @@ func (c *HTTPClientConfig) Validate() error {
 	}
 	if c.OAuth2 != nil {
 		if c.BasicAuth != nil {
-			return fmt.Errorf("at most one of basic_auth, oauth2 & authorization must be configured")
+			return fmt.Errorf("at most one of basic_auth, digest_auth, oauth2 & authorization must be configured")
+		}
+		if c.DigestAuth != nil {
+			return fmt.Errorf("at most one of basic_auth, digest_auth, oauth2 & authorization must be configured")
 		}
 		if len(c.OAuth2.ClientID) == 0 {
 			return fmt.Errorf("oauth2 client_id must be configured")
@@ -387,6 +397,9 @@ func (c *HTTPClientConfig) Validate() error {
 		if len(c.OAuth2.ClientSecret) > 0 && len(c.OAuth2.ClientSecretFile) > 0 {
 			return fmt.Errorf("at most one of oauth2 client_secret & client_secret_file must be configured")
 		}
+	}
+	if c.DigestAuth != nil && (c.BasicAuth != nil || c.Authorization != nil) {
+		return fmt.Errorf("at most one of basic_auth, digest_auth, oauth2 & authorization must be configured")
 	}
 	if err := c.ProxyConfig.Validate(); err != nil {
 		return err
@@ -563,6 +576,10 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, optFuncs ...HT
 			rt = NewBasicAuthRoundTripper(cfg.BasicAuth.Username, cfg.BasicAuth.Password, cfg.BasicAuth.UsernameFile, cfg.BasicAuth.PasswordFile, rt)
 		}
 
+		if cfg.DigestAuth != nil {
+			rt = NewDigestAuthRoundTripper(cfg.DigestAuth.Username, cfg.DigestAuth.Password, rt)
+		}
+
 		if cfg.OAuth2 != nil {
 			rt = NewOAuth2RoundTripper(cfg.OAuth2, rt, &opts)
 		}
@@ -693,6 +710,14 @@ func (rt *basicAuthRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 func (rt *basicAuthRoundTripper) CloseIdleConnections() {
 	if ci, ok := rt.rt.(closeIdler); ok {
 		ci.CloseIdleConnections()
+	}
+}
+
+func NewDigestAuthRoundTripper(username string, password Secret, rt http.RoundTripper) http.RoundTripper {
+	return &digest.Transport{
+		Username:  username,
+		Password:  string(password),
+		Transport: rt,
 	}
 }
 
