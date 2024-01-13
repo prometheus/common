@@ -14,6 +14,7 @@
 package expfmt
 
 import (
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"errors"
@@ -21,7 +22,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/matttproud/golang_protobuf_extensions/v2/pbutil"
+	"google.golang.org/protobuf/encoding/protodelim"
 
 	dto "github.com/prometheus/client_model/go"
 )
@@ -98,10 +99,13 @@ func BenchmarkParseProto(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		family := &dto.MetricFamily{}
-		in := bytes.NewReader(data)
+		in := bufio.NewReader(bytes.NewReader(data))
+		unmarshaler := protodelim.UnmarshalOptions{
+			MaxSize: -1,
+		}
 		for {
 			family.Reset()
-			if _, err := pbutil.ReadDelimited(in, family); err != nil {
+			if err := unmarshaler.UnmarshalFrom(in, family); err != nil {
 				if errors.Is(err, io.EOF) {
 					break
 				}
@@ -123,13 +127,17 @@ func BenchmarkParseProtoGzip(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		family := &dto.MetricFamily{}
-		in, err := gzip.NewReader(bytes.NewReader(data))
+		gz, err := gzip.NewReader(bytes.NewReader(data))
 		if err != nil {
 			b.Fatal(err)
 		}
+		in := bufio.NewReader(gz)
+		unmarshaler := protodelim.UnmarshalOptions{
+			MaxSize: -1,
+		}
 		for {
 			family.Reset()
-			if _, err := pbutil.ReadDelimited(in, family); err != nil {
+			if err := unmarshaler.UnmarshalFrom(in, family); err != nil {
 				if errors.Is(err, io.EOF) {
 					break
 				}
@@ -153,10 +161,13 @@ func BenchmarkParseProtoMap(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		families := map[string]*dto.MetricFamily{}
-		in := bytes.NewReader(data)
+		in := bufio.NewReader(bytes.NewReader(data))
+		unmarshaler := protodelim.UnmarshalOptions{
+			MaxSize: -1,
+		}
 		for {
 			family := &dto.MetricFamily{}
-			if _, err := pbutil.ReadDelimited(in, family); err != nil {
+			if err := unmarshaler.UnmarshalFrom(in, family); err != nil {
 				if errors.Is(err, io.EOF) {
 					break
 				}
