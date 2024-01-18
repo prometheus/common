@@ -32,7 +32,7 @@ func TestCreateOpenMetrics(t *testing.T) {
 		t.Error(err)
 	}
 
-	var scenarios = []struct {
+	scenarios := []struct {
 		in  *dto.MetricFamily
 		out string
 	}{
@@ -558,7 +558,6 @@ foos_total 42.0
 			)
 		}
 	}
-
 }
 
 func BenchmarkOpenMetricsCreate(b *testing.B) {
@@ -662,7 +661,7 @@ func BenchmarkOpenMetricsCreate(b *testing.B) {
 }
 
 func TestOpenMetricsCreateError(t *testing.T) {
-	var scenarios = []struct {
+	scenarios := []struct {
 		in  *dto.MetricFamily
 		err string
 	}{
@@ -713,5 +712,4 @@ func TestOpenMetricsCreateError(t *testing.T) {
 			)
 		}
 	}
-
 }

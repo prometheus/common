@@ -102,8 +102,7 @@ mf2 4
 }
 
 func TestProtoDecoder(t *testing.T) {
-
-	var testTime = model.Now()
+	testTime := model.Now()
 
 	scenarios := []struct {
 		in             string
@@ -416,7 +415,7 @@ func TestProtoDecoder(t *testing.T) {
 }
 
 func testDiscriminatorHTTPHeader(t testing.TB) {
-	var scenarios = []struct {
+	scenarios := []struct {
 		input  map[string]string
 		output Format
 	}{

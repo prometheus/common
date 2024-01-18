@@ -21,7 +21,7 @@ import (
 )
 
 func TestLabelsToSignature(t *testing.T) {
-	var scenarios = []struct {
+	scenarios := []struct {
 		in  map[string]string
 		out uint64
 	}{
@@ -45,7 +45,7 @@ func TestLabelsToSignature(t *testing.T) {
 }
 
 func TestMetricToFingerprint(t *testing.T) {
-	var scenarios = []struct {
+	scenarios := []struct {
 		in  LabelSet
 		out Fingerprint
 	}{
@@ -69,7 +69,7 @@ func TestMetricToFingerprint(t *testing.T) {
 }
 
 func TestMetricToFastFingerprint(t *testing.T) {
-	var scenarios = []struct {
+	scenarios := []struct {
 		in  LabelSet
 		out Fingerprint
 	}{
@@ -93,7 +93,7 @@ func TestMetricToFastFingerprint(t *testing.T) {
 }
 
 func TestSignatureForLabels(t *testing.T) {
-	var scenarios = []struct {
+	scenarios := []struct {
 		in     Metric
 		labels LabelNames
 		out    uint64
@@ -145,7 +145,7 @@ func TestSignatureForLabels(t *testing.T) {
 }
 
 func TestSignatureWithoutLabels(t *testing.T) {
-	var scenarios = []struct {
+	scenarios := []struct {
 		in     Metric
 		labels map[LabelName]struct{}
 		out    uint64

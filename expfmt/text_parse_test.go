@@ -24,7 +24,7 @@ import (
 )
 
 func testTextParse(t testing.TB) {
-	var scenarios = []struct {
+	scenarios := []struct {
 		in  string
 		out []*dto.MetricFamily
 	}{
@@ -429,7 +429,7 @@ func BenchmarkTextParse(b *testing.B) {
 }
 
 func testTextParseError(t testing.TB) {
-	var scenarios = []struct {
+	scenarios := []struct {
 		in  string
 		err string
 	}{
@@ -656,7 +656,6 @@ metric{quantile="0x1p-3"} 3.14
 			)
 		}
 	}
-
 }
 
 func TestTextParseError(t *testing.T) {

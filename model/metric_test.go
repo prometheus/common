@@ -16,7 +16,7 @@ package model
 import "testing"
 
 func testMetric(t testing.TB) {
-	var scenarios = []struct {
+	scenarios := []struct {
 		input           LabelSet
 		fingerprint     Fingerprint
 		fastFingerprint Fingerprint
@@ -83,7 +83,7 @@ func BenchmarkMetric(b *testing.B) {
 }
 
 func TestMetricNameIsLegacyValid(t *testing.T) {
-	var scenarios = []struct {
+	scenarios := []struct {
 		mn          LabelValue
 		legacyValid bool
 		utf8Valid   bool

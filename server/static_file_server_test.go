@@ -67,7 +67,6 @@ func TestServeHttp(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			rr := httptest.NewRecorder()
 			req, err := http.NewRequest("GET", "http://localhost/"+c.path, nil)
-
 			if err != nil {
 				t.Fatal(err)
 			}

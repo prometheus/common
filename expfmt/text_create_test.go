@@ -25,7 +25,7 @@ import (
 )
 
 func TestCreate(t *testing.T) {
-	var scenarios = []struct {
+	scenarios := []struct {
 		in  *dto.MetricFamily
 		out string
 	}{
@@ -399,7 +399,6 @@ name -Inf
 			)
 		}
 	}
-
 }
 
 func BenchmarkCreate(b *testing.B) {
@@ -541,7 +540,7 @@ func BenchmarkCreateBuildInfo(b *testing.B) {
 }
 
 func TestCreateError(t *testing.T) {
-	var scenarios = []struct {
+	scenarios := []struct {
 		in  *dto.MetricFamily
 		err string
 	}{
@@ -602,5 +601,4 @@ func TestCreateError(t *testing.T) {
 			)
 		}
 	}
-
 }

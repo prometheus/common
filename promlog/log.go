@@ -34,6 +34,9 @@ var (
 		func() time.Time { return time.Now().UTC() },
 		"2006-01-02T15:04:05.000Z07:00",
 	)
+
+	LevelFlagOptions  = []string{"debug", "info", "warn", "error"}
+	FormatFlagOptions = []string{"logfmt, json"}
 )
 
 // AllowedLevel is a settable identifier for the minimum level a log entry
