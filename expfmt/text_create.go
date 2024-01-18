@@ -74,7 +74,6 @@ var (
 // `foo{"bar"="baz"}`. As stated above, the input is assumed to be santized and
 // no error will be thrown in this case.
 //
-//
 // This method fulfills the type 'prometheus.encoder'.
 func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (written int, err error) {
 	// Fail-fast checks.
