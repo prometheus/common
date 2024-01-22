@@ -17,7 +17,13 @@ package expfmt
 // Format specifies the HTTP content type of the different wire protocols.
 type Format string
 
-// Constants to assemble the Content-Type values for the different wire protocols.
+// Constants to assemble the Content-Type values for the different wire
+// protocols. The Content-Type strings here are all for the legacy exposition
+// formats, where valid characters for metric names and label names are limited.
+// Support for arbitrary UTF-8 characters in those names is already partially
+// implemented in this module (see model.ValidationScheme), but to actually use
+// it on the wire, new content-type strings will have to be agreed upon and
+// added here.
 const (
 	TextVersion              = "0.0.4"
 	ProtoType                = `application/vnd.google.protobuf`
