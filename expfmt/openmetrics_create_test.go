@@ -82,7 +82,79 @@ name{labelname="val1",basename="basevalue"} 42.0
 name{labelname="val2",basename="basevalue"} 0.23 1.23456789e+06
 `,
 		},
-		// 1: Gauge, some escaping required, +Inf as value, multi-byte characters in label values.
+		// 1: Dots in name
+		{
+			in: &dto.MetricFamily{
+				Name: proto.String("name.with.dots"),
+				Help: proto.String("boring help"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Label: []*dto.LabelPair{
+							{
+								Name:  proto.String("labelname"),
+								Value: proto.String("val1"),
+							},
+							{
+								Name:  proto.String("basename"),
+								Value: proto.String("basevalue"),
+							},
+						},
+						Counter: &dto.Counter{
+							Value: proto.Float64(42),
+						},
+					},
+					{
+						Label: []*dto.LabelPair{
+							{
+								Name:  proto.String("labelname"),
+								Value: proto.String("val2"),
+							},
+							{
+								Name:  proto.String("basename"),
+								Value: proto.String("basevalue"),
+							},
+						},
+						Counter: &dto.Counter{
+							Value: proto.Float64(.23),
+						},
+						TimestampMs: proto.Int64(1234567890),
+					},
+				},
+			},
+			out: `# HELP "name.with.dots" boring help
+# TYPE "name.with.dots" unknown
+{"name.with.dots",labelname="val1",basename="basevalue"} 42.0
+{"name.with.dots",labelname="val2",basename="basevalue"} 0.23 1.23456789e+06
+`,
+		},
+		// 2: Dots in name, no labels
+		{
+			in: &dto.MetricFamily{
+				Name: proto.String("name.with.dots"),
+				Help: proto.String("boring help"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Counter: &dto.Counter{
+							Value: proto.Float64(42),
+						},
+					},
+					{
+						Counter: &dto.Counter{
+							Value: proto.Float64(.23),
+						},
+						TimestampMs: proto.Int64(1234567890),
+					},
+				},
+			},
+			out: `# HELP "name.with.dots" boring help
+# TYPE "name.with.dots" unknown
+{"name.with.dots"} 42.0
+{"name.with.dots"} 0.23 1.23456789e+06
+`,
+		},
+		// 3: Gauge, some escaping required, +Inf as value, multi-byte characters in label values.
 		{
 			in: &dto.MetricFamily{
 				Name: proto.String("gauge_name"),
@@ -127,7 +199,52 @@ gauge_name{name_1="val with\nnew line",name_2="val with \\backslash and \"quotes
 gauge_name{name_1="Björn",name_2="佖佥"} 3.14e+42
 `,
 		},
-		// 2: Unknown, no help, one sample with no labels and -Inf as value, another sample with one label.
+		// 4: Gauge, utf8, some escaping required, +Inf as value, multi-byte characters in label values.
+		{
+			in: &dto.MetricFamily{
+				Name: proto.String("gauge.name\""),
+				Help: proto.String("gauge\ndoc\nstr\"ing"),
+				Type: dto.MetricType_GAUGE.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Label: []*dto.LabelPair{
+							{
+								Name:  proto.String("name.1"),
+								Value: proto.String("val with\nnew line"),
+							},
+							{
+								Name:  proto.String("name*2"),
+								Value: proto.String("val with \\backslash and \"quotes\""),
+							},
+						},
+						Gauge: &dto.Gauge{
+							Value: proto.Float64(math.Inf(+1)),
+						},
+					},
+					{
+						Label: []*dto.LabelPair{
+							{
+								Name:  proto.String("name.1"),
+								Value: proto.String("Björn"),
+							},
+							{
+								Name:  proto.String("name*2"),
+								Value: proto.String("佖佥"),
+							},
+						},
+						Gauge: &dto.Gauge{
+							Value: proto.Float64(3.14e42),
+						},
+					},
+				},
+			},
+			out: `# HELP "gauge.name\"" gauge\ndoc\nstr\"ing
+# TYPE "gauge.name\"" gauge
+{"gauge.name\"","name.1"="val with\nnew line","name*2"="val with \\backslash and \"quotes\""} +Inf
+{"gauge.name\"","name.1"="Björn","name*2"="佖佥"} 3.14e+42
+`,
+		},
+		// 5: Unknown, no help, one sample with no labels and -Inf as value, another sample with one label.
 		{
 			in: &dto.MetricFamily{
 				Name: proto.String("unknown_name"),
@@ -156,7 +273,7 @@ unknown_name -Inf
 unknown_name{name_1="value 1"} -1.23e-45
 `,
 		},
-		// 3: Summary.
+		// 6: Summary.
 		{
 			in: &dto.MetricFamily{
 				Name: proto.String("summary_name"),
@@ -229,7 +346,7 @@ summary_name_sum{name_1="value 1",name_2="value 2"} 2010.1971
 summary_name_count{name_1="value 1",name_2="value 2"} 4711
 `,
 		},
-		// 4: Histogram
+		// 7: Histogram
 		{
 			in: &dto.MetricFamily{
 				Name: proto.String("request_duration_microseconds"),
@@ -277,7 +394,7 @@ request_duration_microseconds_sum 1.7560473e+06
 request_duration_microseconds_count 2693
 `,
 		},
-		// 5: Histogram with missing +Inf bucket.
+		// 8: Histogram with missing +Inf bucket.
 		{
 			in: &dto.MetricFamily{
 				Name: proto.String("request_duration_microseconds"),
@@ -321,7 +438,7 @@ request_duration_microseconds_sum 1.7560473e+06
 request_duration_microseconds_count 2693
 `,
 		},
-		// 6: Histogram with missing +Inf bucket but with different exemplars.
+		// 9: Histogram with missing +Inf bucket but with different exemplars.
 		{
 			in: &dto.MetricFamily{
 				Name: proto.String("request_duration_microseconds"),
@@ -388,7 +505,7 @@ request_duration_microseconds_sum 1.7560473e+06
 request_duration_microseconds_count 2693
 `,
 		},
-		// 7: Simple Counter.
+		// 10: Simple Counter.
 		{
 			in: &dto.MetricFamily{
 				Name: proto.String("foos_total"),
@@ -407,7 +524,7 @@ request_duration_microseconds_count 2693
 foos_total 42.0
 `,
 		},
-		// 8: No metric.
+		// 11: No metric.
 		{
 			in: &dto.MetricFamily{
 				Name:   proto.String("name_total"),
