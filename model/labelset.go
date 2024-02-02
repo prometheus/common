@@ -16,7 +16,9 @@ package model
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -134,8 +136,8 @@ func (l LabelSet) String() string {
 	for l, v := range l {
 		lstrs = append(lstrs, fmt.Sprintf("%s=%q", l, v))
 	}
-
-	sort.Strings(lstrs)
+	//sort.Strings(lstrs)
+	sort.Stable(LabelSorter(lstrs))
 	return fmt.Sprintf("{%s}", strings.Join(lstrs, ", "))
 }
 
@@ -166,4 +168,111 @@ func (l *LabelSet) UnmarshalJSON(b []byte) error {
 	}
 	*l = LabelSet(m)
 	return nil
+}
+
+type LabelSorter []string
+
+func (p LabelSorter) Len() int           { return len(p) }
+func (p LabelSorter) Less(i, j int) bool { return Less2(p[i], p[j]) }
+func (p LabelSorter) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+
+// Faster, doesn't support sorting of numbers > 64bit unsigned
+func Less1(a, b string) bool {
+	for len(a) > 0 && len(b) > 0 {
+		idx := indexTillCommonPrefix(a, b)
+		if idx > 0 {
+			a = a[idx:]
+			b = b[idx:]
+		}
+		if len(a) == 0 {
+			return len(b) != 0
+		}
+		ia := indexTillDigit(a)
+		ib := indexTillDigit(b)
+		if ia > 0 && ib > 0 {
+			an, aerr := strconv.ParseUint(a[:ia], 10, 64)
+			bn, berr := strconv.ParseUint(b[:ib], 10, 64)
+			if aerr != nil && berr != nil {
+				if an != bn {
+					return an < bn
+				}
+				if ia != len(a) && ib != len(b) {
+					a = a[ia:]
+					b = b[ib:]
+					continue
+				}
+			}
+		} else if ia > 0 && b[0] == '=' {
+			return false
+		} else if ib > 0 && a[0] == '=' {
+			return true
+		}
+		return a < b
+	}
+	return a < b
+}
+
+// Slower, and supports sorting of numbers > 64bit unsigned
+func Less2(a, b string) bool {
+	for len(a) > 0 && len(b) > 0 {
+		idx := indexTillCommonPrefix(a, b)
+		if idx > 0 {
+			a = a[idx:]
+			b = b[idx:]
+		}
+		if len(a) == 0 {
+			return len(b) != 0
+		}
+		ia := indexTillDigit(a)
+		ib := indexTillDigit(b)
+		if ia > 0 && ib > 0 {
+			bigIntA := new(big.Int)
+			bigIntB := new(big.Int)
+			an, aerr := bigIntA.SetString(a[:ia], 10)
+			bn, berr := bigIntB.SetString(b[:ib], 10)
+			if aerr && berr {
+				if aLessb := an.Cmp(bn); aLessb == -1 {
+					return true
+				}
+				if ia != len(a) && ib != len(b) {
+					a = a[ia:]
+					b = b[ib:]
+					continue
+				}
+			}
+		} else if ia > 0 && b[0] == '=' {
+			return false
+		} else if ib > 0 && a[0] == '=' {
+			return true
+		}
+		return a < b
+	}
+	return a < b
+}
+
+// indexTillCommonPrefix returns index till the common prefix between the two strings
+func indexTillCommonPrefix(a, b string) int {
+	m := len(a)
+	if n := len(b); n < m {
+		m = n
+	}
+	if m == 0 {
+		return 0
+	}
+	for i := 0; i < m; i++ {
+		if (a[i] >= '0' && a[i] <= '9') || (b[i] >= '0' && b[i] <= '9') || (a[i] != b[i]) {
+			return i
+		}
+	}
+	return m
+}
+
+// indexTillCommonPrefix returns index till the first occurrence of a digit
+func indexTillDigit(s string) int {
+	for i, c := range s {
+		if c < '0' || c > '9' {
+			return i
+		}
+	}
+	return len(s)
 }
