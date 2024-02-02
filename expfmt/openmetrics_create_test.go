@@ -551,7 +551,7 @@ foos_created 12345.6
 				Help: proto.String("Number of foos."),
 				Type: dto.MetricType_COUNTER.Enum(),
 				Metric: []*dto.Metric{
-					&dto.Metric{
+					{
 						Counter: &dto.Counter{
 							Value:            proto.Float64(42),
 							CreatedTimestamp: openMetricsTimestamp,
