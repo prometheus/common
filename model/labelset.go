@@ -16,9 +16,7 @@ package model
 import (
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"sort"
-	"strconv"
 	"strings"
 )
 
@@ -136,7 +134,6 @@ func (l LabelSet) String() string {
 	for l, v := range l {
 		lstrs = append(lstrs, fmt.Sprintf("%s=%q", l, v))
 	}
-	//sort.Strings(lstrs)
 	sort.Stable(LabelSorter(lstrs))
 	return fmt.Sprintf("{%s}", strings.Join(lstrs, ", "))
 }
@@ -170,109 +167,100 @@ func (l *LabelSet) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// LabelSorter implements custom sorting functionality for prometheus LabelSets.
+// See: https://github.com/prometheus/common/issues/543
 type LabelSorter []string
 
 func (p LabelSorter) Len() int           { return len(p) }
-func (p LabelSorter) Less(i, j int) bool { return Less2(p[i], p[j]) }
+func (p LabelSorter) Less(i, j int) bool { return Less(p[i], p[j]) }
 func (p LabelSorter) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
-// Faster, doesn't support sorting of numbers > 64bit unsigned
-func Less1(a, b string) bool {
+func Less(a, b string) bool {
 	for len(a) > 0 && len(b) > 0 {
-		idx := indexTillCommonPrefix(a, b)
-		if idx > 0 {
-			a = a[idx:]
-			b = b[idx:]
+		// get the length of common prefix
+		p := lengthOfCommonPrefix(a, b)
+		// If there is a common prefix, remove the prefix from both the strings
+		if p > 0 {
+			a = a[p:]
+			b = b[p:]
 		}
 		if len(a) == 0 {
 			return len(b) != 0
 		}
-		ia := indexTillDigit(a)
-		ib := indexTillDigit(b)
-		if ia > 0 && ib > 0 {
-			an, aerr := strconv.ParseUint(a[:ia], 10, 64)
-			bn, berr := strconv.ParseUint(b[:ib], 10, 64)
-			if aerr != nil && berr != nil {
-				if an != bn {
-					return an < bn
-				}
-				if ia != len(a) && ib != len(b) {
-					a = a[ia:]
-					b = b[ib:]
-					continue
-				}
+		ia := firstNonNumericCharacterIndex(a)
+		ib := firstNonNumericCharacterIndex(b)
+		switch {
+		// If both strings a and b, begin with a numeric character
+		case ia > 0 && ib > 0:
+			// remove leading zeros if any
+			trimmedA, lenTrimmedA := removeLeadingZeros(a[:ia])
+			trimmedB, lenTrimmedB := removeLeadingZeros(b[:ib])
+			// check the the numeric weightage based on number of digits in the numeric substring
+			if lenTrimmedA > lenTrimmedB {
+				return false
+			} else if lenTrimmedA < lenTrimmedB {
+				return true
 			}
-		} else if ia > 0 && b[0] == '=' {
+			// if the length is same, compare them lexicographically
+			if trimmedA != trimmedB {
+				return trimmedA < trimmedB
+			}
+			// if the length is same and the value is also same, remove the substring from both the strings
+			// and continue with next set of characters
+			if ia != len(a) && ib != len(b) {
+				a = a[ia:]
+				b = b[ib:]
+				continue
+			}
+		// If string a begins with a numeric character and b begins with '=', do not swap
+		case ia > 0 && b[0] == '=':
 			return false
-		} else if ib > 0 && a[0] == '=' {
+			// If string b begins with a numeric character and a begins with '=', swap
+		case ib > 0 && a[0] == '=':
 			return true
+		// all the other cases, compare them lexicographically
+		default:
+			return a < b
 		}
-		return a < b
 	}
 	return a < b
 }
 
-// Slower, and supports sorting of numbers > 64bit unsigned
-func Less2(a, b string) bool {
-	for len(a) > 0 && len(b) > 0 {
-		idx := indexTillCommonPrefix(a, b)
-		if idx > 0 {
-			a = a[idx:]
-			b = b[idx:]
+// lengthOfCommonPrefix, returns a length of common prefix between the given two strings a and b.
+// Returns 0 if there is no common prefix
+func lengthOfCommonPrefix(a, b string) int {
+	i, j := 0, 0
+	lenA, lenB := len(a), len(b)
+	for i < lenA && j < lenB {
+		if a[i] == b[j] {
+			i++
+			j++
+		} else {
+			break
 		}
-		if len(a) == 0 {
-			return len(b) != 0
-		}
-		ia := indexTillDigit(a)
-		ib := indexTillDigit(b)
-		if ia > 0 && ib > 0 {
-			bigIntA := new(big.Int)
-			bigIntB := new(big.Int)
-			an, aerr := bigIntA.SetString(a[:ia], 10)
-			bn, berr := bigIntB.SetString(b[:ib], 10)
-			if aerr && berr {
-				if aLessb := an.Cmp(bn); aLessb == -1 {
-					return true
-				}
-				if ia != len(a) && ib != len(b) {
-					a = a[ia:]
-					b = b[ib:]
-					continue
-				}
-			}
-		} else if ia > 0 && b[0] == '=' {
-			return false
-		} else if ib > 0 && a[0] == '=' {
-			return true
-		}
-		return a < b
 	}
-	return a < b
+	return i
 }
 
-// indexTillCommonPrefix returns index till the common prefix between the two strings
-func indexTillCommonPrefix(a, b string) int {
-	m := len(a)
-	if n := len(b); n < m {
-		m = n
-	}
-	if m == 0 {
-		return 0
-	}
-	for i := 0; i < m; i++ {
-		if (a[i] >= '0' && a[i] <= '9') || (b[i] >= '0' && b[i] <= '9') || (a[i] != b[i]) {
-			return i
-		}
-	}
-	return m
-}
-
-// indexTillCommonPrefix returns index till the first occurrence of a digit
-func indexTillDigit(s string) int {
+// firstNonNumericCharacterIndex returns the index of first non-numeric character
+func firstNonNumericCharacterIndex(s string) int {
 	for i, c := range s {
 		if c < '0' || c > '9' {
 			return i
 		}
 	}
 	return len(s)
+}
+
+// removeLeadingZeros removes all the leading zeros from the numeric string, and returns it with the new length
+func removeLeadingZeros(s string) (string, int) {
+	// if the numeric string does not begin with 0, return the same string with its length
+	if s[0] != '0' {
+		return s, len(s)
+	}
+	index := 0
+	for index < len(s) && s[index] == '0' {
+		index++
+	}
+	return s[index:], len(s[index:])
 }

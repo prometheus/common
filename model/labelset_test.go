@@ -15,7 +15,6 @@ package model
 
 import (
 	"encoding/json"
-	"sort"
 	"testing"
 )
 
@@ -29,7 +28,11 @@ func TestUnmarshalJSONLabelSet(t *testing.T) {
 	"labelSet": {
 		"monitor": "codelab",
 		"foo": "bar",
-		"foo2": "bar"
+		"foo2": "bar",
+		"abc": "prometheus",
+		"foo11": "bar11",
+		"foo20abc30": "bar",
+		"foo20abc9": "bar"
 	}
 }`
 	var c testConfig
@@ -40,7 +43,7 @@ func TestUnmarshalJSONLabelSet(t *testing.T) {
 
 	labelSetString := c.LabelSet.String()
 
-	expected := `{foo="bar", foo2="bar", monitor="codelab"}`
+	expected := `{abc="prometheus", foo="bar", foo2="bar", foo11="bar11", foo20abc9="bar", foo20abc30="bar", monitor="codelab"}`
 
 	if expected != labelSetString {
 		t.Errorf("expected %s but got %s", expected, labelSetString)
@@ -120,31 +123,32 @@ func TestLabelSetMerge(t *testing.T) {
 	}
 }
 
+// Benchmark Results for LabelSet's String() method
+// ---------------------------------------------------------------------------------------------------------
+// Standard Sort(current sorting via LabelSet.String())
 // goos: linux
 // goarch: amd64
 // pkg: github.com/prometheus/common/model
 // cpu: 11th Gen Intel(R) Core(TM) i5-1145G7 @ 2.60GHz
-// BenchmarkStandardSort-8                                 19753996                52.57 ns/op
-func BenchmarkStandardSort(b *testing.B) {
-	var data = []string{`foo2="bar"`, `foo="bar"`, `aaa="abc"`, `aab="aaa"`, `foo1844="bar"`, `foo1="bar"`}
-	for i := 0; i < b.N; i++ {
-		sort.Strings(data)
-	}
-}
+// BenchmarkStandardSortString-8                             487034              2128 ns/op
+// ---------------------------------------------------------------------------------------------------------
+// Label Sort (proposed solution)
+// goos: linux
+// goarch: amd64
+// pkg: github.com/prometheus/common/model
+// cpu: 11th Gen Intel(R) Core(TM) i5-1145G7 @ 2.60GHz
+// BenchmarkLabelSortString-8                                451951              2257 ns/op
 
-// goos: linux
-// goarch: amd64
-// pkg: github.com/prometheus/common/model
-// cpu: 11th Gen Intel(R) Core(TM) i5-1145G7 @ 2.60GHz
-//
-// Case 1: Without supporting numbers > 64bit unsigned
-// BenchmarkLabelSort-8                                     8917842               130.8 ns/op
-//
-// Case 2: Supporting numbers > 64bit unsigned
-// BenchmarkLabelSort-8                                     2512645               480.9 ns/op
-func BenchmarkLabelSort(b *testing.B) {
-	var data = []string{`foo2="bar"`, `foo="bar"`, `aaa="abc"`, `aab="aaa"`, `foo1844="bar"`, `foo1="bar"`}
+func BenchmarkLabelSortString(b *testing.B) {
+	ls := make(LabelSet)
+	ls["monitor"] = "codelab"
+	ls["foo2"] = "bar"
+	ls["foo"] = "bar"
+	ls["abc"] = "prometheus"
+	ls["foo11"] = "bar11"
+	ls["foo20abc30"] = "bar"
+	ls["foo20abc9"] = "bar"
 	for i := 0; i < b.N; i++ {
-		sort.Stable(LabelSorter(data))
+		ls.String()
 	}
 }
