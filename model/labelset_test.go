@@ -149,6 +149,6 @@ func BenchmarkLabelSortString(b *testing.B) {
 	ls["foo20abc30"] = "bar"
 	ls["foo20abc9"] = "bar"
 	for i := 0; i < b.N; i++ {
-		ls.String()
+		_ = ls.String()
 	}
 }
