@@ -30,9 +30,7 @@ func TestUnmarshalJSONLabelSet(t *testing.T) {
 		"foo": "bar",
 		"foo2": "bar",
 		"abc": "prometheus",
-		"foo11": "bar11",
-		"foo20abc30": "bar",
-		"foo20abc9": "bar"
+		"foo11": "bar11"
 	}
 }`
 	var c testConfig
@@ -43,7 +41,7 @@ func TestUnmarshalJSONLabelSet(t *testing.T) {
 
 	labelSetString := c.LabelSet.String()
 
-	expected := `{abc="prometheus", foo="bar", foo2="bar", foo11="bar11", foo20abc9="bar", foo20abc30="bar", monitor="codelab"}`
+	expected := `{abc="prometheus", foo="bar", foo11="bar11", foo2="bar", monitor="codelab"}`
 
 	if expected != labelSetString {
 		t.Errorf("expected %s but got %s", expected, labelSetString)
@@ -125,29 +123,19 @@ func TestLabelSetMerge(t *testing.T) {
 
 // Benchmark Results for LabelSet's String() method
 // ---------------------------------------------------------------------------------------------------------
-// Standard Sort(current sorting via LabelSet.String())
 // goos: linux
 // goarch: amd64
 // pkg: github.com/prometheus/common/model
 // cpu: 11th Gen Intel(R) Core(TM) i5-1145G7 @ 2.60GHz
-// BenchmarkStandardSortString-8                             487034              2128 ns/op
-// ---------------------------------------------------------------------------------------------------------
-// Label Sort (proposed solution)
-// goos: linux
-// goarch: amd64
-// pkg: github.com/prometheus/common/model
-// cpu: 11th Gen Intel(R) Core(TM) i5-1145G7 @ 2.60GHz
-// BenchmarkLabelSortString-8                                451951              2257 ns/op
+// BenchmarkLabelSetStringMethod-8                               732376              1532 ns/op
 
-func BenchmarkLabelSortString(b *testing.B) {
+func BenchmarkLabelSetStringMethod(b *testing.B) {
 	ls := make(LabelSet)
 	ls["monitor"] = "codelab"
 	ls["foo2"] = "bar"
 	ls["foo"] = "bar"
 	ls["abc"] = "prometheus"
 	ls["foo11"] = "bar11"
-	ls["foo20abc30"] = "bar"
-	ls["foo20abc9"] = "bar"
 	for i := 0; i < b.N; i++ {
 		_ = ls.String()
 	}
