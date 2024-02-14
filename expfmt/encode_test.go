@@ -201,7 +201,7 @@ func TestNegotiateOpenMetrics(t *testing.T) {
 
 func TestEncode(t *testing.T) {
 	var buff bytes.Buffer
-	delimEncoder := NewEncoder(&buff, FmtProtoDelim)
+	delimEncoder := NewEncoder(&buff, fmtProtoDelim)
 	metric := &dto.MetricFamily{
 		Name: proto.String("foo_metric"),
 		Type: dto.MetricType_UNTYPED.Enum(),
@@ -226,7 +226,7 @@ func TestEncode(t *testing.T) {
 
 	buff.Reset()
 
-	compactEncoder := NewEncoder(&buff, FmtProtoCompact)
+	compactEncoder := NewEncoder(&buff, fmtProtoCompact)
 	err = compactEncoder.Encode(metric)
 	if err != nil {
 		t.Errorf("unexpected error during encode: %s", err.Error())
@@ -239,7 +239,7 @@ func TestEncode(t *testing.T) {
 
 	buff.Reset()
 
-	protoTextEncoder := NewEncoder(&buff, FmtProtoText)
+	protoTextEncoder := NewEncoder(&buff, fmtProtoText)
 	err = protoTextEncoder.Encode(metric)
 	if err != nil {
 		t.Errorf("unexpected error during encode: %s", err.Error())
@@ -252,7 +252,7 @@ func TestEncode(t *testing.T) {
 
 	buff.Reset()
 
-	textEncoder := NewEncoder(&buff, FmtText)
+	textEncoder := NewEncoder(&buff, fmtText)
 	err = textEncoder.Encode(metric)
 	if err != nil {
 		t.Errorf("unexpected error during encode: %s", err.Error())
@@ -273,7 +273,7 @@ func TestEncode(t *testing.T) {
 
 func TestEscapedEncode(t *testing.T) {
 	var buff bytes.Buffer
-	delimEncoder := NewEncoder(&buff, FmtProtoDelim+"; escaping=underscores")
+	delimEncoder := NewEncoder(&buff, fmtProtoDelim+"; escaping=underscores")
 	metric := &dto.MetricFamily{
 		Name: proto.String("foo.metric"),
 		Type: dto.MetricType_UNTYPED.Enum(),
@@ -309,7 +309,7 @@ func TestEscapedEncode(t *testing.T) {
 
 	buff.Reset()
 
-	compactEncoder := NewEncoder(&buff, FmtProtoCompact)
+	compactEncoder := NewEncoder(&buff, fmtProtoCompact)
 	err = compactEncoder.Encode(metric)
 	if err != nil {
 		t.Errorf("unexpected error during encode: %s", err.Error())
@@ -322,7 +322,7 @@ func TestEscapedEncode(t *testing.T) {
 
 	buff.Reset()
 
-	protoTextEncoder := NewEncoder(&buff, FmtProtoText)
+	protoTextEncoder := NewEncoder(&buff, fmtProtoText)
 	err = protoTextEncoder.Encode(metric)
 	if err != nil {
 		t.Errorf("unexpected error during encode: %s", err.Error())
@@ -335,7 +335,7 @@ func TestEscapedEncode(t *testing.T) {
 
 	buff.Reset()
 
-	textEncoder := NewEncoder(&buff, FmtText)
+	textEncoder := NewEncoder(&buff, fmtText)
 	err = textEncoder.Encode(metric)
 	if err != nil {
 		t.Errorf("unexpected error during encode: %s", err.Error())
