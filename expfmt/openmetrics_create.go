@@ -541,11 +541,10 @@ func writeOpenMetricsCreated(w enhancedWriter,
 		return written, err
 	}
 
-	ts := createdTimestamp.AsTime()
 	// TODO(beorn7): Format this directly from components of ts to
 	// avoid overflow/underflow and precision issues of the float
 	// conversion.
-	n, err = writeOpenMetricsFloat(w, float64(ts.UnixNano())/1e9)
+	n, err = writeOpenMetricsFloat(w, float64(createdTimestamp.AsTime().UnixNano())/1e9)
 	written += n
 	if err != nil {
 		return written, err
