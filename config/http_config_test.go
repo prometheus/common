@@ -35,7 +35,7 @@ import (
 	"testing"
 	"time"
 
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -1668,6 +1668,32 @@ func TestOAuth2UserAgent(t *testing.T) {
 	authorization := resp.Request.Header.Get("Authorization")
 	if authorization != "Bearer 12345" {
 		t.Fatalf("Expected authorization header to be 'Bearer 12345', got '%s'", authorization)
+	}
+}
+
+func TestHost(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Host != "localhost.localdomain" {
+			t.Fatalf("Expected Host header in request to be 'localhost.localdomain', got '%s'", r.Host)
+		}
+
+		w.Header().Add("Content-Type", "application/json")
+	}))
+	defer ts.Close()
+
+	config := DefaultHTTPClientConfig
+
+	rt, err := NewRoundTripperFromConfig(config, "test_host", WithHost("localhost.localdomain"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	client := http.Client{
+		Transport: rt,
+	}
+	_, err = client.Get(ts.URL)
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
