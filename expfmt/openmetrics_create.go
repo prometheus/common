@@ -350,7 +350,7 @@ func writeOpenMetricsSample(
 			return written, err
 		}
 	}
-	if exemplar != nil {
+	if exemplar != nil && len(exemplar.Label) > 0 {
 		n, err = writeExemplar(w, exemplar)
 		written += n
 		if err != nil {
