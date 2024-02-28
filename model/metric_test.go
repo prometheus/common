@@ -615,7 +615,7 @@ func TestProtoFormatUnchanged(t *testing.T) {
 		{
 			name:         "MetricFamily",
 			input:        &dto.MetricFamily{},
-			expectFields: []string{"name", "help", "type", "metric"},
+			expectFields: []string{"name", "help", "type", "metric", "unit"},
 		},
 		{
 			name:         "Metric",
