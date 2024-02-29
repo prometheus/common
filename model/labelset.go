@@ -130,12 +130,15 @@ func (l LabelSet) Merge(other LabelSet) LabelSet {
 }
 
 func (l LabelSet) String() string {
-	lstrs := make([]string, 0, len(l))
-	for l, v := range l {
-		lstrs = append(lstrs, fmt.Sprintf("%s=%q", l, v))
+	labelNames := make([]string, 0, len(l))
+	for name := range l {
+		labelNames = append(labelNames, string(name))
 	}
-
-	sort.Strings(lstrs)
+	sort.Strings(labelNames)
+	lstrs := make([]string, 0, len(l))
+	for _, name := range labelNames {
+		lstrs = append(lstrs, fmt.Sprintf("%s=%q", name, l[LabelName(name)]))
+	}
 	return fmt.Sprintf("{%s}", strings.Join(lstrs, ", "))
 }
 
