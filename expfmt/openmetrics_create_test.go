@@ -366,6 +366,7 @@ summary_name_created{name_1="value 1",name_2="value 2"} 12345.6
 				Name: proto.String("request_duration_microseconds"),
 				Help: proto.String("The response latency."),
 				Type: dto.MetricType_HISTOGRAM.Enum(),
+				Unit: proto.String("microseconds"),
 				Metric: []*dto.Metric{
 					{
 						Histogram: &dto.Histogram{
@@ -398,9 +399,10 @@ summary_name_created{name_1="value 1",name_2="value 2"} 12345.6
 					},
 				},
 			},
-			options: []EncoderOption{WithCreatedLines()},
+			options: []EncoderOption{WithCreatedLines(), WithUnit()},
 			out: `# HELP request_duration_microseconds The response latency.
 # TYPE request_duration_microseconds histogram
+# UNIT request_duration_microseconds microseconds
 request_duration_microseconds_bucket{le="100.0"} 123
 request_duration_microseconds_bucket{le="120.0"} 412
 request_duration_microseconds_bucket{le="144.0"} 592
@@ -417,6 +419,7 @@ request_duration_microseconds_created 12345.6
 				Name: proto.String("request_duration_microseconds"),
 				Help: proto.String("The response latency."),
 				Type: dto.MetricType_HISTOGRAM.Enum(),
+				Unit: proto.String("microseconds"),
 				Metric: []*dto.Metric{
 					{
 						Histogram: &dto.Histogram{
@@ -576,7 +579,7 @@ foos_total 42.0
 # TYPE name counter
 `,
 		},
-		// 9: Simple Counter with exemplar that has empty label set:
+		// 13: Simple Counter with exemplar that has empty label set:
 		// ignore the exemplar, since OpenMetrics spec requires labels.
 		{
 			in: &dto.MetricFamily{
@@ -599,6 +602,98 @@ foos_total 42.0
 			out: `# HELP foos Number of foos.
 # TYPE foos counter
 foos_total 42.0
+`,
+		},
+		// 14: No metric plus unit.
+		{
+			in: &dto.MetricFamily{
+				Name:   proto.String("name_seconds_total"),
+				Help:   proto.String("doc string"),
+				Type:   dto.MetricType_COUNTER.Enum(),
+				Unit:   proto.String("seconds"),
+				Metric: []*dto.Metric{},
+			},
+			options: []EncoderOption{WithUnit()},
+			out: `# HELP name_seconds doc string
+# TYPE name_seconds counter
+# UNIT name_seconds seconds
+`,
+		},
+		// 15: Histogram plus unit, but unit not opted in.
+		{
+			in: &dto.MetricFamily{
+				Name: proto.String("request_duration_microseconds"),
+				Help: proto.String("The response latency."),
+				Type: dto.MetricType_HISTOGRAM.Enum(),
+				Unit: proto.String("microseconds"),
+				Metric: []*dto.Metric{
+					{
+						Histogram: &dto.Histogram{
+							SampleCount: proto.Uint64(2693),
+							SampleSum:   proto.Float64(1756047.3),
+							Bucket: []*dto.Bucket{
+								{
+									UpperBound:      proto.Float64(100),
+									CumulativeCount: proto.Uint64(123),
+								},
+								{
+									UpperBound:      proto.Float64(120),
+									CumulativeCount: proto.Uint64(412),
+								},
+								{
+									UpperBound:      proto.Float64(144),
+									CumulativeCount: proto.Uint64(592),
+								},
+								{
+									UpperBound:      proto.Float64(172.8),
+									CumulativeCount: proto.Uint64(1524),
+								},
+								{
+									UpperBound:      proto.Float64(math.Inf(+1)),
+									CumulativeCount: proto.Uint64(2693),
+								},
+							},
+						},
+					},
+				},
+			},
+			out: `# HELP request_duration_microseconds The response latency.
+# TYPE request_duration_microseconds histogram
+request_duration_microseconds_bucket{le="100.0"} 123
+request_duration_microseconds_bucket{le="120.0"} 412
+request_duration_microseconds_bucket{le="144.0"} 592
+request_duration_microseconds_bucket{le="172.8"} 1524
+request_duration_microseconds_bucket{le="+Inf"} 2693
+request_duration_microseconds_sum 1.7560473e+06
+request_duration_microseconds_count 2693
+`,
+		},
+		// 16: No metric, unit opted in, no unit in name.
+		{
+			in: &dto.MetricFamily{
+				Name:   proto.String("name_total"),
+				Help:   proto.String("doc string"),
+				Type:   dto.MetricType_COUNTER.Enum(),
+				Unit:   proto.String("seconds"),
+				Metric: []*dto.Metric{},
+			},
+			options: []EncoderOption{WithUnit()},
+			out: `# HELP name_seconds doc string
+# TYPE name_seconds counter
+# UNIT name_seconds seconds
+`,
+		},
+		// 17: No metric, unit opted in, BUT unit == nil.
+		{
+			in: &dto.MetricFamily{
+				Name:   proto.String("name_total"),
+				Help:   proto.String("doc string"),
+				Type:   dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{},
+			},
+			options: []EncoderOption{WithUnit()},
+			out: `# HELP name doc string
+# TYPE name counter
 `,
 		},
 	}
