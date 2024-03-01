@@ -1,4 +1,4 @@
-// Copyright 2021 The Prometheus Authors
+// Copyright 2022 The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -11,40 +11,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build !noaws
-// +build !noaws
+//go:build noaws
+// +build noaws
 
 package sigv4
 
 import (
-	"fmt"
-
-	"github.com/prometheus/common/config"
+	"errors"
+	"net/http"
 )
 
+// NewSigV4RoundTripper returns an error when a new RoundTripper is created.
+func NewSigV4RoundTripper(cfg *SigV4Config, next http.RoundTripper) (http.RoundTripper, error) {
+	return nil, errors.New("sigv4 support has been disabled in this build")
+}
+
 // SigV4Config is the configuration for signing remote write requests with
-// AWS's SigV4 verification process. Empty values will be retrieved using the
-// AWS default credentials chain.
+// AWS's SigV4 verification process.
 type SigV4Config struct {
-	Region    string        `yaml:"region,omitempty"`
-	AccessKey string        `yaml:"access_key,omitempty"`
-	SecretKey config.Secret `yaml:"secret_key,omitempty"`
-	Profile   string        `yaml:"profile,omitempty"`
-	RoleARN   string        `yaml:"role_arn,omitempty"`
 }
 
 func (c *SigV4Config) Validate() error {
-	if (c.AccessKey == "") != (c.SecretKey == "") {
-		return fmt.Errorf("must provide a AWS SigV4 Access key and Secret Key if credentials are specified in the SigV4 config")
-	}
-	return nil
+	return errors.New("sigv4 support has been disabled in this build")
 }
 
 func (c *SigV4Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	type plain SigV4Config
-	*c = SigV4Config{}
-	if err := unmarshal((*plain)(c)); err != nil {
-		return err
-	}
 	return c.Validate()
 }
