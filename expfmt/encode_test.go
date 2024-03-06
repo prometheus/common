@@ -200,11 +200,10 @@ func TestNegotiateOpenMetrics(t *testing.T) {
 }
 
 func TestEncode(t *testing.T) {
-	var buff bytes.Buffer
-	delimEncoder := NewEncoder(&buff, fmtProtoDelim)
-	metric := &dto.MetricFamily{
+	metric1 := &dto.MetricFamily{
 		Name: proto.String("foo_metric"),
 		Type: dto.MetricType_UNTYPED.Enum(),
+		Unit: proto.String("seconds"),
 		Metric: []*dto.Metric{
 			{
 				Untyped: &dto.Untyped{
@@ -214,60 +213,98 @@ func TestEncode(t *testing.T) {
 		},
 	}
 
-	err := delimEncoder.Encode(metric)
-	if err != nil {
-		t.Errorf("unexpected error during encode: %s", err.Error())
+	scenarios := []struct {
+		metric  *dto.MetricFamily
+		format  Format
+		options []EncoderOption
+		expOut  string
+	}{
+		// 1: Untyped ProtoDelim
+		{
+			metric: metric1,
+			format: fmtProtoDelim,
+		},
+		// 2: Untyped fmtProtoCompact
+		{
+			metric: metric1,
+			format: fmtProtoCompact,
+		},
+		// 3: Untyped fmtProtoText
+		{
+			metric: metric1,
+			format: fmtProtoText,
+		},
+		// 4: Untyped fmtText
+		{
+			metric: metric1,
+			format: fmtText,
+			expOut: `# TYPE foo_metric untyped
+foo_metric 1.234
+`,
+		},
+		// 5: Untyped fmtOpenMetrics_0_0_1
+		{
+			metric: metric1,
+			format: fmtOpenMetrics_0_0_1,
+			expOut: `# TYPE foo_metric unknown
+foo_metric 1.234
+`,
+		},
+		// 6: Untyped fmtOpenMetrics_1_0_0
+		{
+			metric: metric1,
+			format: fmtOpenMetrics_1_0_0,
+			expOut: `# TYPE foo_metric unknown
+foo_metric 1.234
+`,
+		},
+		// 7: Simple Counter fmtOpenMetrics_0_0_1 unit opted in
+		{
+			metric:  metric1,
+			format:  fmtOpenMetrics_0_0_1,
+			options: []EncoderOption{WithUnit()},
+			expOut: `# TYPE foo_metric_seconds unknown
+# UNIT foo_metric_seconds seconds
+foo_metric_seconds 1.234
+`,
+		},
+		// 8: Simple Counter fmtOpenMetrics_1_0_0 unit opted out
+		{
+			metric: metric1,
+			format: fmtOpenMetrics_1_0_0,
+			expOut: `# TYPE foo_metric unknown
+foo_metric 1.234
+`,
+		},
 	}
+	for i, scenario := range scenarios {
+		out := bytes.NewBuffer(make([]byte, 0, len(scenario.expOut)))
+		enc := NewEncoder(out, scenario.format, scenario.options...)
+		err := enc.Encode(scenario.metric)
+		if err != nil {
+			t.Errorf("%d. error: %s", i, err)
+			continue
+		}
 
-	out := buff.Bytes()
-	if len(out) == 0 {
-		t.Errorf("expected the output bytes buffer to be non-empty")
-	}
+		if expected, got := len(scenario.expOut), len(out.Bytes()); expected != 0 && expected != got {
+			t.Errorf(
+				"%d. expected %d bytes written, got %d",
+				i, expected, got,
+			)
+		}
+		if expected, got := scenario.expOut, out.String(); expected != "" && expected != got {
+			t.Errorf(
+				"%d. expected out=%q, got %q",
+				i, expected, got,
+			)
+		}
 
-	buff.Reset()
-
-	compactEncoder := NewEncoder(&buff, fmtProtoCompact)
-	err = compactEncoder.Encode(metric)
-	if err != nil {
-		t.Errorf("unexpected error during encode: %s", err.Error())
-	}
-
-	out = buff.Bytes()
-	if len(out) == 0 {
-		t.Errorf("expected the output bytes buffer to be non-empty")
-	}
-
-	buff.Reset()
-
-	protoTextEncoder := NewEncoder(&buff, fmtProtoText)
-	err = protoTextEncoder.Encode(metric)
-	if err != nil {
-		t.Errorf("unexpected error during encode: %s", err.Error())
-	}
-
-	out = buff.Bytes()
-	if len(out) == 0 {
-		t.Errorf("expected the output bytes buffer to be non-empty")
-	}
-
-	buff.Reset()
-
-	textEncoder := NewEncoder(&buff, fmtText)
-	err = textEncoder.Encode(metric)
-	if err != nil {
-		t.Errorf("unexpected error during encode: %s", err.Error())
-	}
-
-	out = buff.Bytes()
-	if len(out) == 0 {
-		t.Errorf("expected the output bytes buffer to be non-empty")
-	}
-
-	expected := "# TYPE foo_metric untyped\n" +
-		"foo_metric 1.234\n"
-
-	if string(out) != expected {
-		t.Errorf("expected TextEncoder to return %s, but got %s instead", expected, string(out))
+		if len(out.Bytes()) == 0 {
+			t.Errorf(
+				"%d. expected output not to be empty",
+				i,
+			)
+		}
 	}
 }
 
