@@ -91,7 +91,7 @@ func GenerateCertificateAuthority(commonName string, parentCert *x509.Certificat
 		},
 		NotBefore:             now,
 		NotAfter:              now.Add(validityPeriod),
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
 		IsCA:                  true,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 		BasicConstraintsValid: true,
@@ -185,6 +185,51 @@ func writeCertificateAndKey(path string, cert *x509.Certificate, key *rsa.Privat
 	return nil
 }
 
+func GenerateCRL(cert *x509.Certificate, privateKey *rsa.PrivateKey, revokedCerts []pkix.RevokedCertificate, isExpired bool) ([]byte, error) {
+	now := time.Now()
+
+	next := now.AddDate(30, 0, 0)
+	if isExpired {
+		next = now
+	}
+
+	crl := &x509.RevocationList{
+		SignatureAlgorithm:  x509.SHA256WithRSA,
+		ThisUpdate:          now,
+		NextUpdate:          next,
+		RevokedCertificates: revokedCerts,
+		Number:              big.NewInt(1),
+		Issuer:              cert.Subject,
+	}
+
+	crlBytes, err := x509.CreateRevocationList(rand.Reader, crl, cert, privateKey)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create revocation list: %v", err)
+	}
+
+	return crlBytes, nil
+}
+
+func writeCRLs(filename string, crlData [][]byte) error {
+	crlPemBytes := new(bytes.Buffer)
+	for _, data := range crlData {
+		crlPem := &pem.Block{
+			Type:  "X509 CRL",
+			Bytes: data,
+		}
+		err := pem.Encode(crlPemBytes, crlPem)
+		if err != nil {
+			return err
+		}
+	}
+
+	if crlPemBytes == nil {
+		return fmt.Errorf("empty CRL to write")
+	}
+
+	return os.WriteFile(filename, crlPemBytes.Bytes(), 0644)
+}
+
 func main() {
 	log.Println("Generating root CA")
 	rootCert, rootKey, err := GenerateCertificateAuthority("Prometheus Root CA", nil, nil)
@@ -198,6 +243,12 @@ func main() {
 		log.Fatal(err)
 	}
 
+	log.Println("Generating Irrelevant CA")
+	irlvtCert, irlvtKey, err := GenerateCertificateAuthority("Prometheus TLS Irrelevant CA", nil, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	log.Println("Generating server certificate")
 	cert, key, err := GenerateCertificate(caCert, caKey, true, "localhost", net.IPv4(127, 0, 0, 1), net.IPv4(127, 0, 0, 0))
 	if err != nil {
@@ -205,6 +256,16 @@ func main() {
 	}
 
 	if err := writeCertificateAndKey("testdata/server", cert, key); err != nil {
+		log.Fatal(err)
+	}
+
+	log.Println("Generating revoked server certificate")
+	revokedCert, revokedKey, err := GenerateCertificate(caCert, caKey, true, "localhost", net.IPv4(127, 0, 0, 1), net.IPv4(127, 0, 0, 0))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := writeCertificateAndKey("testdata/server_revoked", revokedCert, revokedKey); err != nil {
 		log.Fatal(err)
 	}
 
@@ -234,6 +295,10 @@ func main() {
 		log.Fatal(err)
 	}
 
+	if err := os.WriteFile("testdata/tls-ca-no-root.pem", b.Bytes(), 0644); err != nil {
+		log.Fatal(err)
+	}
+
 	if err := EncodeCertificate(&b, rootCert); err != nil {
 		log.Fatal(err)
 	}
@@ -241,4 +306,97 @@ func main() {
 	if err := os.WriteFile("testdata/tls-ca-chain.pem", b.Bytes(), 0o644); err != nil {
 		log.Fatal(err)
 	}
+
+	if err := EncodeCertificate(&b, irlvtCert); err != nil {
+		log.Fatal(err)
+	}
+
+	if err := os.WriteFile("testdata/tls-ca-chain-add-irlvt-ca.pem", b.Bytes(), 0644); err != nil {
+		log.Fatal(err)
+	}
+
+	log.Println("Generating CRLs")
+	crlProp_revokedCert := []pkix.RevokedCertificate{
+		{
+			SerialNumber:   revokedCert.SerialNumber,
+			RevocationTime: time.Now(),
+		},
+	}
+
+	crl_RevokedCert, err := GenerateCRL(caCert, caKey, crlProp_revokedCert, false)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := writeCRLs("testdata/crl_cert_revoked.pem", [][]byte{crl_RevokedCert}); err != nil {
+		log.Fatal(err)
+	}
+
+	crl_RevokedCert_expired, err := GenerateCRL(caCert, caKey, crlProp_revokedCert, true)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := writeCRLs("testdata/crl_cert_revoked_expired.pem", [][]byte{crl_RevokedCert_expired}); err != nil {
+		log.Fatal(err)
+	}
+
+	crl_irlvtRevokedCert, err := GenerateCRL(irlvtCert, irlvtKey, crlProp_revokedCert, false)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	crlProp_empty := []pkix.RevokedCertificate{
+		{
+			SerialNumber:   big.NewInt(1),
+			RevocationTime: time.Now(),
+		},
+	}
+
+	crl_InterCA_Empty, err := GenerateCRL(caCert, caKey, crlProp_empty, false)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := writeCRLs("testdata/crl_inter_empty.pem", [][]byte{crl_InterCA_Empty}); err != nil {
+		log.Fatal(err)
+	}
+
+	crlProp_RevokedInterCA := []pkix.RevokedCertificate{
+		{
+			SerialNumber:   caCert.SerialNumber,
+			RevocationTime: time.Now(),
+		},
+	}
+
+	crl_revokedInterCA, err := GenerateCRL(rootCert, rootKey, crlProp_RevokedInterCA, false)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	crl_Root_Empty, err := GenerateCRL(rootCert, rootKey, crlProp_empty, false)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := writeCRLs("testdata/crl_root_empty.pem", [][]byte{crl_Root_Empty}); err != nil {
+		log.Fatal(err)
+	}
+
+	if err := writeCRLs("testdata/crl_chain_all_empty.pem", [][]byte{crl_InterCA_Empty, crl_Root_Empty}); err != nil {
+		log.Fatal(err)
+	}
+
+	if err := writeCRLs("testdata/crl_chain_cert_revoked.pem", [][]byte{crl_Root_Empty, crl_RevokedCert}); err != nil {
+		log.Fatal(err)
+	}
+
+	if err := writeCRLs("testdata/crl_chain_inter_ca_cert_revoked.pem", [][]byte{crl_revokedInterCA, crl_InterCA_Empty}); err != nil {
+		log.Fatal(err)
+	}
+
+	if err := writeCRLs("testdata/crl_chain_irlvt_cert_revoked.pem", [][]byte{crl_InterCA_Empty, crl_irlvtRevokedCert}); err != nil {
+		log.Fatal(err)
+	}
+
 }
