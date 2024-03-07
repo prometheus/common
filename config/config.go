@@ -59,14 +59,17 @@ func (h *Header) HTTPHeader() http.Header {
 	header := make(http.Header)
 
 	for name, values := range *h {
-		var s []string
-		if values != nil {
-			s = make([]string, 0, len(values))
-			for _, value := range values {
-				s = append(s, string(value))
-			}
+		// HTTP allows for empty headers. The best representation of a
+		// header with a nil or empty set of values is a single empty
+		// string.
+		if len(values) == 0 {
+			header.Set(name, "")
+			continue
 		}
-		header[name] = s
+
+		for _, value := range values {
+			header.Add(name, string(value))
+		}
 	}
 
 	return header
