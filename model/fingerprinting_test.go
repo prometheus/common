@@ -33,7 +33,6 @@ func TestFingerprintFromString(t *testing.T) {
 	}
 
 	f, err = ParseFingerprint(fs)
-
 	if err != nil {
 		t.Errorf("unexpected error while getting Fingerprint from string: %s", err.Error())
 	}
