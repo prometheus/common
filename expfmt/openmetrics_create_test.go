@@ -696,6 +696,55 @@ request_duration_microseconds_count 2693
 # TYPE name counter
 `,
 		},
+		// 18: Counter, timestamp given, unit opted in, _total suffix.
+		{
+			in: &dto.MetricFamily{
+				Name: proto.String("some_measure_total"),
+				Help: proto.String("some testing measurement"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Unit: proto.String("seconds"),
+				Metric: []*dto.Metric{
+					{
+						Label: []*dto.LabelPair{
+							{
+								Name:  proto.String("labelname"),
+								Value: proto.String("val1"),
+							},
+							{
+								Name:  proto.String("basename"),
+								Value: proto.String("basevalue"),
+							},
+						},
+						Counter: &dto.Counter{
+							Value: proto.Float64(42),
+						},
+					},
+					{
+						Label: []*dto.LabelPair{
+							{
+								Name:  proto.String("labelname"),
+								Value: proto.String("val2"),
+							},
+							{
+								Name:  proto.String("basename"),
+								Value: proto.String("basevalue"),
+							},
+						},
+						Counter: &dto.Counter{
+							Value: proto.Float64(.23),
+						},
+						TimestampMs: proto.Int64(1234567890),
+					},
+				},
+			},
+			options: []EncoderOption{WithUnit()},
+			out: `# HELP some_measure_seconds some testing measurement
+# TYPE some_measure_seconds counter
+# UNIT some_measure_seconds seconds
+some_measure_seconds_total{labelname="val1",basename="basevalue"} 42.0
+some_measure_seconds_total{labelname="val2",basename="basevalue"} 0.23 1.23456789e+06
+`,
+		},
 	}
 
 	for i, scenario := range scenarios {
