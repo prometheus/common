@@ -36,7 +36,7 @@ var (
 	)
 
 	LevelFlagOptions  = []string{"debug", "info", "warn", "error"}
-	FormatFlagOptions = []string{"logfmt, json"}
+	FormatFlagOptions = []string{"logfmt", "json"}
 )
 
 // AllowedLevel is a settable identifier for the minimum level a log entry
