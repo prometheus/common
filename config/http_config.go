@@ -20,6 +20,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"net"
 	"net/http"
@@ -887,6 +888,13 @@ func NewTLSConfig(cfg *TLSConfig) (*tls.Config, error) {
 		tlsConfig.GetClientCertificate = cfg.getClientCertificate
 	}
 
+	// If Certificate Revocation List(s) are provided
+	// then let's read it in so we can validate the
+	// scrape target's certificate properly.
+	if len(cfg.CRLFile) > 0 || len(cfg.CRL) > 0 {
+		tlsConfig.VerifyPeerCertificate = cfg.verifyPeerCertificate
+	}
+
 	return tlsConfig, nil
 }
 
@@ -898,12 +906,16 @@ type TLSConfig struct {
 	Cert string `yaml:"cert,omitempty" json:"cert,omitempty"`
 	// Text of the client key file for the targets.
 	Key Secret `yaml:"key,omitempty" json:"key,omitempty"`
+	// Text of the CRL to use for certificate revocation verification.
+	CRL string `yaml:"crl,omitempty" json:"crl,omitempty"`
 	// The CA cert to use for the targets.
 	CAFile string `yaml:"ca_file,omitempty" json:"ca_file,omitempty"`
 	// The client cert file for the targets.
 	CertFile string `yaml:"cert_file,omitempty" json:"cert_file,omitempty"`
 	// The client key file for the targets.
 	KeyFile string `yaml:"key_file,omitempty" json:"key_file,omitempty"`
+	// The CRL to use for for certificate revocation verification.
+	CRLFile string `yaml:"crl_file,omitempty" json:"crl_file,omitempty"`
 	// Used to verify the hostname for the targets.
 	ServerName string `yaml:"server_name,omitempty" json:"server_name,omitempty"`
 	// Disable target certificate validation.
@@ -922,6 +934,7 @@ func (c *TLSConfig) SetDirectory(dir string) {
 	c.CAFile = JoinDir(dir, c.CAFile)
 	c.CertFile = JoinDir(dir, c.CertFile)
 	c.KeyFile = JoinDir(dir, c.KeyFile)
+	c.CRLFile = JoinDir(dir, c.CRLFile)
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
@@ -945,6 +958,9 @@ func (c *TLSConfig) Validate() error {
 	}
 	if len(c.Key) > 0 && len(c.KeyFile) > 0 {
 		return fmt.Errorf("at most one of key and key_file must be configured")
+	}
+	if len(c.CRL) > 0 && len(c.CRLFile) > 0 {
+		return fmt.Errorf("at most one of crl and crl_file must be configured")
 	}
 
 	if c.usingClientCert() && !c.usingClientKey() {
@@ -972,6 +988,8 @@ func (c *TLSConfig) roundTripperSettings() TLSRoundTripperSettings {
 		CertFile: c.CertFile,
 		Key:      string(c.Key),
 		KeyFile:  c.KeyFile,
+		CRL:      c.CRL,
+		CRLFile:  c.CRLFile,
 	}
 }
 
@@ -1040,6 +1058,7 @@ type tlsRoundTripper struct {
 	hashCAData   []byte
 	hashCertData []byte
 	hashKeyData  []byte
+	hashCRLData  []byte
 	tlsConfig    *tls.Config
 }
 
@@ -1047,6 +1066,7 @@ type TLSRoundTripperSettings struct {
 	CA, CAFile     string
 	Cert, CertFile string
 	Key, KeyFile   string
+	CRL, CRLFile   string
 }
 
 func NewTLSRoundTripper(
@@ -1065,7 +1085,7 @@ func NewTLSRoundTripper(
 		return nil, err
 	}
 	t.rt = rt
-	_, t.hashCAData, t.hashCertData, t.hashKeyData, err = t.getTLSDataWithHash()
+	_, t.hashCAData, t.hashCertData, t.hashKeyData, t.hashCRLData, err = t.getTLSDataWithHash()
 	if err != nil {
 		return nil, err
 	}
@@ -1073,9 +1093,9 @@ func NewTLSRoundTripper(
 	return t, nil
 }
 
-func (t *tlsRoundTripper) getTLSDataWithHash() ([]byte, []byte, []byte, []byte, error) {
+func (t *tlsRoundTripper) getTLSDataWithHash() ([]byte, []byte, []byte, []byte, []byte, error) {
 	var (
-		caBytes, certBytes, keyBytes []byte
+		caBytes, certBytes, keyBytes, crlBytes []byte
 
 		err error
 	)
@@ -1083,7 +1103,7 @@ func (t *tlsRoundTripper) getTLSDataWithHash() ([]byte, []byte, []byte, []byte, 
 	if t.settings.CAFile != "" {
 		caBytes, err = os.ReadFile(t.settings.CAFile)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 	} else if t.settings.CA != "" {
 		caBytes = []byte(t.settings.CA)
@@ -1092,7 +1112,7 @@ func (t *tlsRoundTripper) getTLSDataWithHash() ([]byte, []byte, []byte, []byte, 
 	if t.settings.CertFile != "" {
 		certBytes, err = os.ReadFile(t.settings.CertFile)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 	} else if t.settings.Cert != "" {
 		certBytes = []byte(t.settings.Cert)
@@ -1101,13 +1121,22 @@ func (t *tlsRoundTripper) getTLSDataWithHash() ([]byte, []byte, []byte, []byte, 
 	if t.settings.KeyFile != "" {
 		keyBytes, err = os.ReadFile(t.settings.KeyFile)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 	} else if t.settings.Key != "" {
 		keyBytes = []byte(t.settings.Key)
 	}
 
-	var caHash, certHash, keyHash [32]byte
+	if t.settings.CRLFile != "" {
+		crlBytes, err = os.ReadFile(t.settings.CRLFile)
+		if err != nil {
+			return nil, nil, nil, nil, nil, err
+		}
+	} else if t.settings.CRL != "" {
+		crlBytes = []byte(t.settings.CRL)
+	}
+
+	var caHash, certHash, keyHash, crlHash [32]byte
 
 	if len(caBytes) > 0 {
 		caHash = sha256.Sum256(caBytes)
@@ -1118,13 +1147,16 @@ func (t *tlsRoundTripper) getTLSDataWithHash() ([]byte, []byte, []byte, []byte, 
 	if len(keyBytes) > 0 {
 		keyHash = sha256.Sum256(keyBytes)
 	}
+	if len(crlBytes) > 0 {
+		crlHash = sha256.Sum256(crlBytes)
+	}
 
-	return caBytes, caHash[:], certHash[:], keyHash[:], nil
+	return caBytes, caHash[:], certHash[:], keyHash[:], crlHash[:], nil
 }
 
 // RoundTrip implements the http.RoundTrip interface.
 func (t *tlsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	caData, caHash, certHash, keyHash, err := t.getTLSDataWithHash()
+	caData, caHash, certHash, keyHash, crlHash, err := t.getTLSDataWithHash()
 	if err != nil {
 		return nil, err
 	}
@@ -1132,7 +1164,8 @@ func (t *tlsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	t.mtx.RLock()
 	equal := bytes.Equal(caHash[:], t.hashCAData) &&
 		bytes.Equal(certHash[:], t.hashCertData) &&
-		bytes.Equal(keyHash[:], t.hashKeyData)
+		bytes.Equal(keyHash[:], t.hashKeyData) &&
+		bytes.Equal(crlHash[:], t.hashCRLData)
 	rt := t.rt
 	t.mtx.RUnlock()
 	if equal {
@@ -1158,6 +1191,7 @@ func (t *tlsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	t.hashCAData = caHash[:]
 	t.hashCertData = certHash[:]
 	t.hashKeyData = keyHash[:]
+	t.hashCRLData = crlHash[:]
 	t.mtx.Unlock()
 
 	return rt.RoundTrip(req)
@@ -1297,4 +1331,145 @@ func (c *ProxyConfig) Proxy() (fn func(*http.Request) (*url.URL, error)) {
 // ProxyConnectHeader() return the Proxy Connext Headers.
 func (c *ProxyConfig) GetProxyConnectHeader() http.Header {
 	return c.ProxyConnectHeader.HTTPHeader()
+}
+
+// The function is invoked at the end of TLS handshake.
+// It is verifying peer provided certificate chain status
+// with provided Certificate Revocation List. If the
+// verifiedChains is nil, skip the verifyPeerCeritificate.
+func (c *TLSConfig) verifyPeerCertificate(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+	// Skip the CRL verification while verifiedChains is nil.
+	if verifiedChains == nil {
+		return nil
+	}
+
+	// Ensure the peer provide certificates.
+	if rawCerts == nil {
+		return fmt.Errorf("unable to get peer certificates")
+	}
+
+	// Parse CA certificates to a slice of certificates if provided.
+	var rawCAs []byte
+	var err error
+
+	if len(c.CA) > 0 {
+		rawCAs = []byte(c.CA)
+	} else if len(c.CAFile) > 0 {
+		rawCAs, err = readCAFile(c.CAFile)
+		if err != nil {
+			return err
+		}
+	}
+
+	var cAs []*x509.Certificate
+	if rawCAs != nil {
+		cAs, err = parseCerts(rawCAs)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Append the peer's verified CA chain to parsed CA,
+	// in case there is any missing CA.
+	cAs = append(cAs, verifiedChains[0][1:]...)
+
+	// Remove any irrelevant CA certificate from CA chain.
+	cAs, err = CreateCAChain(verifiedChains[0][0], cAs)
+	if err != nil {
+		return err
+	}
+
+	// Parse CRLs raw data.
+	var rawCRL []byte
+	if len(c.CRL) > 0 {
+		rawCRL = []byte(c.CRL)
+	} else if len(c.CRLFile) > 0 {
+		rawCRL, err = os.ReadFile(c.CRLFile)
+		if err != nil {
+			return err
+		}
+	}
+	if len(rawCRL) == 0 {
+		return fmt.Errorf("CRL is empty")
+	}
+
+	// Verify CRLs that are signed by trusted CA and not expired,
+	// return a slice of valid CRLs.
+	crlsList, err := parseCRLs(rawCRL, cAs)
+	if err != nil {
+		return err
+	}
+
+	// Append the end-entity certificate that sent from peer,
+	// and verify the peer's certificates chain revocation status
+	// against valid CRLs.
+	cAs = append(cAs, verifiedChains[0][0])
+
+	err = validRevocationStatus(cAs, crlsList)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Parse raw certificates with padding structure.
+func parseCerts(rawCerts []byte) ([]*x509.Certificate, error) {
+	var certList []*x509.Certificate
+	for p, r := pem.Decode(rawCerts); p != nil; p, r = pem.Decode(r) {
+		if p.Type != "CERTIFICATE" {
+			return nil, fmt.Errorf("unable to decode raw certificates")
+		}
+		cert, err := x509.ParseCertificate(p.Bytes)
+		if err != nil {
+			return nil, err
+		}
+		certList = append(certList, cert)
+	}
+	return certList, nil
+}
+
+// Construct the certificate chain with the provided certificate as base.
+func CreateCAChain(cert *x509.Certificate, cAs []*x509.Certificate) ([]*x509.Certificate, error) {
+	chain := make([]*x509.Certificate, 0)
+	chain = append(chain, cert)
+
+	for {
+		// Reach the root certificate, stop constructing the CA Chain.
+		if isRoot(cert) {
+			break
+		}
+
+		// Find the issuer by current certificate,
+		// stop constructing the CA Chain if none of issuers found.
+		issuer, err := findIssuer(cert, cAs)
+		if err != nil {
+			break
+		}
+
+		// Append relevant issuer
+		chain = append(chain, issuer)
+
+		// Assign the found issuer as the next certificate that to find its issuer.
+		cert = issuer
+	}
+
+	return chain, nil
+}
+
+// Find the issuer certificate from the set of possible issuers.
+func findIssuer(cert *x509.Certificate, possibleIssuers []*x509.Certificate) (*x509.Certificate, error) {
+	for _, issuer := range possibleIssuers {
+		err := cert.CheckSignatureFrom(issuer)
+		if err == nil {
+			// Found iusser certificate.
+			return issuer, nil
+		}
+	}
+	return nil, fmt.Errorf("no issuer found")
+}
+
+// Check if the certificate is at a root.
+func isRoot(cert *x509.Certificate) bool {
+	return bytes.Equal(cert.RawIssuer, cert.RawSubject) && cert.IsCA
 }
