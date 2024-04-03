@@ -15,10 +15,12 @@ package expfmt
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"io"
 	"math"
 	"net/http"
+	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -411,6 +413,31 @@ func TestProtoDecoder(t *testing.T) {
 		if !reflect.DeepEqual(all, scenario.expected) {
 			t.Fatalf("%d. output does not match, want: %#v, got %#v", i, scenario.expected, all)
 		}
+	}
+}
+
+func TestProtoMultiMessageDecoder(t *testing.T) {
+	data, err := os.ReadFile("testdata/protobuf-multimessage")
+	if err != nil {
+		t.Fatalf("Reading file failed: %v", err)
+	}
+
+	buf := bytes.NewReader(data)
+	decoder := NewDecoder(buf, fmtProtoDelim)
+	var metrics []*dto.MetricFamily
+	for {
+		var mf dto.MetricFamily
+		if err := decoder.Decode(&mf); err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			t.Fatalf("Unmarshalling failed: %v", err)
+		}
+		metrics = append(metrics, &mf)
+	}
+
+	if len(metrics) != 6 {
+		t.Fatalf("Expected %d metrics but got %d!", 6, len(metrics))
 	}
 }
 
