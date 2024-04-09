@@ -1,6 +1,6 @@
 module github.com/prometheus/common/sigv4
 
-go 1.21
+go 1.20
 
 replace github.com/prometheus/common => ../
 
