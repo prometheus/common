@@ -78,7 +78,7 @@ func (a *Alert) Status() AlertStatus {
 	return a.StatusAt(time.Now())
 }
 
-// StatusAt returns the status of the alert before the given timestamp.
+// StatusAt returns the status of the alert at the given timestamp.
 func (a *Alert) StatusAt(ts time.Time) AlertStatus {
 	if a.ResolvedAt(ts) {
 		return AlertResolved
