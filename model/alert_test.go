@@ -133,8 +133,8 @@ func TestAlert(t *testing.T) {
 		t.Errorf("expected %s, but got %s", expected, actual)
 	}
 
-	actualStatus := string(alert.Status())
-	expectedStatus := "firing"
+	actualStatus := alert.Status()
+	expectedStatus := AlertStatus("firing")
 
 	if actualStatus != expectedStatus {
 		t.Errorf("expected alertStatus %s, but got %s", expectedStatus, actualStatus)
@@ -150,6 +150,10 @@ func TestAlert(t *testing.T) {
 		EndsAt:   ts2,
 	}
 
+	if !alert.Resolved() {
+		t.Error("expected alert to be resolved, but it was not")
+	}
+
 	actual = fmt.Sprint(alert)
 	expected = "[d181d0f][resolved]"
 
@@ -157,11 +161,43 @@ func TestAlert(t *testing.T) {
 		t.Errorf("expected %s, but got %s", expected, actual)
 	}
 
-	actualStatus = string(alert.Status())
+	actualStatus = alert.Status()
 	expectedStatus = "resolved"
 
 	if actualStatus != expectedStatus {
 		t.Errorf("expected alertStatus %s, but got %s", expectedStatus, actualStatus)
+	}
+
+	// Verifying that ResolvedAt works for different times
+	if alert.ResolvedAt(ts1) {
+		t.Error("unexpected alert was resolved at start time")
+	}
+	if alert.ResolvedAt(ts2.Add(-time.Millisecond)) {
+		t.Error("unexpected alert was resolved before it ended")
+	}
+	if !alert.ResolvedAt(ts2) {
+		t.Error("expected alert to be resolved at end time")
+	}
+	if !alert.ResolvedAt(ts2.Add(time.Millisecond)) {
+		t.Error("expected alert to be resolved after it ended")
+	}
+
+	// Verifying that StatusAt works for different times
+	actualStatus = alert.StatusAt(ts1)
+	if actualStatus != "firing" {
+		t.Errorf("expected alert to be firing at start time, but got %s", actualStatus)
+	}
+	actualStatus = alert.StatusAt(ts1.Add(-time.Millisecond))
+	if actualStatus != "firing" {
+		t.Errorf("expected alert to be firing before it ended, but got %s", actualStatus)
+	}
+	actualStatus = alert.StatusAt(ts2)
+	if actualStatus != "resolved" {
+		t.Errorf("expected alert to be resolved at end time, but got %s", actualStatus)
+	}
+	actualStatus = alert.StatusAt(ts2.Add(time.Millisecond))
+	if actualStatus != "resolved" {
+		t.Errorf("expected alert to be resolved after it ended, but got %s", actualStatus)
 	}
 }
 
@@ -228,18 +264,19 @@ func TestSortAlerts(t *testing.T) {
 }
 
 func TestAlertsStatus(t *testing.T) {
+	ts := time.Now()
 	firingAlerts := Alerts{
 		{
 			Labels: LabelSet{
 				"foo": "bar",
 			},
-			StartsAt: time.Now(),
+			StartsAt: ts,
 		},
 		{
 			Labels: LabelSet{
 				"bar": "baz",
 			},
-			StartsAt: time.Now(),
+			StartsAt: ts,
 		},
 	}
 
@@ -250,7 +287,12 @@ func TestAlertsStatus(t *testing.T) {
 		t.Errorf("expected status %s, but got %s", expectedStatus, actualStatus)
 	}
 
-	ts := time.Now()
+	actualStatus = firingAlerts.StatusAt(ts)
+	if actualStatus != expectedStatus {
+		t.Errorf("expected status %s, but got %s", expectedStatus, actualStatus)
+	}
+
+	ts = time.Now()
 	resolvedAlerts := Alerts{
 		{
 			Labels: LabelSet{
@@ -270,7 +312,48 @@ func TestAlertsStatus(t *testing.T) {
 
 	actualStatus = resolvedAlerts.Status()
 	expectedStatus = AlertResolved
+	if actualStatus != expectedStatus {
+		t.Errorf("expected status %s, but got %s", expectedStatus, actualStatus)
+	}
 
+	actualStatus = resolvedAlerts.StatusAt(ts)
+	expectedStatus = AlertResolved
+	if actualStatus != expectedStatus {
+		t.Errorf("expected status %s, but got %s", expectedStatus, actualStatus)
+	}
+
+	ts = time.Now()
+	mixedAlerts := Alerts{
+		{
+			Labels: LabelSet{
+				"foo": "bar",
+			},
+			StartsAt: ts.Add(-1 * time.Minute),
+			EndsAt:   ts.Add(5 * time.Minute),
+		},
+		{
+			Labels: LabelSet{
+				"bar": "baz",
+			},
+			StartsAt: ts.Add(-1 * time.Minute),
+			EndsAt:   ts,
+		},
+	}
+
+	actualStatus = mixedAlerts.Status()
+	expectedStatus = AlertFiring
+	if actualStatus != expectedStatus {
+		t.Errorf("expected status %s, but got %s", expectedStatus, actualStatus)
+	}
+
+	actualStatus = mixedAlerts.StatusAt(ts)
+	expectedStatus = AlertFiring
+	if actualStatus != expectedStatus {
+		t.Errorf("expected status %s, but got %s", expectedStatus, actualStatus)
+	}
+
+	actualStatus = mixedAlerts.StatusAt(ts.Add(5 * time.Minute))
+	expectedStatus = AlertResolved
 	if actualStatus != expectedStatus {
 		t.Errorf("expected status %s, but got %s", expectedStatus, actualStatus)
 	}
