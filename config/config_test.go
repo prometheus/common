@@ -28,11 +28,11 @@ func TestJSONMarshalSecret(t *testing.T) {
 		S Secret
 	}
 	for _, tc := range []struct {
-		desc      string
-		data      tmp
-		expected  string
-		trueValue bool
-		testYAML  bool
+		desc          string
+		data          tmp
+		expected      string
+		marshalSecret bool
+		testYAML      bool
 	}{
 		{
 			desc: "inhabited",
@@ -42,18 +42,18 @@ func TestJSONMarshalSecret(t *testing.T) {
 			expected: "{\"S\":\"\\u003csecret\\u003e\"}",
 		},
 		{
-			desc:      "true value in JSON",
-			data:      tmp{"test"},
-			expected:  `{"S":"test"}`,
-			trueValue: true,
+			desc:          "true value in JSON",
+			data:          tmp{"test"},
+			expected:      `{"S":"test"}`,
+			marshalSecret: true,
 		},
 		{
 			desc: "true value in YAML",
 			data: tmp{"test"},
 			expected: `s: test
 `,
-			trueValue: true,
-			testYAML:  true,
+			marshalSecret: true,
+			testYAML:      true,
 		},
 		{
 			desc:     "empty",
@@ -62,7 +62,7 @@ func TestJSONMarshalSecret(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			MarshalSecretValue = tc.trueValue
+			MarshalSecretValue = tc.marshalSecret
 
 			var marshalFN func(any) ([]byte, error)
 			if tc.testYAML {
