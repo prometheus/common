@@ -16,6 +16,7 @@ package templates
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
 )
 
 func TestHumanizeDurationSecondsFloat64(t *testing.T) {
