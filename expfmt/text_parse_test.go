@@ -28,6 +28,34 @@ func testTextParse(t testing.TB) {
 		in  string
 		out []*dto.MetricFamily
 	}{
+		// -1: UTF-8 counter
+		{
+			in: `
+		# HELP "my.noncompliant.metric" help text
+		# TYPE "my.noncompliant.metric" counter
+		{"my.noncompliant.metric", label="value"} 1
+		`,
+			out: []*dto.MetricFamily{
+				{
+					Name: proto.String("\"my.noncompliant.metric\""),
+					Help: proto.String("help text"),
+					Type: dto.MetricType_COUNTER.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Label: []*dto.LabelPair{
+								{
+									Name:  proto.String("label"),
+									Value: proto.String("value"),
+								},
+							},
+							Counter: &dto.Counter{
+								Value: proto.Float64(1),
+							},
+						},
+					},
+				},
+			},
+		},
 		// 0: Empty lines as input.
 		{
 			in: `
@@ -547,6 +575,7 @@ metric 4.12
 			in:  `@invalidmetric{label="bla"} 3.14 2`,
 			err: "text format parsing error in line 1: invalid metric name",
 		},
+		// TODO(fedetorres93): this test is failing because the metric starts with braces but has no metric name in it. Fix logic to take this into account (add another stateFn?)
 		// 17:
 		{
 			in:  `{label="bla"} 3.14 2`,
