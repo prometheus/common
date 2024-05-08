@@ -9,6 +9,7 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f
 	github.com/prometheus/client_model v0.6.1
+	github.com/stretchr/testify v1.8.2
 	golang.org/x/net v0.24.0
 	golang.org/x/oauth2 v0.19.0
 	google.golang.org/protobuf v1.34.0
