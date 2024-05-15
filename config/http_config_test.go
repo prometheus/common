@@ -507,46 +507,48 @@ func TestNewClientFromConfig(t *testing.T) {
 	}
 
 	for _, validConfig := range newClientValidConfig {
-		testServer, err := newTestServer(validConfig.handler)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		defer testServer.Close()
+		t.Run("", func(t *testing.T) {
+			testServer, err := newTestServer(validConfig.handler)
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+			defer testServer.Close()
 
-		if validConfig.clientConfig.OAuth2 != nil {
-			// We don't have access to the test server's URL when configuring the test cases,
-			// so it has to be specified here.
-			validConfig.clientConfig.OAuth2.TokenURL = testServer.URL + "/token"
-		}
+			if validConfig.clientConfig.OAuth2 != nil {
+				// We don't have access to the test server's URL when configuring the test cases,
+				// so it has to be specified here.
+				validConfig.clientConfig.OAuth2.TokenURL = testServer.URL + "/token"
+			}
 
-		err = validConfig.clientConfig.Validate()
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		client, err := NewClientFromConfig(validConfig.clientConfig, "test")
-		if err != nil {
-			t.Errorf("Can't create a client from this config: %+v", validConfig.clientConfig)
-			continue
-		}
+			err = validConfig.clientConfig.Validate()
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+			client, err := NewClientFromConfig(validConfig.clientConfig, "test")
+			if err != nil {
+				t.Errorf("Can't create a client from this config: %+v", validConfig.clientConfig)
+				return
+			}
 
-		response, err := client.Get(testServer.URL)
-		if err != nil {
-			t.Errorf("Can't connect to the test server using this config: %+v: %v", validConfig.clientConfig, err)
-			continue
-		}
+			response, err := client.Get(testServer.URL)
+			if err != nil {
+				t.Errorf("Can't connect to the test server using this config: %+v: %v", validConfig.clientConfig, err)
+				return
+			}
 
-		message, err := io.ReadAll(response.Body)
-		response.Body.Close()
-		if err != nil {
-			t.Errorf("Can't read the server response body using this config: %+v", validConfig.clientConfig)
-			continue
-		}
+			message, err := io.ReadAll(response.Body)
+			response.Body.Close()
+			if err != nil {
+				t.Errorf("Can't read the server response body using this config: %+v", validConfig.clientConfig)
+				return
+			}
 
-		trimMessage := strings.TrimSpace(string(message))
-		if ExpectedMessage != trimMessage {
-			t.Errorf("The expected message (%s) differs from the obtained message (%s) using this config: %+v",
-				ExpectedMessage, trimMessage, validConfig.clientConfig)
-		}
+			trimMessage := strings.TrimSpace(string(message))
+			if ExpectedMessage != trimMessage {
+				t.Errorf("The expected message (%s) differs from the obtained message (%s) using this config: %+v",
+					ExpectedMessage, trimMessage, validConfig.clientConfig)
+			}
+		})
 	}
 }
 
