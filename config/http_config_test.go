@@ -200,6 +200,27 @@ func TestNewClientFromConfig(t *testing.T) {
 		},
 		{
 			clientConfig: HTTPClientConfig{
+				TLSConfig: TLSConfig{
+					CAFile:             TLSCAChainPath,
+					CertFile:           ClientCertificatePath,
+					KeyFile:            ClientKeyNoPassPath,
+					ServerName:         "test-domain.com",
+					InsecureSkipVerify: true},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				srvAddr := r.Context().Value(http.LocalAddrContextKey).(net.Addr)
+				srvPort := strings.Split(srvAddr.String(), ":")[1]
+
+				expectedHostHeader := "test-domain.com:" + srvPort
+				actualHostHeader := r.Host
+				if actualHostHeader != expectedHostHeader {
+					fmt.Fprintf(w, "The expected Host header (%s) differs from the obtained Host header (%s)",
+						expectedHostHeader, actualHostHeader)
+				}
+				fmt.Fprint(w, ExpectedMessage)
+			},
+		}, {
+			clientConfig: HTTPClientConfig{
 				BearerToken: BearerToken,
 				TLSConfig: TLSConfig{
 					CAFile:             TLSCAChainPath,
@@ -661,7 +682,7 @@ func TestCustomIdleConnTimeout(t *testing.T) {
 		t.Fatalf("Can't create a round-tripper from this config: %+v", cfg)
 	}
 
-	transport, ok := rt.(*http.Transport)
+	transport, ok := rt.(*hostnameRoundTripper).rt.(*http.Transport)
 	if !ok {
 		t.Fatalf("Unexpected transport: %+v", transport)
 	}

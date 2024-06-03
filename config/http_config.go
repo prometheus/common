@@ -615,6 +615,9 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 			http2t.ReadIdleTimeout = time.Minute
 		}
 
+		// hostnameRoundTripper sets the http.Request Host to the value set as the TLS server name
+		rt = newHostnameRoundTripper(tlsConfig, rt)
+
 		// If a authorization_credentials is provided, create a round tripper that will set the
 		// Authorization header correctly on each request.
 		if cfg.Authorization != nil {
@@ -775,6 +778,28 @@ func toSecret(secretManager SecretManager, text Secret, file, ref string) (secre
 		}, nil
 	}
 	return nil, nil
+}
+
+type hostnameRoundTripper struct {
+	tlsConfig *tls.Config
+	rt        http.RoundTripper
+}
+
+func newHostnameRoundTripper(tlsConfig *tls.Config, rt http.RoundTripper) http.RoundTripper {
+	return &hostnameRoundTripper{
+		tlsConfig: tlsConfig,
+		rt:        rt,
+	}
+}
+
+func (rt *hostnameRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	req = cloneRequest(req)
+	if rt.tlsConfig.ServerName != "" {
+		hostParts := strings.Split(req.Host, ":")
+		hostParts[0] = rt.tlsConfig.ServerName
+		req.Host = strings.Join(hostParts, ":")
+	}
+	return rt.rt.RoundTrip(req)
 }
 
 type authorizationCredentialsRoundTripper struct {
