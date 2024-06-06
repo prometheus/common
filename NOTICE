@@ -3,3 +3,8 @@ Copyright 2015 The Prometheus Authors
 
 This product includes software developed at
 SoundCloud Ltd. (http://soundcloud.com/).
+
+diff - a pretty-printed complete of a Go data structure
+https://github.com/kylelemons/godebug
+Copyright 2013 Google Inc.  All rights reserved.
+See source code for license details.
