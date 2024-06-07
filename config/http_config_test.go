@@ -35,6 +35,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
 )
 
@@ -2002,6 +2003,91 @@ func TestMarshalURLWithSecret(t *testing.T) {
 	if strings.TrimSpace(string(b)) != "http://foo:xxxxx@example.com" {
 		t.Fatalf("URL not properly marshaled in YAML, got '%s'", string(b))
 	}
+}
+
+func TestHTTPClientConfig_Marshal(t *testing.T) {
+	proxyURL, err := url.Parse("http://localhost:8080")
+	require.NoError(t, err)
+
+	t.Run("without HTTP headers", func(t *testing.T) {
+		config := &HTTPClientConfig{
+			ProxyConfig: ProxyConfig{
+				ProxyURL: URL{proxyURL},
+			},
+		}
+
+		t.Run("YAML", func(t *testing.T) {
+			actualYAML, err := yaml.Marshal(config)
+			require.NoError(t, err)
+			require.YAMLEq(t, `
+proxy_url: "http://localhost:8080"
+follow_redirects: false
+enable_http2: false
+http_headers: null
+`, string(actualYAML))
+
+			// Unmarshalling the YAML should get the same struct in input.
+			actual := &HTTPClientConfig{}
+			require.NoError(t, yaml.Unmarshal(actualYAML, actual))
+			require.Equal(t, config, actual)
+		})
+
+		t.Run("JSON", func(t *testing.T) {
+			actualJSON, err := json.Marshal(config)
+
+			require.NoError(t, err)
+			require.JSONEq(t, `{
+				"proxy_url":"http://localhost:8080",
+				"tls_config":{"insecure_skip_verify":false},
+				"follow_redirects":false,
+				"enable_http2":false,
+				"http_headers":null
+			}`, string(actualJSON))
+
+			// Unmarshalling the JSON should get the same struct in input.
+			actual := &HTTPClientConfig{}
+			require.NoError(t, json.Unmarshal(actualJSON, actual))
+			require.Equal(t, config, actual)
+		})
+	})
+
+	t.Run("with HTTP headers", func(t *testing.T) {
+		config := &HTTPClientConfig{
+			ProxyConfig: ProxyConfig{
+				ProxyURL: URL{proxyURL},
+			},
+			HTTPHeaders: &Headers{
+				Headers: map[string]Header{
+					"X-Test": {
+						Values: []string{"Value-1", "Value-2"},
+					},
+				},
+			},
+		}
+
+		actualYAML, err := yaml.Marshal(config)
+		require.NoError(t, err)
+		require.YAMLEq(t, `
+proxy_url: "http://localhost:8080"
+follow_redirects: false
+enable_http2: false
+http_headers:
+  X-Test:
+    values:
+    - Value-1
+    - Value-2
+`, string(actualYAML))
+
+		actualJSON, err := json.Marshal(config)
+		require.NoError(t, err)
+		require.JSONEq(t, `{
+			"proxy_url":"http://localhost:8080",
+			"tls_config":{"insecure_skip_verify":false},
+			"follow_redirects":false,
+			"enable_http2":false,
+			"http_headers":{"X-Test":{"values":["Value-1","Value-2"]}}
+		}`, string(actualJSON))
+	})
 }
 
 func TestOAuth2Proxy(t *testing.T) {
