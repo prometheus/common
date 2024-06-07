@@ -727,7 +727,7 @@ func TestBearerAuthRoundTripper(t *testing.T) {
 	}, nil, nil)
 
 	// Normal flow.
-	bearerAuthRoundTripper := NewAuthorizationCredentialsRoundTripper("Bearer", &inlineSecret{text: BearerToken}, fakeRoundTripper)
+	bearerAuthRoundTripper := NewAuthorizationCredentialsRoundTripper("Bearer", NewInlineSecret(BearerToken), fakeRoundTripper)
 	request, _ := http.NewRequest("GET", "/hitchhiker", nil)
 	request.Header.Set("User-Agent", "Douglas Adams mind")
 	_, err := bearerAuthRoundTripper.RoundTrip(request)
@@ -736,7 +736,7 @@ func TestBearerAuthRoundTripper(t *testing.T) {
 	}
 
 	// Should honor already Authorization header set.
-	bearerAuthRoundTripperShouldNotModifyExistingAuthorization := NewAuthorizationCredentialsRoundTripper("Bearer", &inlineSecret{text: newBearerToken}, fakeRoundTripper)
+	bearerAuthRoundTripperShouldNotModifyExistingAuthorization := NewAuthorizationCredentialsRoundTripper("Bearer", NewInlineSecret(newBearerToken), fakeRoundTripper)
 	request, _ = http.NewRequest("GET", "/hitchhiker", nil)
 	request.Header.Set("Authorization", ExpectedBearer)
 	_, err = bearerAuthRoundTripperShouldNotModifyExistingAuthorization.RoundTrip(request)
@@ -936,7 +936,7 @@ func TestBasicAuthNoPassword(t *testing.T) {
 		t.Fatalf("Error casting to basic auth transport, %v", client.Transport)
 	}
 
-	if username, _ := rt.username.fetch(context.Background()); username != "user" {
+	if username, _ := rt.username.Fetch(context.Background()); username != "user" {
 		t.Errorf("Bad HTTP client username: %s", username)
 	}
 	if rt.password != nil {
@@ -962,7 +962,7 @@ func TestBasicAuthNoUsername(t *testing.T) {
 	if rt.username != nil {
 		t.Errorf("Got unexpected username")
 	}
-	if password, _ := rt.password.fetch(context.Background()); password != "secret" {
+	if password, _ := rt.password.Fetch(context.Background()); password != "secret" {
 		t.Errorf("Unexpected HTTP client password: %s", password)
 	}
 }
@@ -982,10 +982,10 @@ func TestBasicAuthPasswordFile(t *testing.T) {
 		t.Fatalf("Error casting to basic auth transport, %v", client.Transport)
 	}
 
-	if username, _ := rt.username.fetch(context.Background()); username != "user" {
+	if username, _ := rt.username.Fetch(context.Background()); username != "user" {
 		t.Errorf("Bad HTTP client username: %s", username)
 	}
-	if password, _ := rt.password.fetch(context.Background()); password != "foobar" {
+	if password, _ := rt.password.Fetch(context.Background()); password != "foobar" {
 		t.Errorf("Bad HTTP client password: %s", password)
 	}
 }
@@ -1023,10 +1023,10 @@ func TestBasicAuthSecretManager(t *testing.T) {
 		t.Fatalf("Error casting to basic auth transport, %v", client.Transport)
 	}
 
-	if username, _ := rt.username.fetch(context.Background()); username != "user" {
+	if username, _ := rt.username.Fetch(context.Background()); username != "user" {
 		t.Errorf("Bad HTTP client username: %s", username)
 	}
-	if password, _ := rt.password.fetch(context.Background()); password != "foobar" {
+	if password, _ := rt.password.Fetch(context.Background()); password != "foobar" {
 		t.Errorf("Bad HTTP client password: %s", password)
 	}
 }
@@ -1052,10 +1052,10 @@ func TestBasicAuthSecretManagerNotFound(t *testing.T) {
 		t.Fatalf("Error casting to basic auth transport, %v", client.Transport)
 	}
 
-	if _, err := rt.username.fetch(context.Background()); !strings.Contains(err.Error(), "unknown secret admin") {
+	if _, err := rt.username.Fetch(context.Background()); !strings.Contains(err.Error(), "unknown secret admin") {
 		t.Errorf("Unexpected error message: %s", err)
 	}
-	if _, err := rt.password.fetch(context.Background()); !strings.Contains(err.Error(), "unknown secret pass") {
+	if _, err := rt.password.Fetch(context.Background()); !strings.Contains(err.Error(), "unknown secret pass") {
 		t.Errorf("Unexpected error message: %s", err)
 	}
 }
@@ -1075,10 +1075,10 @@ func TestBasicUsernameFile(t *testing.T) {
 		t.Fatalf("Error casting to basic auth transport, %v", client.Transport)
 	}
 
-	if username, _ := rt.username.fetch(context.Background()); username != "testuser" {
+	if username, _ := rt.username.Fetch(context.Background()); username != "testuser" {
 		t.Errorf("Bad HTTP client username: %s", username)
 	}
-	if password, _ := rt.password.fetch(context.Background()); password != "foobar" {
+	if password, _ := rt.password.Fetch(context.Background()); password != "foobar" {
 		t.Errorf("Bad HTTP client passwordFile: %s", password)
 	}
 }
@@ -1629,7 +1629,7 @@ endpoint_params:
 		t.Fatalf("Got unmarshalled config %v, expected %v", unmarshalledConfig, expectedConfig)
 	}
 
-	rt := NewOAuth2RoundTripper(&inlineSecret{text: string(expectedConfig.ClientSecret)}, &expectedConfig, http.DefaultTransport, &defaultHTTPClientOptions)
+	rt := NewOAuth2RoundTripper(NewInlineSecret(string(expectedConfig.ClientSecret)), &expectedConfig, http.DefaultTransport, &defaultHTTPClientOptions)
 
 	client := http.Client{
 		Transport: rt,
@@ -1799,7 +1799,7 @@ endpoint_params:
 		t.Fatalf("Got unmarshalled config %v, expected %v", unmarshalledConfig, expectedConfig)
 	}
 
-	rt := NewOAuth2RoundTripper(&inlineSecret{text: string(expectedConfig.ClientSecret)}, &expectedConfig, http.DefaultTransport, &defaultHTTPClientOptions)
+	rt := NewOAuth2RoundTripper(NewInlineSecret(string(expectedConfig.ClientSecret)), &expectedConfig, http.DefaultTransport, &defaultHTTPClientOptions)
 
 	client := http.Client{
 		Transport: rt,
