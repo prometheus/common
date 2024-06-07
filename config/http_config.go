@@ -738,7 +738,7 @@ func (s *fileSecret) Immutable() bool {
 	return false
 }
 
-// refSecret fetches a single secret from a SecretReader manager.
+// refSecret fetches a single secret from a SecretManager.
 type refSecret struct {
 	ref     string
 	manager SecretManager // manager is expected to be not nil.
@@ -948,7 +948,7 @@ func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 	needsInit = rt.lastRT.Source == nil
 	rt.mtx.RUnlock()
 
-	// Fetch the secret if it's our first run or always if the SecretReader can change.
+	// Fetch the secret if it's our first run or always if the secret can change.
 	if !rt.clientSecret.Immutable() || needsInit {
 		newSecret, err := rt.clientSecret.Fetch(req.Context())
 		if err != nil {
