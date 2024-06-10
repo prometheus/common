@@ -14,6 +14,7 @@
 package templates
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -138,4 +139,104 @@ func TestHumanizeDurationSecondsInt(t *testing.T) {
 			require.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestHumanizeTimestampInt(t *testing.T) {
+	tc := []struct {
+		name     string
+		input    int
+		expected string
+	}{
+		{name: "zero", input: 0, expected: "1970-01-01 00:00:00 +0000 UTC"},
+		{name: "negative", input: -1, expected: "1969-12-31 23:59:59 +0000 UTC"},
+		{name: "one", input: 1, expected: "1970-01-01 00:00:01 +0000 UTC"},
+		{name: "past", input: 1234567, expected: "1970-01-15 06:56:07 +0000 UTC"},
+		{name: "future", input: 9223372036, expected: "2262-04-11 23:47:16 +0000 UTC"},
+	}
+
+	for _, tt := range tc {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := HumanizeTimestamp(tt.input)
+			require.NoError(t, err)
+			require.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestHumanizeTimestampUint(t *testing.T) {
+	tc := []struct {
+		name     string
+		input    uint64
+		expected string
+	}{
+		{name: "zero", input: 0, expected: "1970-01-01 00:00:00 +0000 UTC"},
+		{name: "one", input: 1, expected: "1970-01-01 00:00:01 +0000 UTC"},
+		{name: "past", input: 1234567, expected: "1970-01-15 06:56:07 +0000 UTC"},
+		{name: "future", input: 9223372036, expected: "2262-04-11 23:47:16 +0000 UTC"},
+	}
+
+	for _, tt := range tc {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := HumanizeTimestamp(tt.input)
+			require.NoError(t, err)
+			require.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestHumanizeTimestampError(t *testing.T) {
+	_, err := HumanizeTimestamp(math.MaxInt64)
+	require.Error(t, err)
+}
+
+func TestHumanizeTimestampInfNanString(t *testing.T) {
+	tc := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{name: "infinity", input: "+Inf", expected: "+Inf"},
+		{name: "minus infinity", input: "-Inf", expected: "-Inf"},
+		{name: "NaN", input: "NaN", expected: "NaN"},
+	}
+
+	for _, tt := range tc {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := HumanizeTimestamp(tt.input)
+			require.NoError(t, err)
+			require.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestHumanizeTimestampInfNanFloat(t *testing.T) {
+	tc := []struct {
+		name     string
+		input    float64
+		expected string
+	}{
+		{name: "infinity", input: math.Inf(1), expected: "+Inf"},
+		{name: "minus infinity", input: math.Inf(-1), expected: "-Inf"},
+		{name: "NaN", input: math.NaN(), expected: "NaN"},
+	}
+
+	for _, tt := range tc {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := HumanizeTimestamp(tt.input)
+			require.NoError(t, err)
+			require.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestHumanizeTimestampSampleFloat64(t *testing.T) {
+	result, err := HumanizeTimestamp(1435065584.128)
+	require.NoError(t, err)
+	require.Equal(t, "2015-06-23 13:19:44.128 +0000 UTC", result)
+}
+
+func TestHumanizeTimestampSampleString(t *testing.T) {
+	result, err := HumanizeTimestamp(1435065584.128)
+	require.NoError(t, err)
+	require.Equal(t, "2015-06-23 13:19:44.128 +0000 UTC", result)
 }
