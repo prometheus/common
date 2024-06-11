@@ -35,6 +35,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
 )
 
@@ -727,7 +728,7 @@ func TestBearerAuthRoundTripper(t *testing.T) {
 	}, nil, nil)
 
 	// Normal flow.
-	bearerAuthRoundTripper := NewAuthorizationCredentialsRoundTripper("Bearer", &inlineSecret{text: BearerToken}, fakeRoundTripper)
+	bearerAuthRoundTripper := NewAuthorizationCredentialsRoundTripper("Bearer", NewInlineSecret(BearerToken), fakeRoundTripper)
 	request, _ := http.NewRequest("GET", "/hitchhiker", nil)
 	request.Header.Set("User-Agent", "Douglas Adams mind")
 	_, err := bearerAuthRoundTripper.RoundTrip(request)
@@ -736,7 +737,7 @@ func TestBearerAuthRoundTripper(t *testing.T) {
 	}
 
 	// Should honor already Authorization header set.
-	bearerAuthRoundTripperShouldNotModifyExistingAuthorization := NewAuthorizationCredentialsRoundTripper("Bearer", &inlineSecret{text: newBearerToken}, fakeRoundTripper)
+	bearerAuthRoundTripperShouldNotModifyExistingAuthorization := NewAuthorizationCredentialsRoundTripper("Bearer", NewInlineSecret(newBearerToken), fakeRoundTripper)
 	request, _ = http.NewRequest("GET", "/hitchhiker", nil)
 	request.Header.Set("Authorization", ExpectedBearer)
 	_, err = bearerAuthRoundTripperShouldNotModifyExistingAuthorization.RoundTrip(request)
@@ -755,7 +756,7 @@ func TestBearerAuthFileRoundTripper(t *testing.T) {
 	}, nil, nil)
 
 	// Normal flow.
-	bearerAuthRoundTripper := NewAuthorizationCredentialsRoundTripper("Bearer", &fileSecret{file: BearerTokenFile}, fakeRoundTripper)
+	bearerAuthRoundTripper := NewAuthorizationCredentialsRoundTripper("Bearer", &FileSecret{file: BearerTokenFile}, fakeRoundTripper)
 	request, _ := http.NewRequest("GET", "/hitchhiker", nil)
 	request.Header.Set("User-Agent", "Douglas Adams mind")
 	_, err := bearerAuthRoundTripper.RoundTrip(request)
@@ -764,7 +765,7 @@ func TestBearerAuthFileRoundTripper(t *testing.T) {
 	}
 
 	// Should honor already Authorization header set.
-	bearerAuthRoundTripperShouldNotModifyExistingAuthorization := NewAuthorizationCredentialsRoundTripper("Bearer", &fileSecret{file: MissingBearerTokenFile}, fakeRoundTripper)
+	bearerAuthRoundTripperShouldNotModifyExistingAuthorization := NewAuthorizationCredentialsRoundTripper("Bearer", &FileSecret{file: MissingBearerTokenFile}, fakeRoundTripper)
 	request, _ = http.NewRequest("GET", "/hitchhiker", nil)
 	request.Header.Set("Authorization", ExpectedBearer)
 	_, err = bearerAuthRoundTripperShouldNotModifyExistingAuthorization.RoundTrip(request)
@@ -936,7 +937,7 @@ func TestBasicAuthNoPassword(t *testing.T) {
 		t.Fatalf("Error casting to basic auth transport, %v", client.Transport)
 	}
 
-	if username, _ := rt.username.fetch(context.Background()); username != "user" {
+	if username, _ := rt.username.Fetch(context.Background()); username != "user" {
 		t.Errorf("Bad HTTP client username: %s", username)
 	}
 	if rt.password != nil {
@@ -962,7 +963,7 @@ func TestBasicAuthNoUsername(t *testing.T) {
 	if rt.username != nil {
 		t.Errorf("Got unexpected username")
 	}
-	if password, _ := rt.password.fetch(context.Background()); password != "secret" {
+	if password, _ := rt.password.Fetch(context.Background()); password != "secret" {
 		t.Errorf("Unexpected HTTP client password: %s", password)
 	}
 }
@@ -982,10 +983,10 @@ func TestBasicAuthPasswordFile(t *testing.T) {
 		t.Fatalf("Error casting to basic auth transport, %v", client.Transport)
 	}
 
-	if username, _ := rt.username.fetch(context.Background()); username != "user" {
+	if username, _ := rt.username.Fetch(context.Background()); username != "user" {
 		t.Errorf("Bad HTTP client username: %s", username)
 	}
-	if password, _ := rt.password.fetch(context.Background()); password != "foobar" {
+	if password, _ := rt.password.Fetch(context.Background()); password != "foobar" {
 		t.Errorf("Bad HTTP client password: %s", password)
 	}
 }
@@ -1023,10 +1024,10 @@ func TestBasicAuthSecretManager(t *testing.T) {
 		t.Fatalf("Error casting to basic auth transport, %v", client.Transport)
 	}
 
-	if username, _ := rt.username.fetch(context.Background()); username != "user" {
+	if username, _ := rt.username.Fetch(context.Background()); username != "user" {
 		t.Errorf("Bad HTTP client username: %s", username)
 	}
-	if password, _ := rt.password.fetch(context.Background()); password != "foobar" {
+	if password, _ := rt.password.Fetch(context.Background()); password != "foobar" {
 		t.Errorf("Bad HTTP client password: %s", password)
 	}
 }
@@ -1052,10 +1053,10 @@ func TestBasicAuthSecretManagerNotFound(t *testing.T) {
 		t.Fatalf("Error casting to basic auth transport, %v", client.Transport)
 	}
 
-	if _, err := rt.username.fetch(context.Background()); !strings.Contains(err.Error(), "unknown secret admin") {
+	if _, err := rt.username.Fetch(context.Background()); !strings.Contains(err.Error(), "unknown secret admin") {
 		t.Errorf("Unexpected error message: %s", err)
 	}
-	if _, err := rt.password.fetch(context.Background()); !strings.Contains(err.Error(), "unknown secret pass") {
+	if _, err := rt.password.Fetch(context.Background()); !strings.Contains(err.Error(), "unknown secret pass") {
 		t.Errorf("Unexpected error message: %s", err)
 	}
 }
@@ -1075,10 +1076,10 @@ func TestBasicUsernameFile(t *testing.T) {
 		t.Fatalf("Error casting to basic auth transport, %v", client.Transport)
 	}
 
-	if username, _ := rt.username.fetch(context.Background()); username != "testuser" {
+	if username, _ := rt.username.Fetch(context.Background()); username != "testuser" {
 		t.Errorf("Bad HTTP client username: %s", username)
 	}
-	if password, _ := rt.password.fetch(context.Background()); password != "foobar" {
+	if password, _ := rt.password.Fetch(context.Background()); password != "foobar" {
 		t.Errorf("Bad HTTP client passwordFile: %s", password)
 	}
 }
@@ -1629,7 +1630,7 @@ endpoint_params:
 		t.Fatalf("Got unmarshalled config %v, expected %v", unmarshalledConfig, expectedConfig)
 	}
 
-	rt := NewOAuth2RoundTripper(&inlineSecret{text: string(expectedConfig.ClientSecret)}, &expectedConfig, http.DefaultTransport, &defaultHTTPClientOptions)
+	rt := NewOAuth2RoundTripper(NewInlineSecret(string(expectedConfig.ClientSecret)), &expectedConfig, http.DefaultTransport, &defaultHTTPClientOptions)
 
 	client := http.Client{
 		Transport: rt,
@@ -1799,7 +1800,7 @@ endpoint_params:
 		t.Fatalf("Got unmarshalled config %v, expected %v", unmarshalledConfig, expectedConfig)
 	}
 
-	rt := NewOAuth2RoundTripper(&inlineSecret{text: string(expectedConfig.ClientSecret)}, &expectedConfig, http.DefaultTransport, &defaultHTTPClientOptions)
+	rt := NewOAuth2RoundTripper(NewInlineSecret(string(expectedConfig.ClientSecret)), &expectedConfig, http.DefaultTransport, &defaultHTTPClientOptions)
 
 	client := http.Client{
 		Transport: rt,
@@ -2002,6 +2003,91 @@ func TestMarshalURLWithSecret(t *testing.T) {
 	if strings.TrimSpace(string(b)) != "http://foo:xxxxx@example.com" {
 		t.Fatalf("URL not properly marshaled in YAML, got '%s'", string(b))
 	}
+}
+
+func TestHTTPClientConfig_Marshal(t *testing.T) {
+	proxyURL, err := url.Parse("http://localhost:8080")
+	require.NoError(t, err)
+
+	t.Run("without HTTP headers", func(t *testing.T) {
+		config := &HTTPClientConfig{
+			ProxyConfig: ProxyConfig{
+				ProxyURL: URL{proxyURL},
+			},
+		}
+
+		t.Run("YAML", func(t *testing.T) {
+			actualYAML, err := yaml.Marshal(config)
+			require.NoError(t, err)
+			require.YAMLEq(t, `
+proxy_url: "http://localhost:8080"
+follow_redirects: false
+enable_http2: false
+http_headers: null
+`, string(actualYAML))
+
+			// Unmarshalling the YAML should get the same struct in input.
+			actual := &HTTPClientConfig{}
+			require.NoError(t, yaml.Unmarshal(actualYAML, actual))
+			require.Equal(t, config, actual)
+		})
+
+		t.Run("JSON", func(t *testing.T) {
+			actualJSON, err := json.Marshal(config)
+
+			require.NoError(t, err)
+			require.JSONEq(t, `{
+				"proxy_url":"http://localhost:8080",
+				"tls_config":{"insecure_skip_verify":false},
+				"follow_redirects":false,
+				"enable_http2":false,
+				"http_headers":null
+			}`, string(actualJSON))
+
+			// Unmarshalling the JSON should get the same struct in input.
+			actual := &HTTPClientConfig{}
+			require.NoError(t, json.Unmarshal(actualJSON, actual))
+			require.Equal(t, config, actual)
+		})
+	})
+
+	t.Run("with HTTP headers", func(t *testing.T) {
+		config := &HTTPClientConfig{
+			ProxyConfig: ProxyConfig{
+				ProxyURL: URL{proxyURL},
+			},
+			HTTPHeaders: &Headers{
+				Headers: map[string]Header{
+					"X-Test": {
+						Values: []string{"Value-1", "Value-2"},
+					},
+				},
+			},
+		}
+
+		actualYAML, err := yaml.Marshal(config)
+		require.NoError(t, err)
+		require.YAMLEq(t, `
+proxy_url: "http://localhost:8080"
+follow_redirects: false
+enable_http2: false
+http_headers:
+  X-Test:
+    values:
+    - Value-1
+    - Value-2
+`, string(actualYAML))
+
+		actualJSON, err := json.Marshal(config)
+		require.NoError(t, err)
+		require.JSONEq(t, `{
+			"proxy_url":"http://localhost:8080",
+			"tls_config":{"insecure_skip_verify":false},
+			"follow_redirects":false,
+			"enable_http2":false,
+			"http_headers":{"X-Test":{"values":["Value-1","Value-2"]}}
+		}`, string(actualJSON))
+	})
 }
 
 func TestOAuth2Proxy(t *testing.T) {
