@@ -2023,7 +2023,6 @@ func TestHTTPClientConfig_Marshal(t *testing.T) {
 proxy_url: "http://localhost:8080"
 follow_redirects: false
 enable_http2: false
-http_headers: null
 `, string(actualYAML))
 
 			// Unmarshalling the YAML should get the same struct in input.
@@ -2040,8 +2039,7 @@ http_headers: null
 				"proxy_url":"http://localhost:8080",
 				"tls_config":{"insecure_skip_verify":false},
 				"follow_redirects":false,
-				"enable_http2":false,
-				"http_headers":null
+				"enable_http2":false
 			}`, string(actualJSON))
 
 			// Unmarshalling the JSON should get the same struct in input.
