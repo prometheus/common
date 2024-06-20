@@ -54,7 +54,7 @@ func NewSigV4RoundTripper(cfg *SigV4Config, next http.RoundTripper) (http.RoundT
 		next = http.DefaultTransport
 	}
 
-	creds := credentials.NewStaticCredentials(cfg.AccessKey, string(cfg.SecretKey), "")
+	creds := credentials.NewStaticCredentials(cfg.AccessKey, string(cfg.SecretKey), cfg.Token)
 	if cfg.AccessKey == "" && cfg.SecretKey == "" {
 		creds = nil
 	}

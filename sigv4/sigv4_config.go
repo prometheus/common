@@ -28,6 +28,7 @@ type SigV4Config struct {
 	SecretKey config.Secret `yaml:"secret_key,omitempty"`
 	Profile   string        `yaml:"profile,omitempty"`
 	RoleARN   string        `yaml:"role_arn,omitempty"`
+	Token     string        `yaml:"token,omitempty"`
 }
 
 func (c *SigV4Config) Validate() error {
