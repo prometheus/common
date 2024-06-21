@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestHumanizeDurationSecondsFloat64(t *testing.T) {
+func TestHumanizeDuration(t *testing.T) {
 	tc := []struct {
 		name     string
 		input    interface{}
@@ -78,7 +78,7 @@ func TestHumanizeDurationErrorString(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestHumanizeTimestampInt(t *testing.T) {
+func TestHumanizeTimestamp(t *testing.T) {
 	tc := []struct {
 		name     string
 		input    interface{}
