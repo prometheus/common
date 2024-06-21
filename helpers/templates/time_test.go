@@ -103,6 +103,9 @@ func TestHumanizeTimestamp(t *testing.T) {
 		{name: "infinity", input: math.Inf(1), expected: "+Inf"},
 		{name: "minus infinity", input: math.Inf(-1), expected: "-Inf"},
 		{name: "NaN", input: math.NaN(), expected: "NaN"},
+		// Sampled data
+		{name: "sample float64", input: 1435065584.128, expected: "2015-06-23 13:19:44.128 +0000 UTC"},
+		{name: "sample string", input: "1435065584.128", expected: "2015-06-23 13:19:44.128 +0000 UTC"},
 	}
 
 	for _, tt := range tc {
@@ -117,16 +120,4 @@ func TestHumanizeTimestamp(t *testing.T) {
 func TestHumanizeTimestampError(t *testing.T) {
 	_, err := HumanizeTimestamp(math.MaxInt64)
 	require.Error(t, err)
-}
-
-func TestHumanizeTimestampSampleFloat64(t *testing.T) {
-	result, err := HumanizeTimestamp(1435065584.128)
-	require.NoError(t, err)
-	require.Equal(t, "2015-06-23 13:19:44.128 +0000 UTC", result)
-}
-
-func TestHumanizeTimestampSampleString(t *testing.T) {
-	result, err := HumanizeTimestamp(1435065584.128)
-	require.NoError(t, err)
-	require.Equal(t, "2015-06-23 13:19:44.128 +0000 UTC", result)
 }
