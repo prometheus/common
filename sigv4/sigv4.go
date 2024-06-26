@@ -23,6 +23,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws/endpoints"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
@@ -59,10 +61,16 @@ func NewSigV4RoundTripper(cfg *SigV4Config, next http.RoundTripper) (http.RoundT
 		creds = nil
 	}
 
+	useFIPSSTSEndpoint := endpoints.FIPSEndpointStateDisabled
+	if cfg.UseFIPSSTSEndpoint {
+		useFIPSSTSEndpoint = endpoints.FIPSEndpointStateEnabled
+	}
+
 	sess, err := session.NewSessionWithOptions(session.Options{
 		Config: aws.Config{
-			Region:      aws.String(cfg.Region),
-			Credentials: creds,
+			Region:          aws.String(cfg.Region),
+			Credentials:     creds,
+			UseFIPSEndpoint: useFIPSSTSEndpoint,
 		},
 		Profile: cfg.Profile,
 	})
