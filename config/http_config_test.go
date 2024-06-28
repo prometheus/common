@@ -1630,7 +1630,8 @@ endpoint_params:
 		t.Fatalf("Got unmarshalled config %v, expected %v", unmarshalledConfig, expectedConfig)
 	}
 
-	rt := NewOAuth2RoundTripper(NewInlineSecret(string(expectedConfig.ClientSecret)), &expectedConfig, http.DefaultTransport, &defaultHTTPClientOptions)
+	secret := NewInlineSecret(string(expectedConfig.ClientSecret))
+	rt := NewOAuth2RoundTripper(secret, &expectedConfig, http.DefaultTransport, &defaultHTTPClientOptions)
 
 	client := http.Client{
 		Transport: rt,
@@ -1800,7 +1801,8 @@ endpoint_params:
 		t.Fatalf("Got unmarshalled config %v, expected %v", unmarshalledConfig, expectedConfig)
 	}
 
-	rt := NewOAuth2RoundTripper(NewInlineSecret(string(expectedConfig.ClientSecret)), &expectedConfig, http.DefaultTransport, &defaultHTTPClientOptions)
+	secret := NewFileSecret(expectedConfig.ClientSecretFile)
+	rt := NewOAuth2RoundTripper(secret, &expectedConfig, http.DefaultTransport, &defaultHTTPClientOptions)
 
 	client := http.Client{
 		Transport: rt,
