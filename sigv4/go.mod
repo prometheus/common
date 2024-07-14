@@ -5,7 +5,7 @@ go 1.20
 replace github.com/prometheus/common => ../
 
 require (
-	github.com/aws/aws-sdk-go v1.54.7
+	github.com/aws/aws-sdk-go v1.54.19
 	github.com/prometheus/common v0.53.0
 	github.com/stretchr/testify v1.9.0
 	gopkg.in/yaml.v2 v2.4.0
