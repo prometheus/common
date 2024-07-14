@@ -23,9 +23,15 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	signer "github.com/aws/aws-sdk-go/aws/signer/v4"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/stretchr/testify/require"
 )
+
+type RoundTripperFunc func(req *http.Request) (*http.Response, error)
+
+// RoundTrip implements the RoundTripper interface.
+func (rt RoundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return rt(r)
+}
 
 func TestSigV4_Inferred_Region(t *testing.T) {
 	os.Setenv("AWS_ACCESS_KEY_ID", "secret")
@@ -50,7 +56,7 @@ func TestSigV4RoundTripper(t *testing.T) {
 
 	rt := &sigV4RoundTripper{
 		region: "us-east-2",
-		next: promhttp.RoundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		next: RoundTripperFunc(func(req *http.Request) (*http.Response, error) {
 			gotReq = req
 			return &http.Response{StatusCode: http.StatusOK}, nil
 		}),
