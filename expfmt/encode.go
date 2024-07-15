@@ -85,10 +85,10 @@ func Negotiate(h http.Header) Format {
 			}
 		}
 		if ac.Type == "text" && ac.SubType == "plain" && (ver == TextVersion || ver == "") {
-			return fmtText + escapingScheme
+			return FmtText + escapingScheme
 		}
 	}
-	return fmtText + escapingScheme
+	return FmtText + escapingScheme
 }
 
 // NegotiateIncludingOpenMetrics works like Negotiate but includes
@@ -118,7 +118,7 @@ func NegotiateIncludingOpenMetrics(h http.Header) Format {
 			}
 		}
 		if ac.Type == "text" && ac.SubType == "plain" && (ver == TextVersion || ver == "") {
-			return fmtText + escapingScheme
+			return FmtText + escapingScheme
 		}
 		if ac.Type+"/"+ac.SubType == OpenMetricsType && (ver == OpenMetricsVersion_0_0_1 || ver == OpenMetricsVersion_1_0_0 || ver == "") {
 			switch ver {
@@ -129,7 +129,7 @@ func NegotiateIncludingOpenMetrics(h http.Header) Format {
 			}
 		}
 	}
-	return fmtText + escapingScheme
+	return FmtText + escapingScheme
 }
 
 // NewEncoder returns a new encoder based on content type negotiation. All

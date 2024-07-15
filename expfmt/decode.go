@@ -64,7 +64,7 @@ func ResponseFormat(h http.Header) Format {
 		if v, ok := params["version"]; ok && v != TextVersion {
 			return fmtUnknown
 		}
-		return fmtText
+		return FmtText
 	}
 
 	return fmtUnknown

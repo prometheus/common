@@ -460,11 +460,11 @@ func testDiscriminatorHTTPHeader(t testing.TB) {
 		},
 		{
 			input:  map[string]string{"Content-Type": `text/plain; version=0.0.4`},
-			output: fmtText,
+			output: FmtText,
 		},
 		{
 			input:  map[string]string{"Content-Type": `text/plain`},
-			output: fmtText,
+			output: FmtText,
 		},
 		{
 			input:  map[string]string{"Content-Type": `text/plain; version=0.0.3`},
@@ -574,7 +574,7 @@ func TestTextDecoderWithBufioReader(t *testing.T) {
 
 	var decoded bool
 	r := bufio.NewReader(strings.NewReader(example))
-	dec := NewDecoder(r, fmtText)
+	dec := NewDecoder(r, FmtText)
 	for {
 		var mf dto.MetricFamily
 		if err := dec.Decode(&mf); err != nil {

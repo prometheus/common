@@ -237,7 +237,7 @@ func TestEncode(t *testing.T) {
 		// 4: Untyped fmtText
 		{
 			metric: metric1,
-			format: fmtText,
+			format: FmtText,
 			expOut: `# TYPE foo_metric untyped
 foo_metric 1.234
 `,
@@ -372,7 +372,7 @@ func TestEscapedEncode(t *testing.T) {
 
 	buff.Reset()
 
-	textEncoder := NewEncoder(&buff, fmtText)
+	textEncoder := NewEncoder(&buff, FmtText)
 	err = textEncoder.Encode(metric)
 	if err != nil {
 		t.Errorf("unexpected error during encode: %s", err.Error())

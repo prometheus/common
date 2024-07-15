@@ -44,7 +44,7 @@ func TestToFormatType(t *testing.T) {
 			expected: TypeOpenMetrics,
 		},
 		{
-			format:   fmtText,
+			format:   FmtText,
 			expected: TypeTextPlain,
 		},
 		{

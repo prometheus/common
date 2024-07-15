@@ -43,8 +43,15 @@ const (
 	// The Content-Type values for the different wire protocols. Note that these
 	// values are now unexported. If code was relying on comparisons to these
 	// constants, instead use FormatType().
-	fmtUnknown           Format = `<unknown>`
-	fmtText              Format = `text/plain; version=` + TextVersion + `; charset=utf-8`
+	fmtUnknown Format = `<unknown>`
+
+	// FmtText defines a Content-Type for the basic plaintext protocol.
+	//
+	// Deprecated: FmtText should not be used directly in code. With the addition
+	// of the escaping term, format strings now have many permutations and doing
+	// direct string comparisons of formats is not reliable. Instead, users should
+	// call FormatType and compare the result against the possible enum values.
+	FmtText              Format = `text/plain; version=` + TextVersion + `; charset=utf-8`
 	fmtProtoDelim        Format = protoFmt + ` encoding=delimited`
 	fmtProtoText         Format = protoFmt + ` encoding=text`
 	fmtProtoCompact      Format = protoFmt + ` encoding=compact-text`
@@ -85,7 +92,7 @@ func NewFormat(t FormatType) Format {
 	case TypeProtoText:
 		return fmtProtoText
 	case TypeTextPlain:
-		return fmtText
+		return FmtText
 	case TypeOpenMetrics:
 		return fmtOpenMetrics_1_0_0
 	default:
