@@ -32,9 +32,10 @@ type Format string
 // it on the wire, new content-type strings will have to be agreed upon and
 // added here.
 const (
-	TextVersion              = "0.0.4"
-	ProtoType                = `application/vnd.google.protobuf`
-	ProtoProtocol            = `io.prometheus.client.MetricFamily`
+	TextVersion   = "0.0.4"
+	ProtoType     = `application/vnd.google.protobuf`
+	ProtoProtocol = `io.prometheus.client.MetricFamily`
+	// Deprecated: Use expfmt.NewFormat(expfmt.TypeProtoCompact) instead.
 	ProtoFmt                 = ProtoType + "; proto=" + ProtoProtocol + ";"
 	OpenMetricsType          = `application/openmetrics-text`
 	OpenMetricsVersion_0_0_1 = "0.0.1"
@@ -42,12 +43,19 @@ const (
 
 	// The Content-Type values for the different wire protocols. Do not do direct
 	// comparisons to these constants, instead use the comparison functions.
-	FmtUnknown           Format = `<unknown>`
-	FmtText              Format = `text/plain; version=` + TextVersion + `; charset=utf-8`
-	FmtProtoDelim        Format = ProtoFmt + ` encoding=delimited`
-	FmtProtoText         Format = ProtoFmt + ` encoding=text`
-	FmtProtoCompact      Format = ProtoFmt + ` encoding=compact-text`
+	// Deprecated: Use expfmt.NewFormat(expfmt.TypeUnknown) instead.
+	FmtUnknown Format = `<unknown>`
+	// Deprecated: Use expfmt.NewFormat(expfmt.TypeTextPlain) instead.
+	FmtText Format = `text/plain; version=` + TextVersion + `; charset=utf-8`
+	// Deprecated: Use expfmt.NewFormat(expfmt.TypeProtoDelim) instead.
+	FmtProtoDelim Format = ProtoFmt + ` encoding=delimited`
+	// Deprecated: Use expfmt.NewFormat(expfmt.TypeProtoText) instead.
+	FmtProtoText Format = ProtoFmt + ` encoding=text`
+	// Deprecated: Use expfmt.NewFormat(expfmt.TypeProtoCompact) instead.
+	FmtProtoCompact Format = ProtoFmt + ` encoding=compact-text`
+	// Deprecated: Use expfmt.NewFormat(expfmt.TypeOpenMetrics) instead.
 	FmtOpenMetrics_1_0_0 Format = OpenMetricsType + `; version=` + OpenMetricsVersion_1_0_0 + `; charset=utf-8`
+	// Deprecated: Use expfmt.NewFormat(expfmt.TypeOpenMetrics) instead.
 	FmtOpenMetrics_0_0_1 Format = OpenMetricsType + `; version=` + OpenMetricsVersion_0_0_1 + `; charset=utf-8`
 )
 
