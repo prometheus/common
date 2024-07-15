@@ -28,27 +28,27 @@ func TestToFormatType(t *testing.T) {
 		expected FormatType
 	}{
 		{
-			format:   fmtProtoCompact,
+			format:   FmtProtoCompact,
 			expected: TypeProtoCompact,
 		},
 		{
-			format:   fmtProtoDelim,
+			format:   FmtProtoDelim,
 			expected: TypeProtoDelim,
 		},
 		{
-			format:   fmtProtoText,
+			format:   FmtProtoText,
 			expected: TypeProtoText,
 		},
 		{
-			format:   fmtOpenMetrics_1_0_0,
+			format:   FmtOpenMetrics_1_0_0,
 			expected: TypeOpenMetrics,
 		},
 		{
-			format:   fmtText,
+			format:   FmtText,
 			expected: TypeTextPlain,
 		},
 		{
-			format:   fmtOpenMetrics_0_0_1,
+			format:   FmtOpenMetrics_0_0_1,
 			expected: TypeOpenMetrics,
 		},
 		{
@@ -104,7 +104,7 @@ func TestToEscapingScheme(t *testing.T) {
 		expected model.EscapingScheme
 	}{
 		{
-			format:   fmtProtoCompact,
+			format:   FmtProtoCompact,
 			expected: model.ValueEncodingEscaping,
 		},
 		{
