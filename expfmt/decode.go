@@ -76,6 +76,8 @@ func NewDecoder(r io.Reader, format Format) Decoder {
 	switch format.FormatType() {
 	case TypeProtoDelim:
 		return &protoDecoder{r: bufio.NewReader(r)}
+	case TypeOpenMetrics:
+		return &openMetricsDecoder{}
 	}
 	return &textDecoder{r: r}
 }
@@ -113,6 +115,36 @@ func (d *protoDecoder) Decode(v *dto.MetricFamily) error {
 		}
 	}
 	return nil
+}
+
+type openMetricsDecoder struct {
+	r    io.Reader
+	fams map[string]*dto.MetricFamily
+	err  error
+}
+
+// Decode implements Decoder.
+func (d *openMetricsDecoder) Decode(v *dto.MetricFamily) error {
+	if d.err == nil {
+		// Read all metrics in one shot.
+		var p OpenMetricsParser
+		d.fams, d.err = p.OpenMetricsToMetricFamilies(d.r)
+		// If we don't get an error, store io.EOF for the end.
+		if d.err == nil {
+			d.err = io.EOF
+		}
+	}
+	// Pick off one MetricFamily per Decode until there's nothing left.
+	for key, fam := range d.fams {
+		v.Name = fam.Name
+		v.Help = fam.Help
+		v.Type = fam.Type
+		v.Unit = fam.Unit
+		v.Metric = fam.Metric
+		delete(d.fams, key)
+		return nil
+	}
+	return d.err
 }
 
 // textDecoder implements the Decoder interface for the text protocol.
