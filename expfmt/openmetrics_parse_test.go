@@ -31,7 +31,6 @@ func testOpenMetricsParse(t testing.TB) {
 		in  string
 		out []*dto.MetricFamily
 	}{
-
 		// 1: EOF as input
 		{
 			in: `# EOF
