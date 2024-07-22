@@ -32,12 +32,10 @@ import (
 	"github.com/prometheus/common/model"
 )
 
-var (
-	UnsupportMetricType = map[string]struct{}{
-		"INFO":     {},
-		"STATESET": {},
-	}
-)
+var UnsupportMetricType = map[string]struct{}{
+	"INFO":     {},
+	"STATESET": {},
+}
 
 // OpenMetricsParser is used to parse the simple and flat openmetrics-based exchange format. Its
 // zero value is ready to use.
@@ -881,7 +879,6 @@ func (p *OpenMetricsParser) setOrCreateCurrentMF() {
 			}
 			return
 		}
-
 	}
 	p.currentMF = &dto.MetricFamily{Name: proto.String(name)}
 	p.metricFamiliesByName[name] = p.currentMF
