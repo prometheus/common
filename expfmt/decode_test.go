@@ -103,6 +103,78 @@ mf2 4
 	}
 }
 
+func TestOpenMetricsDecoder(t *testing.T) {
+	var (
+		ts = model.Now()
+		in = `
+# Only a quite simple scenario with two metric families.
+# More complicated tests of the parser itself can be found in the openmetrics package.
+# TYPE metric1 counter
+metric1_total 3
+mf1{label="value1"} -3.14 123456
+mf1{label="value2"} 42
+metric1_total 4
+# EOF
+`
+		out = model.Vector{
+			&model.Sample{
+				Metric: model.Metric{
+					model.MetricNameLabel: "mf1",
+					"label":               "value1",
+				},
+				Value:     -3.14,
+				Timestamp: 123456,
+			},
+			&model.Sample{
+				Metric: model.Metric{
+					model.MetricNameLabel: "mf1",
+					"label":               "value2",
+				},
+				Value:     42,
+				Timestamp: ts,
+			},
+			&model.Sample{
+				Metric: model.Metric{
+					model.MetricNameLabel: "metric1",
+				},
+				Value:     3,
+				Timestamp: ts,
+			},
+			&model.Sample{
+				Metric: model.Metric{
+					model.MetricNameLabel: "metric1",
+				},
+				Value:     4,
+				Timestamp: ts,
+			},
+		}
+	)
+
+	dec := &SampleDecoder{
+		Dec: &openMetricsDecoder{r: strings.NewReader(in)},
+		Opts: &DecodeOptions{
+			Timestamp: ts,
+		},
+	}
+	var all model.Vector
+	for {
+		var smpls model.Vector
+		err := dec.Decode(&smpls)
+		if err != nil && errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		all = append(all, smpls...)
+	}
+	sort.Sort(all)
+	sort.Sort(out)
+	if !reflect.DeepEqual(all, out) {
+		t.Fatalf("output does not match")
+	}
+}
+
 func TestProtoDecoder(t *testing.T) {
 	testTime := model.Now()
 
