@@ -32,20 +32,10 @@ func testOpenMetricsParse(t testing.TB) {
 		out []*dto.MetricFamily
 	}{
 
-		//0: Empty lines as input.
-		{
-			in: `
-
-								`,
-
-			out: []*dto.MetricFamily{},
-		},
-
 		// 1: EOF as input
 		{
-			in: `
-							# EOF
-								`,
+			in: `# EOF
+			`,
 
 			out: []*dto.MetricFamily{},
 		},
@@ -53,9 +43,9 @@ func testOpenMetricsParse(t testing.TB) {
 		// 2: Counter with int64 value
 		{
 			in: `# TYPE foo counter
-							foo_total 12345678901234567890
-							# EOF
-							`,
+									foo_total 12345678901234567890
+									# EOF
+									`,
 			out: []*dto.MetricFamily{
 				{
 					Name: proto.String("foo"),
@@ -74,11 +64,11 @@ func testOpenMetricsParse(t testing.TB) {
 		// 3: Counter without unit.
 		{
 			in: `# HELP foos Number of foos.
-							# TYPE foos counter
-							foos_total 42.0
-							foos_created 123456.7
-							# EOF
-							`,
+									# TYPE foos counter
+									foos_total 42.0
+									foos_created 123456.7
+									# EOF
+									`,
 			out: []*dto.MetricFamily{
 				{
 					Name: proto.String("foos"),
@@ -99,12 +89,12 @@ func testOpenMetricsParse(t testing.TB) {
 		// 4: Counter with unit
 		{
 			in: `# TYPE foos_seconds counter
-							# HELP foos_seconds help
-							# UNIT foos_seconds seconds
-							foos_seconds_total 1
-							foos_seconds_created 123456.7
-							# EOF
-							`,
+									# HELP foos_seconds help
+									# UNIT foos_seconds seconds
+									foos_seconds_total 1
+									foos_seconds_created 123456.7
+									# EOF
+									`,
 			out: []*dto.MetricFamily{
 				{
 					Name: proto.String("foos_seconds"),
@@ -126,14 +116,14 @@ func testOpenMetricsParse(t testing.TB) {
 		// 5: Counter with labels
 		{
 			in: `# TYPE foos_seconds counter
-							# HELP foos_seconds help
-							# UNIT foos_seconds seconds
-							foos_seconds_total{a="1", b="2"} 1
-							foos_seconds_created{a="1", b="2"} 12345.6
-							foos_seconds_total{a="2", b="3"} 2
-							foos_seconds_created{a="2", b="3"} 123456.6
-							# EOF
-							`,
+									# HELP foos_seconds help
+									# UNIT foos_seconds seconds
+									foos_seconds_total{a="1", b="2"} 1
+									foos_seconds_created{a="1", b="2"} 12345.6
+									foos_seconds_total{a="2", b="3"} 2
+									foos_seconds_created{a="2", b="3"} 123456.6
+									# EOF
+									`,
 			out: []*dto.MetricFamily{
 				{
 					Name: proto.String("foos_seconds"),
@@ -181,9 +171,9 @@ func testOpenMetricsParse(t testing.TB) {
 		// 6: Counter without timestamp and created
 		{
 			in: `# TYPE foo counter
-							foo_total 17.0
-							# EOF
-							`,
+									foo_total 17.0
+									# EOF
+									`,
 			out: []*dto.MetricFamily{
 				{
 					Name: proto.String("foo"),
@@ -202,10 +192,10 @@ func testOpenMetricsParse(t testing.TB) {
 		// 7: Counter with timestamp
 		{
 			in: `
-							# TYPE foo counter
-						foo_total 17.0 123456
-						# EOF
-							`,
+									# TYPE foo counter
+								foo_total 17.0 123456
+								# EOF
+									`,
 			out: []*dto.MetricFamily{
 				{
 					Name: proto.String("foo"),
@@ -225,10 +215,10 @@ func testOpenMetricsParse(t testing.TB) {
 		// 8: Counter with exemplar
 		{
 			in: `# TYPE foo counter
-						# HELP foo help
-						foo_total{b="c"} 0 123456 # {a="b"} 0.5 123456
-						# EOF
-							`,
+								# HELP foo help
+								foo_total{b="c"} 0 123456 # {a="b"} 0.5 123456
+								# EOF
+									`,
 			out: []*dto.MetricFamily{
 				{
 					Name: proto.String("foo"),
@@ -265,10 +255,10 @@ func testOpenMetricsParse(t testing.TB) {
 		// 9: Counter empty labelset
 		{
 			in: `# TYPE foo counter
-						# HELP foo help
-						foo_total{} 0 123456 # {a="b"} 0.5
-						# EOF
-							`,
+								# HELP foo help
+								foo_total{} 0 123456 # {a="b"} 0.5
+								# EOF
+									`,
 			out: []*dto.MetricFamily{
 				{
 					Name: proto.String("foo"),
@@ -298,11 +288,11 @@ func testOpenMetricsParse(t testing.TB) {
 		// 10: Gauge with unit
 		{
 			in: `# TYPE foos_seconds gauge
-						# HELP foos_seconds help
-						# UNIT foos_seconds seconds
-						foos_seconds{b="c"} 0
-						# EOF
-							`,
+								# HELP foos_seconds help
+								# UNIT foos_seconds seconds
+								foos_seconds{b="c"} 0
+								# EOF
+									`,
 			out: []*dto.MetricFamily{
 				{
 					Name: proto.String("foos_seconds"),
@@ -329,11 +319,11 @@ func testOpenMetricsParse(t testing.TB) {
 		// 11: Gauge with unit and timestamp
 		{
 			in: `# TYPE foos_seconds gauge
-						# HELP foos_seconds help
-						# UNIT foos_seconds seconds
-						foos_seconds{b="c"} 0 123456
-						# EOF
-							`,
+								# HELP foos_seconds help
+								# UNIT foos_seconds seconds
+								foos_seconds{b="c"} 0 123456
+								# EOF
+									`,
 			out: []*dto.MetricFamily{
 				{
 					Name: proto.String("foos_seconds"),
@@ -361,11 +351,11 @@ func testOpenMetricsParse(t testing.TB) {
 		// 12: Gauge with float value
 		{
 			in: `# TYPE foos_seconds gauge
-						# HELP foos_seconds help
-						# UNIT foos_seconds seconds
-						foos_seconds{b="c"} 0.12345678
-						# EOF
-							`,
+								# HELP foos_seconds help
+								# UNIT foos_seconds seconds
+								foos_seconds{b="c"} 0.12345678
+								# EOF
+									`,
 			out: []*dto.MetricFamily{
 				{
 					Name: proto.String("foos_seconds"),
@@ -392,11 +382,11 @@ func testOpenMetricsParse(t testing.TB) {
 		// 13: Gauge empty labelset
 		{
 			in: `# TYPE foos_seconds gauge
-						# HELP foos_seconds help
-						# UNIT foos_seconds seconds
-						foos_seconds{} 0.12345678
-						# EOF
-							`,
+								# HELP foos_seconds help
+								# UNIT foos_seconds seconds
+								foos_seconds{} 0.12345678
+								# EOF
+									`,
 			out: []*dto.MetricFamily{
 				{
 					Name: proto.String("foos_seconds"),
@@ -417,11 +407,11 @@ func testOpenMetricsParse(t testing.TB) {
 		// 14: Untyped metric
 		{
 			in: `# TYPE foos_seconds untyped
-						# HELP foos_seconds help
-						# UNIT foos_seconds seconds
-						foos_seconds{a="v"} 0.12345678
-						# EOF
-							`,
+								# HELP foos_seconds help
+								# UNIT foos_seconds seconds
+								foos_seconds{a="v"} 0.12345678
+								# EOF
+									`,
 			out: []*dto.MetricFamily{
 				{
 					Name: proto.String("foos_seconds"),
@@ -448,14 +438,14 @@ func testOpenMetricsParse(t testing.TB) {
 		// 15: Unsupported metric type(info, stateset)
 		{
 			in: `# TYPE foos_info info
-					# HELP foos_info help
-					foos_info{a="v"} 1
-					# TYPE foos stateset
-					# HELP foos help
-					foos{foos="a"} 1
-					foos{foos="b"} 0
-					# EOF
-							`,
+							# HELP foos_info help
+							foos_info{a="v"} 1
+							# TYPE foos stateset
+							# HELP foos help
+							foos{foos="a"} 1
+							foos{foos="b"} 0
+							# EOF
+									`,
 			out: []*dto.MetricFamily{
 				{
 					Name: proto.String("foos_info"),
@@ -510,14 +500,14 @@ func testOpenMetricsParse(t testing.TB) {
 		// 16: Simple summary with quantile
 		{
 			in: `# TYPE a summary
-				# HELP a help
-				a_count 1
-				a_sum 2
-				a{quantile="0.5"} 0.7
-				a{quantile="1"} 0.8
-				a_created 123456
-				# EOF
-				`,
+						# HELP a help
+						a_count 1
+						a_sum 2
+						a{quantile="0.5"} 0.7
+						a{quantile="1"} 0.8
+						a_created 123456
+						# EOF
+						`,
 			out: []*dto.MetricFamily{
 				{
 					Name: proto.String("a"),
@@ -549,19 +539,19 @@ func testOpenMetricsParse(t testing.TB) {
 		// 17: Simple summary with labels
 		{
 			in: `# TYPE a summary
-				# HELP a help
-				a_count{b="c1"} 1
-				a_sum{b="c1"} 2
-				a{b="c1", quantile="0.5"} 0.7
-				a{b="c1", quantile="1"} 0.8
-				a_created{b="c1"} 123456
-				a_count{b="c2"} 2
-				a_sum{b="c2"} 3
-				a{b="c2", quantile="0.5"} 0.1
-				a{b="c2", quantile="1"} 0.2
-				a_created{b="c2"} 123456
-				# EOF
-				`,
+						# HELP a help
+						a_count{b="c1"} 1
+						a_sum{b="c1"} 2
+						a{b="c1", quantile="0.5"} 0.7
+						a{b="c1", quantile="1"} 0.8
+						a_created{b="c1"} 123456
+						a_count{b="c2"} 2
+						a_sum{b="c2"} 3
+						a{b="c2", quantile="0.5"} 0.1
+						a{b="c2", quantile="1"} 0.2
+						a_created{b="c2"} 123456
+						# EOF
+						`,
 			out: []*dto.MetricFamily{
 				{
 					Name: proto.String("a"),
@@ -622,23 +612,23 @@ func testOpenMetricsParse(t testing.TB) {
 		// 18: Simple histogram with labels
 		{
 			in: `# TYPE foo histogram
-				# HELP foo help
-				foo_bucket{a="b", le="0.0"} 0
-				foo_bucket{a="b", le="1e-05"} 0
-				foo_bucket{a="b", le="0.0001"} 5
-				foo_bucket{a="b", le="0.1"} 8
-				foo_bucket{a="b", le="1.0"} 10
-				foo_bucket{a="b", le="10.0"} 11
-				foo_bucket{a="b", le="100000.0"} 11
-				foo_bucket{a="b", le="1e+06"} 15
-				foo_bucket{a="b", le="1e+23"} 16
-				foo_bucket{a="b", le="1.1e+23"} 17
-				foo_bucket{a="b", le="+Inf"} 17
-				foo_count{a="b"} 17
-				foo_sum{a="b"} 324789.3
-				foo_created{a="b"} 123456
-				# EOF
-				`,
+						# HELP foo help
+						foo_bucket{a="b", le="0.0"} 0
+						foo_bucket{a="b", le="1e-05"} 0
+						foo_bucket{a="b", le="0.0001"} 5
+						foo_bucket{a="b", le="0.1"} 8
+						foo_bucket{a="b", le="1.0"} 10
+						foo_bucket{a="b", le="10.0"} 11
+						foo_bucket{a="b", le="100000.0"} 11
+						foo_bucket{a="b", le="1e+06"} 15
+						foo_bucket{a="b", le="1e+23"} 16
+						foo_bucket{a="b", le="1.1e+23"} 17
+						foo_bucket{a="b", le="+Inf"} 17
+						foo_count{a="b"} 17
+						foo_sum{a="b"} 324789.3
+						foo_created{a="b"} 123456
+						# EOF
+						`,
 			out: []*dto.MetricFamily{
 				{
 					Name: proto.String("foo"),
@@ -712,23 +702,23 @@ func testOpenMetricsParse(t testing.TB) {
 		// 19: Simple histogram with exemplars
 		{
 			in: `# TYPE foo histogram
-				# HELP foo help
-				foo_bucket{a="b", le="0.0"} 0 # {l="1"} 0.5
-				foo_bucket{a="b", le="1e-05"} 0
-				foo_bucket{a="b", le="0.0001"} 5
-				foo_bucket{a="b", le="0.1"} 8
-				foo_bucket{a="b", le="1.0"} 10
-				foo_bucket{a="b", le="10.0"} 11
-				foo_bucket{a="b", le="100000.0"} 11
-				foo_bucket{a="b", le="1e+06"} 15 # {l="2"} 1
-				foo_bucket{a="b", le="1e+23"} 16
-				foo_bucket{a="b", le="1.1e+23"} 17
-				foo_bucket{a="b", le="+Inf"} 17
-				foo_count{a="b"} 17
-				foo_sum{a="b"} 324789.3
-				foo_created{a="b"} 123456
-				# EOF
-				`,
+						# HELP foo help
+						foo_bucket{a="b", le="0.0"} 0 # {l="1"} 0.5
+						foo_bucket{a="b", le="1e-05"} 0
+						foo_bucket{a="b", le="0.0001"} 5
+						foo_bucket{a="b", le="0.1"} 8
+						foo_bucket{a="b", le="1.0"} 10
+						foo_bucket{a="b", le="10.0"} 11
+						foo_bucket{a="b", le="100000.0"} 11
+						foo_bucket{a="b", le="1e+06"} 15 # {l="2"} 1
+						foo_bucket{a="b", le="1e+23"} 16
+						foo_bucket{a="b", le="1.1e+23"} 17
+						foo_bucket{a="b", le="+Inf"} 17
+						foo_count{a="b"} 17
+						foo_sum{a="b"} 324789.3
+						foo_created{a="b"} 123456
+						# EOF
+						`,
 			out: []*dto.MetricFamily{
 				{
 					Name: proto.String("foo"),
@@ -820,16 +810,16 @@ func testOpenMetricsParse(t testing.TB) {
 		// 20: Simple gaugehistogram
 		{
 			in: `# TYPE foo gaugehistogram
-				foo_bucket{le="0.01"} 20.0
-				foo_bucket{le="0.1"} 25.0
-				foo_bucket{le="1"} 34.0
-				foo_bucket{le="10"} 34.0
-				foo_bucket{le="+Inf"} 42.0
-				foo_gcount 42.0
-				foo_gsum 3289.3
-				foo_created 123456
-				# EOF
-				`,
+						foo_bucket{le="0.01"} 20.0
+						foo_bucket{le="0.1"} 25.0
+						foo_bucket{le="1"} 34.0
+						foo_bucket{le="10"} 34.0
+						foo_bucket{le="+Inf"} 42.0
+						foo_gcount 42.0
+						foo_gsum 3289.3
+						foo_created 123456
+						# EOF
+						`,
 			out: []*dto.MetricFamily{
 				{
 					Name: proto.String("foo"),
@@ -872,16 +862,16 @@ func testOpenMetricsParse(t testing.TB) {
 		// 21: Simple gaugehistogram with labels and exemplars
 		{
 			in: `# TYPE foo gaugehistogram
-				foo_bucket{l="label", le="0.01"} 20.0 # {trace_id="a"} 0.5 123456
-				foo_bucket{l="label", le="0.1"} 25.0 # {trace_id="b"} 0.6
-				foo_bucket{l="label", le="1"} 34.0
-				foo_bucket{l="label", le="10"} 34.0
-				foo_bucket{l="label", le="+Inf"} 42.0
-				foo_gcount{l="label"} 42.0
-				foo_gsum{l="label"} 3289.3
-				foo_created{l="label"} 123456
-				# EOF
-				`,
+						foo_bucket{l="label", le="0.01"} 20.0 # {trace_id="a"} 0.5 123456
+						foo_bucket{l="label", le="0.1"} 25.0 # {trace_id="b"} 0.6
+						foo_bucket{l="label", le="1"} 34.0
+						foo_bucket{l="label", le="10"} 34.0
+						foo_bucket{l="label", le="+Inf"} 42.0
+						foo_gcount{l="label"} 42.0
+						foo_gsum{l="label"} 3289.3
+						foo_created{l="label"} 123456
+						# EOF
+						`,
 			out: []*dto.MetricFamily{
 				{
 					Name: proto.String("foo"),
@@ -949,12 +939,13 @@ func testOpenMetricsParse(t testing.TB) {
 		// 22: Minimal case
 		{
 			in: `
-								minimal_metric 1.234
-							another_metric -3e3 103948
-							# Even that:
-							no_labels{} 3
-							# HELP line for non-existing metric will be ignored.
-							`,
+										minimal_metric 1.234
+									another_metric -3e3 103948
+									# Even that:
+									no_labels{} 3
+									# HELP line for non-existing metric will be ignored.
+									# EOF
+									`,
 			out: []*dto.MetricFamily{
 				{
 					Name: proto.String("minimal_metric"),
@@ -997,20 +988,21 @@ func testOpenMetricsParse(t testing.TB) {
 		//     docstrings, various whitespace, escape sequences.
 		{
 			in: `
-			# A normal comment.
-			#
-			# TYPE name_seconds counter
-			# UNIT name_seconds seconds
-			name_seconds_total{labelname="val1",basename="basevalue"} NaN # {a="b"} 0.5
-			name_seconds_created{labelname="val1",basename="basevalue"} 123456789
-			name_seconds_total{labelname="val2",basename="base\"v\\al\nue"} 0.23 1234567890 # {a="c"} 1
-			# HELP name_seconds two-line\n doc  str\\ing
+					# A normal comment.
+					#
+					# TYPE name_seconds counter
+					# UNIT name_seconds seconds
+					name_seconds_total{labelname="val1",basename="basevalue"} NaN # {a="b"} 0.5
+					name_seconds_created{labelname="val1",basename="basevalue"} 123456789
+					name_seconds_total{labelname="val2",basename="base\"v\\al\nue"} 0.23 1234567890 # {a="c"} 1
+					# HELP name_seconds two-line\n doc  str\\ing
 
-			 # HELP  name2  	doc str"ing 2
-			  #    TYPE    name2 gauge
-			name2{labelname="val2"	,basename   =   "basevalue2"		} +Inf 54321
-			name2{ labelname = "val1" , }-Inf
-			`,
+					 # HELP  name2  	doc str"ing 2
+					  #    TYPE    name2 gauge
+					name2{labelname="val2"	,basename   =   "basevalue2"		} +Inf 54321
+					name2{ labelname = "val1" , }-Inf
+					# EOF
+					`,
 			out: []*dto.MetricFamily{
 				{
 					Name: proto.String("name_seconds"),
@@ -1111,29 +1103,30 @@ func testOpenMetricsParse(t testing.TB) {
 		//    mixed with other types and funny comments.
 		{
 			in: `
-			# TYPE my_summary summary
-			my_summary{n1="val1",quantile="0.5"} 110
-			decoy -1 -2
-			my_summary{n1="val1",quantile="0.9"} 140 1
-			my_summary_count{n1="val1"} 42
-			# Latest timestamp wins in case of a summary.
-			my_summary_sum{n1="val1"} 4711 2
-			my_summary_created{n1="val1"} 123456789
-			fake_sum{n1="val1"} 2001
-			# TYPE another_summary summary
-			another_summary_count{n2="val2",n1="val1"} 20
-			my_summary_count{n2="val2",n1="val1"} 5 5
-			another_summary{n1="val1",n2="val2",quantile=".3"} -1.2
-			my_summary_sum{n1="val2"} 08 15
-			my_summary{n1="val3", quantile="0.2"} 4711
-			  my_summary{n1="val1",n2="val2",quantile="-12.34",} NaN
-			# some
-			# funny comments
-			# HELP
-			# HELP
-			# HELP my_summary
-			# HELP my_summary
-			`,
+					# TYPE my_summary summary
+					my_summary{n1="val1",quantile="0.5"} 110
+					decoy -1 -2
+					my_summary{n1="val1",quantile="0.9"} 140 1
+					my_summary_count{n1="val1"} 42
+					# Latest timestamp wins in case of a summary.
+					my_summary_sum{n1="val1"} 4711 2
+					my_summary_created{n1="val1"} 123456789
+					fake_sum{n1="val1"} 2001
+					# TYPE another_summary summary
+					another_summary_count{n2="val2",n1="val1"} 20
+					my_summary_count{n2="val2",n1="val1"} 5 5
+					another_summary{n1="val1",n2="val2",quantile=".3"} -1.2
+					my_summary_sum{n1="val2"} 08 15
+					my_summary{n1="val3", quantile="0.2"} 4711
+					  my_summary{n1="val1",n2="val2",quantile="-12.34",} NaN
+					# some
+					# funny comments
+					# HELP
+					# HELP
+					# HELP my_summary
+					# HELP my_summary
+					# EOF
+					`,
 			out: []*dto.MetricFamily{
 				{
 					Name: proto.String("fake_sum"),
@@ -1277,17 +1270,18 @@ func testOpenMetricsParse(t testing.TB) {
 		// 25: The histogram with created timestamp and exemplars.
 		{
 			in: `
-			# HELP request_duration_microseconds The response latency.
-			# TYPE request_duration_microseconds histogram
-			request_duration_microseconds_bucket{le="100"} 123 # {trace_id="a"} 0.67
-			request_duration_microseconds_bucket{le="120"} 412 # {trace_id="b"} 1 123456
-			request_duration_microseconds_bucket{le="144"} 592
-			request_duration_microseconds_bucket{le="172.8"} 1524
-			request_duration_microseconds_bucket{le="+Inf"} 2693 # {} 2
-			request_duration_microseconds_sum 1.7560473e+06
-			request_duration_microseconds_count 2693
-			request_duration_microseconds_created 123456789.123
-			`,
+					# HELP request_duration_microseconds The response latency.
+					# TYPE request_duration_microseconds histogram
+					request_duration_microseconds_bucket{le="100"} 123 # {trace_id="a"} 0.67
+					request_duration_microseconds_bucket{le="120"} 412 # {trace_id="b"} 1 123456
+					request_duration_microseconds_bucket{le="144"} 592
+					request_duration_microseconds_bucket{le="172.8"} 1524
+					request_duration_microseconds_bucket{le="+Inf"} 2693 # {} 2
+					request_duration_microseconds_sum 1.7560473e+06
+					request_duration_microseconds_count 2693
+					request_duration_microseconds_created 123456789.123
+					# EOF
+					`,
 			out: []*dto.MetricFamily{
 				{
 					Name: proto.String("request_duration_microseconds"),
@@ -1383,10 +1377,6 @@ func testOpenMetricsParse(t testing.TB) {
 	}
 }
 
-func TestOpenMetricsParse(t *testing.T) {
-	testOpenMetricsParse(t)
-}
-
 func testOpenMetricParseError(t testing.TB) {
 	scenarios := []struct {
 		in  string
@@ -1395,8 +1385,8 @@ func testOpenMetricParseError(t testing.TB) {
 		// 0: No new-line at end of input.
 		{
 			in: `
-bla 3.14
-blubber 42`,
+			bla 3.14
+			blubber 42`,
 			err: "openmetrics format parsing error in line 3: unexpected end of input stream",
 		},
 		// 1: Invalid escape sequence in label value.
@@ -1407,9 +1397,9 @@ blubber 42`,
 		// 2: Newline in label value.
 		{
 			in: `
-metric{label="new
-line"} 3.14
-`,
+			metric{label="new
+			line"} 3.14
+			`,
 			err: `openmetrics format parsing error in line 2: label value "new" contains unescaped new-line`,
 		},
 		// 3:
@@ -1435,9 +1425,9 @@ line"} 3.14
 		// 7:
 		{
 			in: `
-# TYPE metric summary
-metric{quantile="bla"} 3.14
-`,
+			# TYPE metric summary
+			metric{quantile="bla"} 3.14
+			`,
 			err: "openmetrics format parsing error in line 3: expected float as value for 'quantile' label",
 		},
 		// 8:
@@ -1448,57 +1438,57 @@ metric{quantile="bla"} 3.14
 		// 9:
 		{
 			in: `metric{label="bla"} 3.14 2.72
-`,
+			`,
 			err: "openmetrics format parsing error in line 1: expected integer as timestamp",
 		},
 		// 10:
 		{
 			in: `metric{label="bla"} 3.14 2 3
-`,
+			`,
 			err: "openmetrics format parsing error in line 1: spurious string after timestamp",
 		},
 		// 11:
 		{
 			in: `metric{label="bla"} blubb
-`,
+			`,
 			err: "openmetrics format parsing error in line 1: expected float as value",
 		},
 		// 12:
 		{
 			in: `
-# HELP metric one
-# HELP metric two
-`,
+			# HELP metric one
+			# HELP metric two
+			`,
 			err: "openmetrics format parsing error in line 3: second HELP line for metric name",
 		},
 		// 13:
 		{
 			in: `
-# TYPE metric counter
-# TYPE metric untyped
-`,
+			# TYPE metric counter
+			# TYPE metric untyped
+			`,
 			err: `openmetrics format parsing error in line 3: second TYPE line for metric name "metric", or TYPE reported after samples`,
 		},
 		// 14:
 		{
 			in: `
-metric 4.12
-# TYPE metric counter
-`,
+			metric 4.12
+			# TYPE metric counter
+			`,
 			err: `openmetrics format parsing error in line 3: second TYPE line for metric name "metric", or TYPE reported after samples`,
 		},
 		// 14:
 		{
 			in: `
-# TYPE metric bla
-`,
+			# TYPE metric bla
+			`,
 			err: "openmetrics format parsing error in line 2: unknown metric type",
 		},
 		// 15:
 		{
 			in: `
-# TYPE met-ric
-`,
+			# TYPE met-ric
+			`,
 			err: "openmetrics format parsing error in line 2: invalid metric name in comment",
 		},
 		// 16:
@@ -1514,9 +1504,9 @@ metric 4.12
 		// 18:
 		{
 			in: `
-# TYPE metric histogram
-metric_bucket{le="bla"} 3.14
-`,
+			# TYPE metric histogram
+			metric_bucket{le="bla"} 3.14
+			`,
 			err: "openmetrics format parsing error in line 3: expected float as value for 'le' label",
 		},
 		// 19: Invalid UTF-8 in label value.
@@ -1582,17 +1572,17 @@ metric_bucket{le="bla"} 3.14
 		// 31: Check histogram label.
 		{
 			in: `
-# TYPE metric histogram
-metric_bucket{le="0x1p-3"} 3.14
-`,
+			# TYPE metric histogram
+			metric_bucket{le="0x1p-3"} 3.14
+			`,
 			err: "openmetrics format parsing error in line 3: expected float as value for 'le' label",
 		},
 		// 32: Check quantile label.
 		{
 			in: `
-# TYPE metric summary
-metric{quantile="0x1p-3"} 3.14
-`,
+			# TYPE metric summary
+			metric{quantile="0x1p-3"} 3.14
+			`,
 			err: "openmetrics format parsing error in line 3: expected float as value for 'quantile' label",
 		},
 		// 33: Check duplicate label.
@@ -1603,18 +1593,60 @@ metric{quantile="0x1p-3"} 3.14
 		// 34: Exemplars in gauge metric.
 		{
 			in: `
-			# TYPE metric gauge
-metric{le="0x1p-3"} 3.14 # {} 1
-`,
+						# TYPE metric gauge
+			metric{le="0x1p-3"} 3.14 # {} 1
+			`,
 			err: `openmetrics format parsing error in line 3: unexpected exemplar for metric name "metric" type gauge`,
 		},
 		// 35: Exemplars in summary metric.
 		{
 			in: `
-	# TYPE metric summary
-metric{quantile="0.1"} 3.14 # {} 1
-`,
+				# TYPE metric summary
+			metric{quantile="0.1"} 3.14 # {} 1
+			`,
 			err: `openmetrics format parsing error in line 3: unexpected exemplar for metric name "metric" type summary`,
+		},
+		// 36: Counter ends without '_total'
+		{
+			in: `
+				# TYPE metric counter
+			metric{t="1"} 3.14
+			`,
+			err: `openmetrics format parsing error in line 3: expected '_total' or '_created' as counter metric name suffix, got metric name "metric"`,
+		},
+		// 37: metrics ends without unit
+		{
+			in: `
+						# TYPE metric counter
+						# UNIT metric seconds
+						`,
+			err: `openmetrics format parsing error in line 3: expected unit as metric name suffix, found metric "metric"`,
+		},
+		// 38: metrics ends without unit
+		{
+			in: `
+						# TYPE metric counter
+						# UNIT metric seconds
+						`,
+			err: `openmetrics format parsing error in line 3: expected unit as metric name suffix, found metric "metric"`,
+		},
+
+		// 39: metrics ends without EOF
+		{
+			in: `
+							# TYPE metric_seconds counter
+							# UNIT metric_seconds seconds
+							`,
+			err: `openmetrics format parsing error in line 4: expected EOF keyword at the end`,
+		},
+
+		// 40: line after EOF
+		{
+			in: `
+				# EOF
+				# TYPE metric counter
+				`,
+			err: `openmetrics format parsing error in line 3: unexpected line after EOF, got '#'`,
 		},
 	}
 	var omParser OpenMetricsParser
@@ -1634,6 +1666,22 @@ metric{quantile="0.1"} 3.14 # {} 1
 	}
 }
 
+func TestOpenMetricsParse(t *testing.T) {
+	testOpenMetricsParse(t)
+}
+
+func BenchmarkOpenMetricParse(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		testOpenMetricsParse(b)
+	}
+}
+
 func TestOpenMetricParseError(t *testing.T) {
 	testOpenMetricParseError(t)
+}
+
+func BenchmarkOpenMetricParseError(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		testOpenMetricParseError(b)
+	}
 }

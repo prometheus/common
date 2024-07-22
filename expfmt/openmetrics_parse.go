@@ -51,6 +51,7 @@ type OpenMetricsParser struct {
 	currentMF            *dto.MetricFamily
 	currentMetric        *dto.Metric
 	currentLabelPair     *dto.LabelPair
+	currentIsExemplar    bool
 	currentExemplar      *dto.Exemplar
 
 	// The remaining member variables are only used for summaries/histograms.
@@ -63,8 +64,13 @@ type OpenMetricsParser struct {
 	currentBucketValue float64
 	currentBucket      *dto.Bucket
 
+	// This tell us if the currently processed line ends on '_created',
+	// representing the created timestamp of the metric
 	currentIsMetricCreated bool
-	currentIsExemplar      bool
+
+	// This tell us have read 'EOF' line, representing the end of the metrics
+	currentIsEOF bool
+
 	// These tell us if the currently processed line ends on '_count' or
 	// '_sum' respectively and belong to a summary/histogram, representing the sample
 	// count and sum of that summary/histogram.
@@ -97,6 +103,7 @@ type OpenMetricsParser struct {
 // input concurrently, instantiate a separate Parser for each goroutine.
 func (p *OpenMetricsParser) OpenMetricsToMetricFamilies(in io.Reader) (map[string]*dto.MetricFamily, error) {
 	p.reset(in)
+	p.currentIsEOF = false
 	for nextState := p.startOfLine; nextState != nil; nextState = nextState() {
 		// Magic happens here...
 	}
@@ -145,8 +152,16 @@ func (p *OpenMetricsParser) startOfLine() stateFn {
 		// Any other error that happens to align with the start of
 		// a line is still an error.
 		if errors.Is(p.err, io.EOF) {
-			p.err = nil
+			if p.currentIsEOF {
+				p.err = nil
+			} else {
+				p.parseError("expected EOF keyword at the end")
+			}
 		}
+		return nil
+	}
+	if p.currentIsEOF {
+		p.parseError(fmt.Sprintf("unexpected line after EOF, got %q", p.currentByte))
 		return nil
 	}
 	switch p.currentByte {
@@ -172,17 +187,21 @@ func (p *OpenMetricsParser) startComment() stateFn {
 	}
 	// If we have hit the end of line already, there is nothing left
 	// to do. This is not considered a syntax error.
-	if p.currentByte == '\n' {
+	if p.currentByte == '\n' && p.currentToken.String() != "EOF" {
 		return p.startOfLine
 	}
 	keyword := p.currentToken.String()
-	if keyword != "HELP" && keyword != "TYPE" && keyword != "UNIT" {
+	if keyword != "HELP" && keyword != "TYPE" && keyword != "UNIT" && keyword != "EOF" {
 		// Generic comment, ignore by fast forwarding to end of line.
 		for p.currentByte != '\n' {
 			if p.currentByte, p.err = p.buf.ReadByte(); p.err != nil {
 				return nil // Unexpected end of input.
 			}
 		}
+		return p.startOfLine
+	}
+	if keyword == "EOF" {
+		p.currentIsEOF = true
 		return p.startOfLine
 	}
 	// There is something. Next has to be a metric name.
@@ -233,15 +252,15 @@ func (p *OpenMetricsParser) readingMetricName() stateFn {
 	}
 
 	p.setOrCreateCurrentMF()
-	if p.currentMF.Type == dto.MetricType_COUNTER.Enum() {
+	// Now is the time to fix the type if it hasn't happened yet.
+	if p.currentMF.Type == nil {
+		p.currentMF.Type = dto.MetricType_UNTYPED.Enum()
+	}
+	if p.currentMF.GetType() == dto.MetricType_COUNTER {
 		if !strings.HasSuffix(p.currentToken.String(), "_total") && !strings.HasSuffix(p.currentToken.String(), "_created") {
 			p.parseError(fmt.Sprintf("expected '_total' or '_created' as counter metric name suffix, got metric name %q", p.currentToken.String()))
 			return nil
 		}
-	}
-	// Now is the time to fix the type if it hasn't happened yet.
-	if p.currentMF.Type == nil {
-		p.currentMF.Type = dto.MetricType_UNTYPED.Enum()
 	}
 	// metric is not new metric if the metrics is end with "_created".
 	if !p.currentIsMetricCreated {
@@ -813,6 +832,7 @@ func (p *OpenMetricsParser) setOrCreateCurrentMF() {
 	p.currentIsHistogramSum = false
 	p.currentIsMetricCreated = false
 	p.currentIsExemplar = false
+	p.currentIsEOF = false
 
 	name := p.currentToken.String()
 	if isCreated(name) {
