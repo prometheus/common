@@ -78,8 +78,8 @@ type OpenMetricsParser struct {
 	currentIsHistogramCount, currentIsHistogramSum bool
 }
 
-// OpenMetricsToMetricFamilies reads 'in' as the simple and flat text-based exchange
-// format and creates MetricFamily proto messages. It returns the MetricFamily
+// OpenMetricsToMetricFamilies reads 'in' as the simple and flat openmetrics-based
+// exchange format and creates MetricFamily proto messages. It returns the MetricFamily
 // proto messages in a map where the metric names are the keys, along with any
 // error encountered.
 //
@@ -95,9 +95,9 @@ type OpenMetricsParser struct {
 // the metric family injection hook of the Prometheus registry.
 //
 // Summaries and histograms are rather special beasts. You would probably not
-// use them in the simple text format anyway. This method can deal with
+// use them in the simple openmetrics format anyway. This method can deal with
 // summaries and histograms if they are presented in exactly the way the
-// text.Create function creates them.
+// openmetrics.Create function creates them.
 //
 // This method must not be called concurrently. If you want to parse different
 // input concurrently, instantiate a separate Parser for each goroutine.
