@@ -58,6 +58,7 @@ type TextParser struct {
 	currentMF            *dto.MetricFamily
 	currentMetric        *dto.Metric
 	currentLabelPair     *dto.LabelPair
+	currentLabel         []*dto.LabelPair
 
 	// The remaining member variables are only used for summaries/histograms.
 	currentLabels map[string]string // All labels including '__name__' but excluding 'quantile'/'le'
@@ -136,6 +137,7 @@ func (p *TextParser) reset(in io.Reader) {
 	}
 	p.currentQuantile = math.NaN()
 	p.currentBucket = math.NaN()
+	p.currentMF = nil
 }
 
 // startOfLine represents the state where the next byte read from p.buf is the
@@ -278,6 +280,8 @@ func (p *TextParser) startLabelName() stateFn {
 		return nil // Unexpected end of input.
 	}
 	if p.currentByte == '}' {
+		p.currentMetric.Label = append(p.currentMetric.Label, p.currentLabel...)
+		p.currentLabel = nil
 		if p.skipBlankTab(); p.err != nil {
 			return nil // Unexpected end of input.
 		}
@@ -296,11 +300,18 @@ func (p *TextParser) startLabelName() stateFn {
 	}
 	if p.currentByte != '=' {
 		if p.currentMetricIsInsideBraces {
-			p.currentMetric = &dto.Metric{}
 			switch p.currentByte {
 			case ',':
+				p.setOrCreateCurrentMF()
+				p.currentMetric = &dto.Metric{}
 				return p.startLabelName
 			case '}':
+				if p.currentMF == nil {
+					p.parseError("invalid metric name")
+					return nil
+				}
+				p.currentMetric.Label = append(p.currentMetric.Label, p.currentLabel...)
+				p.currentLabel = nil
 				if p.skipBlankTab(); p.err != nil {
 					return nil // Unexpected end of input.
 				}
@@ -311,6 +322,7 @@ func (p *TextParser) startLabelName() stateFn {
 			}
 		} else {
 			p.parseError(fmt.Sprintf("expected '=' after label name, found %q", p.currentByte))
+			p.currentLabel = nil
 			return nil
 		}
 	}
@@ -323,7 +335,8 @@ func (p *TextParser) startLabelName() stateFn {
 	// labels to 'real' labels.
 	if !(p.currentMF.GetType() == dto.MetricType_SUMMARY && p.currentLabelPair.GetName() == model.QuantileLabel) &&
 		!(p.currentMF.GetType() == dto.MetricType_HISTOGRAM && p.currentLabelPair.GetName() == model.BucketLabel) {
-		p.currentMetric.Label = append(p.currentMetric.Label, p.currentLabelPair)
+		//p.currentMetric.Label = append(p.currentMetric.Label, p.currentLabelPair)
+		p.currentLabel = append(p.currentLabel, p.currentLabelPair)
 	}
 	//if p.skipBlankTabIfCurrentBlankTab(); p.err != nil {
 	//	return nil // Unexpected end of input.
@@ -334,12 +347,13 @@ func (p *TextParser) startLabelName() stateFn {
 	//}
 	// Check for duplicate label names.
 	labels := make(map[string]struct{})
-	for _, l := range p.currentMetric.Label {
+	for _, l := range p.currentLabel {
 		lName := l.GetName()
 		if _, exists := labels[lName]; !exists {
 			labels[lName] = struct{}{}
 		} else {
 			p.parseError(fmt.Sprintf("duplicate label names for metric %q", p.currentMF.GetName()))
+			p.currentLabel = nil
 			return nil
 		}
 	}
@@ -372,6 +386,7 @@ func (p *TextParser) startLabelValue() stateFn {
 			if p.currentQuantile, p.err = parseFloat(p.currentLabelPair.GetValue()); p.err != nil {
 				// Create a more helpful error message.
 				p.parseError(fmt.Sprintf("expected float as value for 'quantile' label, got %q", p.currentLabelPair.GetValue()))
+				p.currentLabel = nil
 				return nil
 			}
 		} else {
@@ -398,12 +413,19 @@ func (p *TextParser) startLabelValue() stateFn {
 		return p.startLabelName
 
 	case '}':
+		if p.currentMF == nil {
+			p.parseError("invalid metric name")
+			return nil
+		}
+		p.currentMetric.Label = append(p.currentMetric.Label, p.currentLabel...)
+		p.currentLabel = nil
 		if p.skipBlankTab(); p.err != nil {
 			return nil // Unexpected end of input.
 		}
 		return p.readingValue
 	default:
 		p.parseError(fmt.Sprintf("unexpected end of label value %q", p.currentLabelPair.GetValue()))
+		p.currentLabel = nil
 		return nil
 	}
 }
@@ -755,6 +777,7 @@ func (p *TextParser) readTokenAsLabelValue() {
 				p.currentToken.WriteByte('\n')
 			default:
 				p.parseError(fmt.Sprintf("invalid escape sequence '\\%c'", p.currentByte))
+				p.currentLabel = nil
 				return
 			}
 			escaped = false

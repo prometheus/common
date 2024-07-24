@@ -589,6 +589,7 @@ metric_bucket{le="bla"} 3.14
 `,
 			err: "text format parsing error in line 3: expected float as value for 'le' label",
 		},
+		// TODO(fedetorres93): check if this test should now pass (it's testing a label value, so I think it's ok)
 		// 19: Invalid UTF-8 in label value.
 		{
 			in:  "metric{l=\"\xbd\"} 3.14\n",
@@ -671,7 +672,6 @@ metric{quantile="0x1p-3"} 3.14
 			err: "text format parsing error in line 1: duplicate label names for metric",
 		},
 	}
-
 	for i, scenario := range scenarios {
 		_, err := parser.TextToMetricFamilies(strings.NewReader(scenario.in))
 		if err == nil {
