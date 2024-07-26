@@ -33,7 +33,7 @@ func testTextParse(t testing.TB) {
 			in: `
 		# HELP "my.noncompliant.metric" help text
 		# TYPE "my.noncompliant.metric" counter
-		{"my.noncompliant.metric", label="value"} 1
+		{"my.noncompliant.metric", "label.name"="value"} 1
 		`,
 			out: []*dto.MetricFamily{
 				{
@@ -44,7 +44,7 @@ func testTextParse(t testing.TB) {
 						{
 							Label: []*dto.LabelPair{
 								{
-									Name:  proto.String("label"),
+									Name:  proto.String("\"label.name\""),
 									Value: proto.String("value"),
 								},
 							},
