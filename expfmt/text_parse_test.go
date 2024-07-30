@@ -28,34 +28,6 @@ func testTextParse(t testing.TB) {
 		in  string
 		out []*dto.MetricFamily
 	}{
-		// -1: UTF-8 counter
-		{
-			in: `
-		# HELP "my.noncompliant.metric" help text
-		# TYPE "my.noncompliant.metric" counter
-		{"my.noncompliant.metric", "label.name"="value"} 1
-		`,
-			out: []*dto.MetricFamily{
-				{
-					Name: proto.String("\"my.noncompliant.metric\""),
-					Help: proto.String("help text"),
-					Type: dto.MetricType_COUNTER.Enum(),
-					Metric: []*dto.Metric{
-						{
-							Label: []*dto.LabelPair{
-								{
-									Name:  proto.String("\"label.name\""),
-									Value: proto.String("value"),
-								},
-							},
-							Counter: &dto.Counter{
-								Value: proto.Float64(1),
-							},
-						},
-					},
-				},
-			},
-		},
 		// 0: Empty lines as input.
 		{
 			in: `
@@ -408,6 +380,83 @@ request_duration_microseconds_count 2693
 									},
 								},
 							},
+						},
+					},
+				},
+			},
+		},
+		// 5: UTF-8 counter
+		{
+			in: `
+# HELP "my.noncompliant.metric" help text
+# TYPE "my.noncompliant.metric" counter
+{"my.noncompliant.metric","label.name"="value"} 1
+`,
+			out: []*dto.MetricFamily{
+				{
+					Name: proto.String("my.noncompliant.metric"),
+					Help: proto.String("help text"),
+					Type: dto.MetricType_COUNTER.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Label: []*dto.LabelPair{
+								{
+									Name:  proto.String("label.name"),
+									Value: proto.String("value"),
+								},
+							},
+							Counter: &dto.Counter{
+								Value: proto.Float64(1),
+							},
+						},
+					},
+				},
+			},
+		},
+		// 6: Dots in name
+		{
+			in: `
+# HELP "name.with.dots" boring help
+# TYPE "name.with.dots" counter
+{"name.with.dots",labelname="val1",basename="basevalue"} 42.0
+{"name.with.dots",labelname="val2",basename="basevalue"} 0.23 1234567890
+`,
+			out: []*dto.MetricFamily{
+				{
+					Name: proto.String("name.with.dots"),
+					Help: proto.String("boring help"),
+					Type: dto.MetricType_COUNTER.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Label: []*dto.LabelPair{
+								{
+									Name:  proto.String("labelname"),
+									Value: proto.String("val1"),
+								},
+								{
+									Name:  proto.String("basename"),
+									Value: proto.String("basevalue"),
+								},
+							},
+							Counter: &dto.Counter{
+								Value: proto.Float64(42),
+							},
+						},
+						{
+							Label: []*dto.LabelPair{
+								{
+									Name:  proto.String("labelname"),
+									Value: proto.String("val2"),
+								},
+								{
+									Name:  proto.String("basename"),
+									Value: proto.String("basevalue"),
+								},
+							},
+							Counter: &dto.Counter{
+								Value: proto.Float64(.23),
+							},
+							TimestampMs: proto.Int64(1234567890),
 						},
 					},
 				},

@@ -306,10 +306,12 @@ func (p *TextParser) startLabelName() stateFn {
 				p.currentMetric = &dto.Metric{}
 				return p.startLabelName
 			case '}':
-				if p.currentMF == nil {
-					p.parseError("invalid metric name")
-					return nil
-				}
+				/*				if p.currentMF == nil {
+								p.parseError("invalid metric name")
+								return nil
+							}*/
+				p.setOrCreateCurrentMF()
+				p.currentMetric = &dto.Metric{}
 				p.currentMetric.Label = append(p.currentMetric.Label, p.currentLabel...)
 				p.currentLabel = nil
 				if p.skipBlankTab(); p.err != nil {
@@ -681,7 +683,7 @@ func (p *TextParser) readTokenAsMetricName() {
 		}
 		switch p.currentByte {
 		case '"':
-			p.currentToken.WriteByte(p.currentByte)
+			//p.currentToken.WriteByte(p.currentByte)
 			p.currentByte, p.err = p.buf.ReadByte()
 			quoted = !quoted
 			if !quoted {
@@ -733,7 +735,7 @@ func (p *TextParser) readTokenAsLabelName() {
 		}
 		switch p.currentByte {
 		case '"':
-			p.currentToken.WriteByte(p.currentByte)
+			//p.currentToken.WriteByte(p.currentByte)
 			p.currentByte, p.err = p.buf.ReadByte()
 			quoted = !quoted
 			if !quoted {
