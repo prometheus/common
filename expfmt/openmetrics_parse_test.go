@@ -1621,16 +1621,8 @@ func testOpenMetricParseError(t testing.TB) {
 						`,
 			err: `openmetrics format parsing error in line 3: expected unit as metric name suffix, found metric "metric"`,
 		},
-		// 38: metrics ends without unit
-		{
-			in: `
-						# TYPE metric counter
-						# UNIT metric seconds
-						`,
-			err: `openmetrics format parsing error in line 3: expected unit as metric name suffix, found metric "metric"`,
-		},
 
-		// 39: metrics ends without EOF
+		// 38: metrics ends without EOF
 		{
 			in: `
 							# TYPE metric_seconds counter
@@ -1639,7 +1631,7 @@ func testOpenMetricParseError(t testing.TB) {
 			err: `openmetrics format parsing error in line 4: expected EOF keyword at the end`,
 		},
 
-		// 40: line after EOF
+		// 39: line after EOF
 		{
 			in: `
 				# EOF

@@ -260,7 +260,7 @@ func (p *OpenMetricsParser) readingMetricName() stateFn {
 			return nil
 		}
 	}
-	// metric is not new metric if the metrics is end with "_created".
+	// metric is not new if the metric ends with "_created".
 	if !p.currentIsMetricCreated {
 		p.currentMetric = &dto.Metric{}
 	}

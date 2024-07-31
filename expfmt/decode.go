@@ -77,7 +77,7 @@ func NewDecoder(r io.Reader, format Format) Decoder {
 	case TypeProtoDelim:
 		return &protoDecoder{r: bufio.NewReader(r)}
 	case TypeOpenMetrics:
-		return &openMetricsDecoder{}
+		return &openMetricsDecoder{r: r}
 	}
 	return &textDecoder{r: r}
 }
@@ -124,7 +124,7 @@ type openMetricsDecoder struct {
 }
 
 // Decode implements Decoder.
-func (d *openMetricsDecoder) Decode(v *dto.MetricFamily) error {
+func (d *openMetricsDecoder) Decode(mf *dto.MetricFamily) error {
 	if d.err == nil {
 		// Read all metrics in one shot.
 		var p OpenMetricsParser
@@ -136,11 +136,11 @@ func (d *openMetricsDecoder) Decode(v *dto.MetricFamily) error {
 	}
 	// Pick off one MetricFamily per Decode until there's nothing left.
 	for key, fam := range d.fams {
-		v.Name = fam.Name
-		v.Help = fam.Help
-		v.Type = fam.Type
-		v.Unit = fam.Unit
-		v.Metric = fam.Metric
+		mf.Name = fam.Name
+		mf.Help = fam.Help
+		mf.Type = fam.Type
+		mf.Unit = fam.Unit
+		mf.Metric = fam.Metric
 		delete(d.fams, key)
 		return nil
 	}
