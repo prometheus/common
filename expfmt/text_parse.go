@@ -636,6 +636,9 @@ func (p *TextParser) readTokenUntilNewline(recognizeEscapeSequence bool) {
 				p.currentToken.WriteByte(p.currentByte)
 			case 'n':
 				p.currentToken.WriteByte('\n')
+			case '"':
+				//p.currentToken.WriteByte('\\')
+				p.currentToken.WriteByte('"')
 			default:
 				p.parseError(fmt.Sprintf("invalid escape sequence '\\%c'", p.currentByte))
 				return
@@ -667,42 +670,52 @@ func (p *TextParser) readTokenAsMetricName() {
 	if !isValidMetricNameStart(p.currentByte) {
 		return
 	}
-	for {
+	for p.err == nil {
 		if escaped {
 			switch p.currentByte {
-			case '"', '\\':
+			case '\\':
 				p.currentToken.WriteByte(p.currentByte)
 			case 'n':
 				p.currentToken.WriteByte('\n')
+			case '"':
+				p.currentToken.WriteByte('\\')
+				p.currentToken.WriteByte('"')
 			default:
 				p.parseError(fmt.Sprintf("invalid escape sequence '\\%c'", p.currentByte))
 				return
 			}
 			escaped = false
-			continue
+			/*			p.currentByte, p.err = p.buf.ReadByte()
+						continue*/
+		} else {
+			switch p.currentByte {
+			case '"':
+				//p.currentToken.WriteByte(p.currentByte)
+				//p.currentByte, p.err = p.buf.ReadByte()
+				quoted = !quoted
+				if !quoted {
+					p.currentByte, p.err = p.buf.ReadByte()
+					return
+				}
+				/*			if p.err != nil || !isValidMetricNameContinuation(p.currentByte, quoted) {
+							return
+						}*/
+			case '\n':
+				p.parseError(fmt.Sprintf("metric name %q contains unescaped new-line", p.currentToken.String()))
+				return
+			case '\\':
+				escaped = true
+			default:
+				p.currentToken.WriteByte(p.currentByte)
+				/*				p.currentByte, p.err = p.buf.ReadByte()
+								if p.err != nil || !isValidMetricNameContinuation(p.currentByte, quoted) || (!quoted && p.currentByte == ' ') {
+									return
+								}*/
+			}
 		}
-		switch p.currentByte {
-		case '"':
-			//p.currentToken.WriteByte(p.currentByte)
-			p.currentByte, p.err = p.buf.ReadByte()
-			quoted = !quoted
-			if !quoted {
-				return
-			}
-			if p.err != nil || !isValidMetricNameContinuation(p.currentByte, quoted) {
-				return
-			}
-		case '\n':
-			p.parseError(fmt.Sprintf("metric name %q contains unescaped new-line", p.currentToken.String()))
+		p.currentByte, p.err = p.buf.ReadByte()
+		if !isValidMetricNameContinuation(p.currentByte, quoted) || (!quoted && p.currentByte == ' ') {
 			return
-		case '\\':
-			escaped = true
-		default:
-			p.currentToken.WriteByte(p.currentByte)
-			p.currentByte, p.err = p.buf.ReadByte()
-			if p.err != nil || !isValidMetricNameContinuation(p.currentByte, quoted) || (!quoted && p.currentByte == ' ') {
-				return
-			}
 		}
 	}
 }
@@ -719,42 +732,51 @@ func (p *TextParser) readTokenAsLabelName() {
 	if !isValidLabelNameStart(p.currentByte) {
 		return
 	}
-	for {
+	for p.err == nil {
 		if escaped {
 			switch p.currentByte {
-			case '"', '\\':
+			case '\\':
 				p.currentToken.WriteByte(p.currentByte)
 			case 'n':
 				p.currentToken.WriteByte('\n')
+			case '"':
+				p.currentToken.WriteByte('\\')
+				p.currentToken.WriteByte('"')
 			default:
 				p.parseError(fmt.Sprintf("invalid escape sequence '\\%c'", p.currentByte))
 				return
 			}
 			escaped = false
-			continue
+			//continue
+		} else {
+			switch p.currentByte {
+			case '"':
+				//p.currentToken.WriteByte(p.currentByte)
+				//p.currentByte, p.err = p.buf.ReadByte()
+				quoted = !quoted
+				if !quoted {
+					p.currentByte, p.err = p.buf.ReadByte()
+					return
+				}
+				/*			if p.err != nil || !isValidLabelNameContinuation(p.currentByte, quoted) {
+							return
+						}*/
+			case '\n':
+				p.parseError(fmt.Sprintf("label name %q contains unescaped new-line", p.currentToken.String()))
+				return
+			case '\\':
+				escaped = true
+			default:
+				p.currentToken.WriteByte(p.currentByte)
+				/*			p.currentByte, p.err = p.buf.ReadByte()
+							if p.err != nil || !isValidLabelNameContinuation(p.currentByte, quoted) || (!quoted && p.currentByte == '=') {
+								return
+							}*/
+			}
 		}
-		switch p.currentByte {
-		case '"':
-			//p.currentToken.WriteByte(p.currentByte)
-			p.currentByte, p.err = p.buf.ReadByte()
-			quoted = !quoted
-			if !quoted {
-				return
-			}
-			if p.err != nil || !isValidLabelNameContinuation(p.currentByte, quoted) {
-				return
-			}
-		case '\n':
-			p.parseError(fmt.Sprintf("label name %q contains unescaped new-line", p.currentToken.String()))
+		p.currentByte, p.err = p.buf.ReadByte()
+		if !isValidLabelNameContinuation(p.currentByte, quoted) || (!quoted && p.currentByte == '=') {
 			return
-		case '\\':
-			escaped = true
-		default:
-			p.currentToken.WriteByte(p.currentByte)
-			p.currentByte, p.err = p.buf.ReadByte()
-			if p.err != nil || !isValidLabelNameContinuation(p.currentByte, quoted) || (!quoted && p.currentByte == '=') {
-				return
-			}
 		}
 	}
 }

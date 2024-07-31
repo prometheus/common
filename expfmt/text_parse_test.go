@@ -462,6 +462,82 @@ request_duration_microseconds_count 2693
 				},
 			},
 		},
+		// 6: Dots in name, no labels
+		{
+			in: `
+				# HELP "name.with.dots" boring help
+				# TYPE "name.with.dots" counter
+				{"name.with.dots"} 42.0
+				{"name.with.dots"} 0.23 1234567890
+				`,
+			out: []*dto.MetricFamily{
+				{
+					Name: proto.String("name.with.dots"),
+					Help: proto.String("boring help"),
+					Type: dto.MetricType_COUNTER.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Counter: &dto.Counter{
+								Value: proto.Float64(42),
+							},
+						},
+						{
+							Counter: &dto.Counter{
+								Value: proto.Float64(.23),
+							},
+							TimestampMs: proto.Int64(1234567890),
+						},
+					},
+				},
+			},
+		},
+		// 7: Gauge, UTF-8, +Inf as value, multi-byte characters in label values.
+		{
+			in: `# HELP "gauge.name" gauge\ndoc\nstr\"ing
+# TYPE "gauge.name" gauge
+{"gauge.name","name.1"="val with\nnew line","name*2"="val with \\backslash and \"quotes\""} +Inf
+{"gauge.name","name.1"="Björn","name*2"="佖佥"} 3.14e+42
+`,
+			out: []*dto.MetricFamily{
+				{
+					Name: proto.String("gauge.name"),
+					Help: proto.String("gauge\ndoc\nstr\"ing"),
+					Type: dto.MetricType_GAUGE.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Label: []*dto.LabelPair{
+								{
+									Name:  proto.String("name.1"),
+									Value: proto.String("val with\nnew line"),
+								},
+								{
+									Name:  proto.String("name*2"),
+									Value: proto.String("val with \\backslash and \"quotes\""),
+								},
+							},
+							Gauge: &dto.Gauge{
+								Value: proto.Float64(math.Inf(+1)),
+							},
+						},
+						{
+							Label: []*dto.LabelPair{
+								{
+									Name:  proto.String("name.1"),
+									Value: proto.String("Björn"),
+								},
+								{
+									Name:  proto.String("name*2"),
+									Value: proto.String("佖佥"),
+								},
+							},
+							Gauge: &dto.Gauge{
+								Value: proto.Float64(3.14e42),
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for i, scenario := range scenarios {
@@ -480,8 +556,8 @@ request_duration_microseconds_count 2693
 			got, ok := out[expected.GetName()]
 			if !ok {
 				t.Errorf(
-					"%d. expected MetricFamily %q, found none",
-					i, expected.GetName(),
+					"%d. expected MetricFamily %q, found none. got %q",
+					i, expected.GetName(), got.GetName(),
 				)
 				continue
 			}
