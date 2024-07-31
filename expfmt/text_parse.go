@@ -294,7 +294,6 @@ func (p *TextParser) startLabelName() stateFn {
 		p.parseError(fmt.Sprintf("invalid label name for metric %q", p.currentMF.GetName()))
 		return nil
 	}
-	// TODO(fedetorres93): check for metric name inside braces before other labels.
 	if p.skipBlankTabIfCurrentBlankTab(); p.err != nil {
 		return nil // Unexpected end of input.
 	}
@@ -306,10 +305,6 @@ func (p *TextParser) startLabelName() stateFn {
 				p.currentMetric = &dto.Metric{}
 				return p.startLabelName
 			case '}':
-				/*				if p.currentMF == nil {
-								p.parseError("invalid metric name")
-								return nil
-							}*/
 				p.setOrCreateCurrentMF()
 				p.currentMetric = &dto.Metric{}
 				p.currentMetric.Label = append(p.currentMetric.Label, p.currentLabel...)
@@ -337,16 +332,8 @@ func (p *TextParser) startLabelName() stateFn {
 	// labels to 'real' labels.
 	if !(p.currentMF.GetType() == dto.MetricType_SUMMARY && p.currentLabelPair.GetName() == model.QuantileLabel) &&
 		!(p.currentMF.GetType() == dto.MetricType_HISTOGRAM && p.currentLabelPair.GetName() == model.BucketLabel) {
-		//p.currentMetric.Label = append(p.currentMetric.Label, p.currentLabelPair)
 		p.currentLabel = append(p.currentLabel, p.currentLabelPair)
 	}
-	//if p.skipBlankTabIfCurrentBlankTab(); p.err != nil {
-	//	return nil // Unexpected end of input.
-	//}
-	//if p.currentByte != '=' {
-	//	p.parseError(fmt.Sprintf("expected '=' after label name, found %q", p.currentByte))
-	//	return nil
-	//}
 	// Check for duplicate label names.
 	labels := make(map[string]struct{})
 	for _, l := range p.currentLabel {
@@ -637,7 +624,6 @@ func (p *TextParser) readTokenUntilNewline(recognizeEscapeSequence bool) {
 			case 'n':
 				p.currentToken.WriteByte('\n')
 			case '"':
-				//p.currentToken.WriteByte('\\')
 				p.currentToken.WriteByte('"')
 			default:
 				p.parseError(fmt.Sprintf("invalid escape sequence '\\%c'", p.currentByte))
@@ -685,21 +671,14 @@ func (p *TextParser) readTokenAsMetricName() {
 				return
 			}
 			escaped = false
-			/*			p.currentByte, p.err = p.buf.ReadByte()
-						continue*/
 		} else {
 			switch p.currentByte {
 			case '"':
-				//p.currentToken.WriteByte(p.currentByte)
-				//p.currentByte, p.err = p.buf.ReadByte()
 				quoted = !quoted
 				if !quoted {
 					p.currentByte, p.err = p.buf.ReadByte()
 					return
 				}
-				/*			if p.err != nil || !isValidMetricNameContinuation(p.currentByte, quoted) {
-							return
-						}*/
 			case '\n':
 				p.parseError(fmt.Sprintf("metric name %q contains unescaped new-line", p.currentToken.String()))
 				return
@@ -707,10 +686,6 @@ func (p *TextParser) readTokenAsMetricName() {
 				escaped = true
 			default:
 				p.currentToken.WriteByte(p.currentByte)
-				/*				p.currentByte, p.err = p.buf.ReadByte()
-								if p.err != nil || !isValidMetricNameContinuation(p.currentByte, quoted) || (!quoted && p.currentByte == ' ') {
-									return
-								}*/
 			}
 		}
 		p.currentByte, p.err = p.buf.ReadByte()
@@ -747,20 +722,14 @@ func (p *TextParser) readTokenAsLabelName() {
 				return
 			}
 			escaped = false
-			//continue
 		} else {
 			switch p.currentByte {
 			case '"':
-				//p.currentToken.WriteByte(p.currentByte)
-				//p.currentByte, p.err = p.buf.ReadByte()
 				quoted = !quoted
 				if !quoted {
 					p.currentByte, p.err = p.buf.ReadByte()
 					return
 				}
-				/*			if p.err != nil || !isValidLabelNameContinuation(p.currentByte, quoted) {
-							return
-						}*/
 			case '\n':
 				p.parseError(fmt.Sprintf("label name %q contains unescaped new-line", p.currentToken.String()))
 				return
@@ -768,10 +737,6 @@ func (p *TextParser) readTokenAsLabelName() {
 				escaped = true
 			default:
 				p.currentToken.WriteByte(p.currentByte)
-				/*			p.currentByte, p.err = p.buf.ReadByte()
-							if p.err != nil || !isValidLabelNameContinuation(p.currentByte, quoted) || (!quoted && p.currentByte == '=') {
-								return
-							}*/
 			}
 		}
 		p.currentByte, p.err = p.buf.ReadByte()

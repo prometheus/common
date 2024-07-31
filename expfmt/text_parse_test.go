@@ -556,8 +556,8 @@ request_duration_microseconds_count 2693
 			got, ok := out[expected.GetName()]
 			if !ok {
 				t.Errorf(
-					"%d. expected MetricFamily %q, found none. got %q",
-					i, expected.GetName(), got.GetName(),
+					"%d. expected MetricFamily %q, found none",
+					i, expected.GetName(),
 				)
 				continue
 			}
@@ -700,7 +700,6 @@ metric 4.12
 			in:  `@invalidmetric{label="bla"} 3.14 2`,
 			err: "text format parsing error in line 1: invalid metric name",
 		},
-		// TODO(fedetorres93): this test is failing because the metric starts with braces but has no metric name in it. Fix logic to take this into account (add another stateFn?)
 		// 17:
 		{
 			in:  `{label="bla"} 3.14 2`,
@@ -714,7 +713,6 @@ metric_bucket{le="bla"} 3.14
 `,
 			err: "text format parsing error in line 3: expected float as value for 'le' label",
 		},
-		// TODO(fedetorres93): check if this test should now pass (it's testing a label value, so I think it's ok)
 		// 19: Invalid UTF-8 in label value.
 		{
 			in:  "metric{l=\"\xbd\"} 3.14\n",
