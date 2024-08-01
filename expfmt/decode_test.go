@@ -495,7 +495,7 @@ func TestProtoMultiMessageDecoder(t *testing.T) {
 	}
 
 	buf := bytes.NewReader(data)
-	decoder := NewDecoder(buf, fmtProtoDelim)
+	decoder := NewDecoder(buf, FmtProtoDelim)
 	var metrics []*dto.MetricFamily
 	for {
 		var mf dto.MetricFamily
@@ -520,27 +520,27 @@ func testDiscriminatorHTTPHeader(t testing.TB) {
 	}{
 		{
 			input:  map[string]string{"Content-Type": `application/vnd.google.protobuf; proto="io.prometheus.client.MetricFamily"; encoding="delimited"`},
-			output: fmtProtoDelim,
+			output: FmtProtoDelim,
 		},
 		{
 			input:  map[string]string{"Content-Type": `application/vnd.google.protobuf; proto="illegal"; encoding="delimited"`},
-			output: fmtUnknown,
+			output: FmtUnknown,
 		},
 		{
 			input:  map[string]string{"Content-Type": `application/vnd.google.protobuf; proto="io.prometheus.client.MetricFamily"; encoding="illegal"`},
-			output: fmtUnknown,
+			output: FmtUnknown,
 		},
 		{
 			input:  map[string]string{"Content-Type": `text/plain; version=0.0.4`},
-			output: fmtText,
+			output: FmtText,
 		},
 		{
 			input:  map[string]string{"Content-Type": `text/plain`},
-			output: fmtText,
+			output: FmtText,
 		},
 		{
 			input:  map[string]string{"Content-Type": `text/plain; version=0.0.3`},
-			output: fmtUnknown,
+			output: FmtUnknown,
 		},
 	}
 
@@ -646,7 +646,7 @@ func TestTextDecoderWithBufioReader(t *testing.T) {
 
 	var decoded bool
 	r := bufio.NewReader(strings.NewReader(example))
-	dec := NewDecoder(r, fmtText)
+	dec := NewDecoder(r, FmtText)
 	for {
 		var mf dto.MetricFamily
 		if err := dec.Decode(&mf); err != nil {
