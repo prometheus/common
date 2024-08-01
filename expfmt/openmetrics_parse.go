@@ -144,7 +144,8 @@ func (p *OpenMetricsParser) reset(in io.Reader) {
 // start of a line (or whitespace leading up to it).
 func (p *OpenMetricsParser) startOfLine() stateFn {
 	p.lineCount++
-	if p.skipBlankTab(); p.err != nil {
+	p.currentByte, p.err = p.buf.ReadByte()
+	if p.err != nil {
 		// This is the only place that we expect to see io.EOF,
 		// which is not an error but the signal that we are done.
 		// Any other error that happens to align with the start of
@@ -167,6 +168,10 @@ func (p *OpenMetricsParser) startOfLine() stateFn {
 		return p.startComment
 	case '\n':
 		return p.startOfLine // Empty line, start the next one.
+	}
+	if !isValidMetricNameStart(p.currentByte) {
+		p.parseError(fmt.Sprintf("%q is not a valid start token", p.currentByte))
+		return nil
 	}
 	return p.readingMetricName
 }
