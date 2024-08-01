@@ -151,7 +151,7 @@ metric1_total 4
 	)
 
 	dec := &SampleDecoder{
-		Dec: NewDecoder(strings.NewReader(in), fmtOpenMetrics_1_0_0),
+		Dec: NewDecoder(strings.NewReader(in), FmtOpenMetrics_1_0_0),
 		Opts: &DecodeOptions{
 			Timestamp: ts,
 		},
