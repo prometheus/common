@@ -385,6 +385,159 @@ request_duration_microseconds_count 2693
 				},
 			},
 		},
+		// 5: UTF-8 counter
+		{
+			in: `
+# HELP "my.noncompliant.metric" help text
+# TYPE "my.noncompliant.metric" counter
+{"my.noncompliant.metric","label.name"="value"} 1
+`,
+			out: []*dto.MetricFamily{
+				{
+					Name: proto.String("my.noncompliant.metric"),
+					Help: proto.String("help text"),
+					Type: dto.MetricType_COUNTER.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Label: []*dto.LabelPair{
+								{
+									Name:  proto.String("label.name"),
+									Value: proto.String("value"),
+								},
+							},
+							Counter: &dto.Counter{
+								Value: proto.Float64(1),
+							},
+						},
+					},
+				},
+			},
+		},
+		// 6: Dots in name
+		{
+			in: `
+# HELP "name.with.dots" boring help
+# TYPE "name.with.dots" counter
+{"name.with.dots",labelname="val1",basename="basevalue"} 42.0
+{"name.with.dots",labelname="val2",basename="basevalue"} 0.23 1234567890
+`,
+			out: []*dto.MetricFamily{
+				{
+					Name: proto.String("name.with.dots"),
+					Help: proto.String("boring help"),
+					Type: dto.MetricType_COUNTER.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Label: []*dto.LabelPair{
+								{
+									Name:  proto.String("labelname"),
+									Value: proto.String("val1"),
+								},
+								{
+									Name:  proto.String("basename"),
+									Value: proto.String("basevalue"),
+								},
+							},
+							Counter: &dto.Counter{
+								Value: proto.Float64(42),
+							},
+						},
+						{
+							Label: []*dto.LabelPair{
+								{
+									Name:  proto.String("labelname"),
+									Value: proto.String("val2"),
+								},
+								{
+									Name:  proto.String("basename"),
+									Value: proto.String("basevalue"),
+								},
+							},
+							Counter: &dto.Counter{
+								Value: proto.Float64(.23),
+							},
+							TimestampMs: proto.Int64(1234567890),
+						},
+					},
+				},
+			},
+		},
+		// 6: Dots in name, no labels
+		{
+			in: `
+				# HELP "name.with.dots" boring help
+				# TYPE "name.with.dots" counter
+				{"name.with.dots"} 42.0
+				{"name.with.dots"} 0.23 1234567890
+				`,
+			out: []*dto.MetricFamily{
+				{
+					Name: proto.String("name.with.dots"),
+					Help: proto.String("boring help"),
+					Type: dto.MetricType_COUNTER.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Counter: &dto.Counter{
+								Value: proto.Float64(42),
+							},
+						},
+						{
+							Counter: &dto.Counter{
+								Value: proto.Float64(.23),
+							},
+							TimestampMs: proto.Int64(1234567890),
+						},
+					},
+				},
+			},
+		},
+		// 7: Gauge, UTF-8, +Inf as value, multi-byte characters in label values.
+		{
+			in: `# HELP "gauge.name" gauge\ndoc\nstr\"ing
+# TYPE "gauge.name" gauge
+{"gauge.name","name.1"="val with\nnew line","name*2"="val with \\backslash and \"quotes\""} +Inf
+{"gauge.name","name.1"="Björn","name*2"="佖佥"} 3.14e+42
+`,
+			out: []*dto.MetricFamily{
+				{
+					Name: proto.String("gauge.name"),
+					Help: proto.String("gauge\ndoc\nstr\"ing"),
+					Type: dto.MetricType_GAUGE.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Label: []*dto.LabelPair{
+								{
+									Name:  proto.String("name.1"),
+									Value: proto.String("val with\nnew line"),
+								},
+								{
+									Name:  proto.String("name*2"),
+									Value: proto.String("val with \\backslash and \"quotes\""),
+								},
+							},
+							Gauge: &dto.Gauge{
+								Value: proto.Float64(math.Inf(+1)),
+							},
+						},
+						{
+							Label: []*dto.LabelPair{
+								{
+									Name:  proto.String("name.1"),
+									Value: proto.String("Björn"),
+								},
+								{
+									Name:  proto.String("name*2"),
+									Value: proto.String("佖佥"),
+								},
+							},
+							Gauge: &dto.Gauge{
+								Value: proto.Float64(3.14e42),
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for i, scenario := range scenarios {
@@ -642,7 +795,6 @@ metric{quantile="0x1p-3"} 3.14
 			err: "text format parsing error in line 1: duplicate label names for metric",
 		},
 	}
-
 	for i, scenario := range scenarios {
 		_, err := parser.TextToMetricFamilies(strings.NewReader(scenario.in))
 		if err == nil {
