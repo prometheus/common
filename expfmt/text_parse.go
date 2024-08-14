@@ -319,11 +319,10 @@ func (p *TextParser) startLabelName() stateFn {
 				p.parseError(fmt.Sprintf("unexpected end of metric value %q", p.currentByte))
 				return nil
 			}
-		} else {
-			p.parseError(fmt.Sprintf("expected '=' after label name, found %q", p.currentByte))
-			p.currentLabel = nil
-			return nil
 		}
+		p.parseError(fmt.Sprintf("expected '=' after label name, found %q", p.currentByte))
+		p.currentLabel = nil
+		return nil
 	}
 	p.currentLabelPair = &dto.LabelPair{Name: proto.String(p.currentToken.String())}
 	if p.currentLabelPair.GetName() == string(model.MetricNameLabel) {
