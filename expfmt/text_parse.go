@@ -60,7 +60,7 @@ type TextParser struct {
 	currentMF            *dto.MetricFamily
 	currentMetric        *dto.Metric
 	currentLabelPair     *dto.LabelPair
-	currentLabel         []*dto.LabelPair
+	currentLabelPairs    []*dto.LabelPair // Temporarily stores label pairs while parsing a metric line.
 
 	// The remaining member variables are only used for summaries/histograms.
 	currentLabels map[string]string // All labels including '__name__' but excluding 'quantile'/'le'
@@ -282,8 +282,8 @@ func (p *TextParser) startLabelName() stateFn {
 		return nil // Unexpected end of input.
 	}
 	if p.currentByte == '}' {
-		p.currentMetric.Label = append(p.currentMetric.Label, p.currentLabel...)
-		p.currentLabel = nil
+		p.currentMetric.Label = append(p.currentMetric.Label, p.currentLabelPairs...)
+		p.currentLabelPairs = nil
 		if p.skipBlankTab(); p.err != nil {
 			return nil // Unexpected end of input.
 		}
@@ -309,8 +309,8 @@ func (p *TextParser) startLabelName() stateFn {
 			case '}':
 				p.setOrCreateCurrentMF()
 				p.currentMetric = &dto.Metric{}
-				p.currentMetric.Label = append(p.currentMetric.Label, p.currentLabel...)
-				p.currentLabel = nil
+				p.currentMetric.Label = append(p.currentMetric.Label, p.currentLabelPairs...)
+				p.currentLabelPairs = nil
 				if p.skipBlankTab(); p.err != nil {
 					return nil // Unexpected end of input.
 				}
@@ -321,7 +321,7 @@ func (p *TextParser) startLabelName() stateFn {
 			}
 		}
 		p.parseError(fmt.Sprintf("expected '=' after label name, found %q", p.currentByte))
-		p.currentLabel = nil
+		p.currentLabelPairs = nil
 		return nil
 	}
 	p.currentLabelPair = &dto.LabelPair{Name: proto.String(p.currentToken.String())}
@@ -333,17 +333,17 @@ func (p *TextParser) startLabelName() stateFn {
 	// labels to 'real' labels.
 	if !(p.currentMF.GetType() == dto.MetricType_SUMMARY && p.currentLabelPair.GetName() == model.QuantileLabel) &&
 		!(p.currentMF.GetType() == dto.MetricType_HISTOGRAM && p.currentLabelPair.GetName() == model.BucketLabel) {
-		p.currentLabel = append(p.currentLabel, p.currentLabelPair)
+		p.currentLabelPairs = append(p.currentLabelPairs, p.currentLabelPair)
 	}
 	// Check for duplicate label names.
 	labels := make(map[string]struct{})
-	for _, l := range p.currentLabel {
+	for _, l := range p.currentLabelPairs {
 		lName := l.GetName()
 		if _, exists := labels[lName]; !exists {
 			labels[lName] = struct{}{}
 		} else {
 			p.parseError(fmt.Sprintf("duplicate label names for metric %q", p.currentMF.GetName()))
-			p.currentLabel = nil
+			p.currentLabelPairs = nil
 			return nil
 		}
 	}
@@ -376,7 +376,7 @@ func (p *TextParser) startLabelValue() stateFn {
 			if p.currentQuantile, p.err = parseFloat(p.currentLabelPair.GetValue()); p.err != nil {
 				// Create a more helpful error message.
 				p.parseError(fmt.Sprintf("expected float as value for 'quantile' label, got %q", p.currentLabelPair.GetValue()))
-				p.currentLabel = nil
+				p.currentLabelPairs = nil
 				return nil
 			}
 		} else {
@@ -407,15 +407,15 @@ func (p *TextParser) startLabelValue() stateFn {
 			p.parseError("invalid metric name")
 			return nil
 		}
-		p.currentMetric.Label = append(p.currentMetric.Label, p.currentLabel...)
-		p.currentLabel = nil
+		p.currentMetric.Label = append(p.currentMetric.Label, p.currentLabelPairs...)
+		p.currentLabelPairs = nil
 		if p.skipBlankTab(); p.err != nil {
 			return nil // Unexpected end of input.
 		}
 		return p.readingValue
 	default:
 		p.parseError(fmt.Sprintf("unexpected end of label value %q", p.currentLabelPair.GetValue()))
-		p.currentLabel = nil
+		p.currentLabelPairs = nil
 		return nil
 	}
 }
@@ -767,7 +767,7 @@ func (p *TextParser) readTokenAsLabelValue() {
 				p.currentToken.WriteByte('\n')
 			default:
 				p.parseError(fmt.Sprintf("invalid escape sequence '\\%c'", p.currentByte))
-				p.currentLabel = nil
+				p.currentLabelPairs = nil
 				return
 			}
 			escaped = false
