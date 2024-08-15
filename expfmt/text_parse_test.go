@@ -385,7 +385,7 @@ request_duration_microseconds_count 2693
 				},
 			},
 		},
-		// 5: UTF-8 counter
+		// 5: Quoted metric name and quoted label name with dots.
 		{
 			in: `
 # HELP "my.noncompliant.metric" help text
@@ -413,7 +413,7 @@ request_duration_microseconds_count 2693
 				},
 			},
 		},
-		// 6: Dots in name
+		// 6: Metric family with dots in name.
 		{
 			in: `
 # HELP "name.with.dots" boring help
@@ -462,7 +462,7 @@ request_duration_microseconds_count 2693
 				},
 			},
 		},
-		// 6: Dots in name, no labels
+		// 7: Metric family with dots in name, no labels.
 		{
 			in: `
 				# HELP "name.with.dots" boring help
@@ -491,7 +491,7 @@ request_duration_microseconds_count 2693
 				},
 			},
 		},
-		// 7: Gauge, UTF-8, +Inf as value, multi-byte characters in label values.
+		// 8: Quoted metric name and quoted label names with dots and asterisks, special characters in label values.
 		{
 			in: `# HELP "gauge.name" gauge\ndoc\nstr\"ing
 # TYPE "gauge.name" gauge

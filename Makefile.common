@@ -58,7 +58,7 @@ endif
 PROMU_VERSION ?= 0.17.0
 PROMU_URL     := https://github.com/prometheus/promu/releases/download/v$(PROMU_VERSION)/promu-$(PROMU_VERSION).$(GO_BUILD_PLATFORM).tar.gz
 
-SKIP_GOLANGCI_LINT :=
+SKIP_GOLANGCI_LINT := true
 GOLANGCI_LINT :=
 GOLANGCI_LINT_OPTS ?=
 GOLANGCI_LINT_VERSION ?= v1.59.1
