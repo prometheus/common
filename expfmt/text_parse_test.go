@@ -850,10 +850,15 @@ metric{quantile="0x1p-3"} 3.14
 			in:  `metric{label="bla",label="bla"} 3.14`,
 			err: "text format parsing error in line 1: duplicate label names for metric",
 		},
-		// 34: Multiple metric names.
+		// 34: Multiple quoted metric names.
 		{
 			in:  `{"one.name","another.name"} 3.14`,
 			err: "text format parsing error in line 1: multiple metric names",
+		},
+		// 35: Invalid escape sequence in quoted metric name.
+		{
+			in:  `{"a\xc5z",label="bla"} 3.14`,
+			err: "text format parsing error in line 1: invalid escape sequence",
 		},
 	}
 	for i, scenario := range scenarios {
