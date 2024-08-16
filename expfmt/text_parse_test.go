@@ -538,6 +538,34 @@ request_duration_microseconds_count 2693
 				},
 			},
 		},
+		// 9: Various escaped special characters in metric and label names.
+		{
+			in: `
+# HELP "my\"noncompliant\nmetric" help text
+# TYPE "my\"noncompliant\nmetric" counter
+{"my\"noncompliant\nmetric","label\"name\n"="value"} 1
+`,
+			out: []*dto.MetricFamily{
+				{
+					Name: proto.String("my\"noncompliant\nmetric"),
+					Help: proto.String("help text"),
+					Type: dto.MetricType_COUNTER.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Label: []*dto.LabelPair{
+								{
+									Name:  proto.String("label\"name\n"),
+									Value: proto.String("value"),
+								},
+							},
+							Counter: &dto.Counter{
+								Value: proto.Float64(1),
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for i, scenario := range scenarios {

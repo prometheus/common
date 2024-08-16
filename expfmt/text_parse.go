@@ -665,7 +665,6 @@ func (p *TextParser) readTokenAsMetricName() {
 			case 'n':
 				p.currentToken.WriteByte('\n')
 			case '"':
-				p.currentToken.WriteByte('\\')
 				p.currentToken.WriteByte('"')
 			default:
 				p.parseError(fmt.Sprintf("invalid escape sequence '\\%c'", p.currentByte))
@@ -716,7 +715,6 @@ func (p *TextParser) readTokenAsLabelName() {
 			case 'n':
 				p.currentToken.WriteByte('\n')
 			case '"':
-				p.currentToken.WriteByte('\\')
 				p.currentToken.WriteByte('"')
 			default:
 				p.parseError(fmt.Sprintf("invalid escape sequence '\\%c'", p.currentByte))
