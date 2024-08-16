@@ -301,6 +301,10 @@ func (p *TextParser) startLabelName() stateFn {
 	}
 	if p.currentByte != '=' {
 		if p.currentMetricIsInsideBraces {
+			if p.currentMF != nil && p.currentMF.GetName() != p.currentToken.String() {
+				p.parseError(fmt.Sprintf("multiple metric names %s %s", p.currentMF.GetName(), p.currentToken.String()))
+				return nil
+			}
 			switch p.currentByte {
 			case ',':
 				p.setOrCreateCurrentMF()

@@ -850,6 +850,11 @@ metric{quantile="0x1p-3"} 3.14
 			in:  `metric{label="bla",label="bla"} 3.14`,
 			err: "text format parsing error in line 1: duplicate label names for metric",
 		},
+		// 34: Multiple metric names.
+		{
+			in:  `{"one.name","another.name"} 3.14`,
+			err: "text format parsing error in line 1: multiple metric names",
+		},
 	}
 	for i, scenario := range scenarios {
 		_, err := parser.TextToMetricFamilies(strings.NewReader(scenario.in))
