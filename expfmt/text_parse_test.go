@@ -566,6 +566,34 @@ request_duration_microseconds_count 2693
 				},
 			},
 		},
+		// 10: Quoted metric name, not the first element in the label set.
+		{
+			in: `
+# HELP "my.noncompliant.metric" help text
+# TYPE "my.noncompliant.metric" counter
+{labelname="value", "my.noncompliant.metric"} 1
+`,
+			out: []*dto.MetricFamily{
+				{
+					Name: proto.String("my.noncompliant.metric"),
+					Help: proto.String("help text"),
+					Type: dto.MetricType_COUNTER.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Label: []*dto.LabelPair{
+								{
+									Name:  proto.String("labelname"),
+									Value: proto.String("value"),
+								},
+							},
+							Counter: &dto.Counter{
+								Value: proto.Float64(1),
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for i, scenario := range scenarios {
