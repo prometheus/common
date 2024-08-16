@@ -107,4 +107,11 @@ func TestSigV4RoundTripper(t *testing.T) {
 
 		require.Equal(t, "/test/test", gotReq.URL.Path)
 	})
+
+	t.Run("No body", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodGet, "https://example.com/test/test", nil)
+		require.NoError(t, err)
+		_, err = cli.Do(req)
+		require.NoError(t, err)
+	})
 }
