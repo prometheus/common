@@ -595,10 +595,10 @@ func TestEscapeMetricFamily(t *testing.T) {
 			original := proto.Clone(scenario.input)
 			got := EscapeMetricFamily(scenario.input, scenario.scheme)
 			if !cmp.Equal(scenario.expected, got, cmpopts.IgnoreUnexported(unexportList...)) {
-				t.Errorf("unexpected difference in escaped output:" + cmp.Diff(scenario.expected, got, cmpopts.IgnoreUnexported(unexportList...)))
+				t.Errorf("unexpected difference in escaped output:\n%s", cmp.Diff(scenario.expected, got, cmpopts.IgnoreUnexported(unexportList...)))
 			}
 			if !cmp.Equal(scenario.input, original, cmpopts.IgnoreUnexported(unexportList...)) {
-				t.Errorf("input was mutated during escaping" + cmp.Diff(scenario.expected, got, cmpopts.IgnoreUnexported(unexportList...)))
+				t.Errorf("input was mutated during escaping:\n%s", cmp.Diff(scenario.expected, got, cmpopts.IgnoreUnexported(unexportList...)))
 			}
 		})
 	}
