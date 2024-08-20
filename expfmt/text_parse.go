@@ -320,7 +320,7 @@ func (p *TextParser) startLabelName() stateFn {
 				}
 				return p.readingValue
 			default:
-				p.parseError(fmt.Sprintf("unexpected end of metric value %q", p.currentByte))
+				p.parseError(fmt.Sprintf("unexpected end of metric name %q", p.currentByte))
 				return nil
 			}
 		}

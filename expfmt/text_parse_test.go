@@ -541,13 +541,13 @@ request_duration_microseconds_count 2693
 		// 9: Various escaped special characters in metric and label names.
 		{
 			in: `
-# HELP "my\"noncompliant\nmetric" help text
-# TYPE "my\"noncompliant\nmetric" counter
-{"my\"noncompliant\nmetric","label\"name\n"="value"} 1
+# HELP "my\"noncompliant\nmetric\\" help text
+# TYPE "my\"noncompliant\nmetric\\" counter
+{"my\"noncompliant\nmetric\\","label\"name\n"="value"} 1
 `,
 			out: []*dto.MetricFamily{
 				{
-					Name: proto.String("my\"noncompliant\nmetric"),
+					Name: proto.String("my\"noncompliant\nmetric\\"),
 					Help: proto.String("help text"),
 					Type: dto.MetricType_COUNTER.Enum(),
 					Metric: []*dto.Metric{
@@ -859,6 +859,37 @@ metric{quantile="0x1p-3"} 3.14
 		{
 			in:  `{"a\xc5z",label="bla"} 3.14`,
 			err: "text format parsing error in line 1: invalid escape sequence",
+		},
+		// 36: Unexpected end of quoted metric name.
+		{
+			in:  `{"metric.name".label="bla"} 3.14`,
+			err: "text format parsing error in line 1: unexpected end of metric name",
+		},
+		// 37: Invalid escape sequence in quoted metric name.
+		{
+			in: `
+# TYPE "metric.name\t" counter
+{"metric.name\t",label="bla"} 3.14
+`,
+			err: "text format parsing error in line 2: invalid escape sequence",
+		},
+		// 38: Newline in quoted metric name.
+		{
+			in: `
+# TYPE "metric
+name" counter
+{"metric
+name",label="bla"} 3.14
+`,
+			err: `text format parsing error in line 2: metric name "metric" contains unescaped new-line`,
+		},
+		// 39: Newline in quoted label name.
+		{
+			in: `
+{"metric.name","new
+line"="bla"} 3.14
+`,
+			err: `text format parsing error in line 2: label name "new" contains unescaped new-line`,
 		},
 	}
 	for i, scenario := range scenarios {
