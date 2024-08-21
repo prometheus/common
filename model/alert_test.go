@@ -100,6 +100,8 @@ func TestAlertValidate(t *testing.T) {
 		},
 	}
 
+	NameValidationScheme = LegacyValidation
+
 	for i, c := range cases {
 		err := c.alert.Validate()
 		if err == nil {

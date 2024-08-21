@@ -32,7 +32,7 @@ var (
 	// UTF-8-aware binaries as part of their startup. To avoid need for locking,
 	// this value should be set once, ideally in an init(), before multiple
 	// goroutines are started.
-	NameValidationScheme = LegacyValidation
+	NameValidationScheme = UTF8Validation
 
 	// NameEscapingScheme defines the default way that names will be
 	// escaped when presented to systems that do not support UTF-8 names. If the
