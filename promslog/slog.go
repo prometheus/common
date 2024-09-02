@@ -154,9 +154,7 @@ type Config struct {
 	ioWriter io.Writer
 }
 
-// New returns a new slog.Logger. Each logged line will be annotated
-// with a timestamp. The output always goes to stderr.
-func New(config *Config) *slog.Logger {
+func newSlogHandlerOptions(config *Config) *slog.HandlerOptions {
 	if config.Level == nil {
 		config.Level = &AllowedLevel{}
 		_ = config.Level.Set("info")
@@ -175,8 +173,28 @@ func New(config *Config) *slog.Logger {
 		logHandlerOpts.ReplaceAttr = goKitStyleReplaceAttrFunc
 	}
 
+	return logHandlerOpts
+}
+
+// New returns a new slog.Logger. Each logged line will be annotated
+// with a timestamp. The output always goes to stderr.
+func New(config *Config) *slog.Logger {
+	logHandlerOpts := newSlogHandlerOptions(config)
 	if config.Format != nil && config.Format.s == "json" {
 		return slog.New(slog.NewJSONHandler(config.ioWriter, logHandlerOpts))
 	}
 	return slog.New(slog.NewTextHandler(config.ioWriter, logHandlerOpts))
+}
+
+// New returns a new slog.Logger, with the logger's output set to the provided
+// `io.Writer`. Management of the writer is beyond the scope of this function
+// and is the responsibility of the caller to properly close, if needed. Each
+// logged line will be annotated with a timestamp. The output always goes to
+// stderr.
+func NewWithWriter(config *Config, writer io.Writer) *slog.Logger {
+	logHandlerOpts := newSlogHandlerOptions(config)
+	if config.Format != nil && config.Format.s == "json" {
+		return slog.New(slog.NewJSONHandler(writer, logHandlerOpts))
+	}
+	return slog.New(slog.NewTextHandler(writer, logHandlerOpts))
 }
