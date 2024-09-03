@@ -1107,7 +1107,7 @@ func getCertificateBlobs(t *testing.T) map[string][]byte {
 	return bs
 }
 
-func writeCertificate(bs map[string][]byte, src string, dst string) {
+func writeCertificate(bs map[string][]byte, src, dst string) {
 	b, ok := bs[src]
 	if !ok {
 		panic(fmt.Sprintf("Couldn't find %q in bs", src))

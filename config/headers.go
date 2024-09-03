@@ -78,16 +78,9 @@ func (h *Headers) SetDirectory(dir string) {
 
 // Validate validates the Headers config.
 func (h *Headers) Validate() error {
-	for n, header := range h.Headers {
+	for n := range h.Headers {
 		if _, ok := reservedHeaders[http.CanonicalHeaderKey(n)]; ok {
 			return fmt.Errorf("setting header %q is not allowed", http.CanonicalHeaderKey(n))
-		}
-		for _, v := range header.Files {
-			f := JoinDir(h.dir, v)
-			_, err := os.ReadFile(f)
-			if err != nil {
-				return fmt.Errorf("unable to read header %q from file %s: %w", http.CanonicalHeaderKey(n), f, err)
-			}
 		}
 	}
 	return nil
