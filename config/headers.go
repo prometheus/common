@@ -52,14 +52,6 @@ var reservedHeaders = map[string]struct{}{
 // Headers represents the configuration for HTTP headers.
 type Headers struct {
 	Headers map[string]Header `yaml:",inline"`
-	dir     string
-}
-
-// Header represents the configuration for a single HTTP header.
-type Header struct {
-	Values  []string `yaml:"values,omitempty" json:"values,omitempty"`
-	Secrets []Secret `yaml:"secrets,omitempty" json:"secrets,omitempty"`
-	Files   []string `yaml:"files,omitempty" json:"files,omitempty"`
 }
 
 func (h Headers) MarshalJSON() ([]byte, error) {
@@ -67,13 +59,14 @@ func (h Headers) MarshalJSON() ([]byte, error) {
 	return json.Marshal(h.Headers)
 }
 
-// SetDirectory records the directory to make headers file relative to the
-// configuration file.
+// SetDirectory make headers file relative to the configuration file.
 func (h *Headers) SetDirectory(dir string) {
 	if h == nil {
 		return
 	}
-	h.dir = dir
+	for _, h := range h.Headers {
+		h.SetDirectory(dir)
+	}
 }
 
 // Validate validates the Headers config.
@@ -84,6 +77,20 @@ func (h *Headers) Validate() error {
 		}
 	}
 	return nil
+}
+
+// Header represents the configuration for a single HTTP header.
+type Header struct {
+	Values  []string `yaml:"values,omitempty" json:"values,omitempty"`
+	Secrets []Secret `yaml:"secrets,omitempty" json:"secrets,omitempty"`
+	Files   []string `yaml:"files,omitempty" json:"files,omitempty"`
+}
+
+// SetDirectory makes headers file relative to the configuration file.
+func (h *Header) SetDirectory(dir string) {
+	for i := range h.Files {
+		h.Files[i] = JoinDir(dir, h.Files[i])
+	}
 }
 
 // NewHeadersRoundTripper returns a RoundTripper that sets HTTP headers on
@@ -114,10 +121,9 @@ func (rt *headersRoundTripper) RoundTrip(req *http.Request) (*http.Response, err
 			req.Header.Add(n, string(v))
 		}
 		for _, v := range h.Files {
-			f := JoinDir(rt.config.dir, v)
-			b, err := os.ReadFile(f)
+			b, err := os.ReadFile(v)
 			if err != nil {
-				return nil, fmt.Errorf("unable to read headers file %s: %w", f, err)
+				return nil, fmt.Errorf("unable to read headers file %s: %w", v, err)
 			}
 			req.Header.Add(n, strings.TrimSpace(string(b)))
 		}
