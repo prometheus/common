@@ -17,6 +17,8 @@ import (
 	"testing"
 
 	"github.com/prometheus/common/model"
+
+	"github.com/stretchr/testify/require"
 )
 
 // Test Format to Escapting Scheme conversion
@@ -92,9 +94,7 @@ func TestToFormatType(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		if test.format.FormatType() != test.expected {
-			t.Errorf("expected %v got %v", test.expected, test.format.FormatType())
-		}
+		require.Equal(t, test.expected, test.format.FormatType())
 	}
 }
 
@@ -122,8 +122,43 @@ func TestToEscapingScheme(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		if test.format.ToEscapingScheme() != test.expected {
-			t.Errorf("expected %v got %v", test.expected, test.format.ToEscapingScheme())
-		}
+		require.Equal(t, test.expected, test.format.ToEscapingScheme())
+	}
+}
+
+func TestWithEscapingScheme(t *testing.T) {
+	tests := []struct {
+		name     string
+		format   Format
+		scheme   model.EscapingScheme
+		expected string
+	}{
+		{
+			name:     "no existing term, append one",
+			format:   FmtProtoCompact,
+			scheme:   model.DotsEscaping,
+			expected: "application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=compact-text; escaping=dots",
+		},
+		{
+			name:     "existing term at end, replace",
+			format:   "application/openmetrics-text; version=1.0.0; charset=utf-8; escaping=underscores",
+			scheme:   model.ValueEncodingEscaping,
+			expected: "application/openmetrics-text; version=1.0.0; charset=utf-8; escaping=values",
+		},
+		{
+			name:     "existing term in middle, replace",
+			format:   "application/openmetrics-text; escaping=dots; version=1.0.0; charset=utf-8; ",
+			scheme:   model.NoEscaping,
+			expected: "application/openmetrics-text; version=1.0.0; charset=utf-8; escaping=allow-utf-8",
+		},
+		{
+			name:     "multiple existing terms removed",
+			format:   "application/openmetrics-text; escaping=dots; version=1.0.0; charset=utf-8; escaping=allow-utf-8",
+			scheme:   model.ValueEncodingEscaping,
+			expected: "application/openmetrics-text; version=1.0.0; charset=utf-8; escaping=values",
+		},
+	}
+	for _, test := range tests {
+		require.Equal(t, test.expected, string(test.format.WithEscapingScheme(test.scheme)))
 	}
 }
