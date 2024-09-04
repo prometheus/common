@@ -105,11 +105,11 @@ func TestToEscapingScheme(t *testing.T) {
 	}{
 		{
 			format:   FmtProtoCompact,
-			expected: model.ValueEncodingEscaping,
+			expected: model.UnderscoreEscaping,
 		},
 		{
-			format:   "application/openmetrics-text; version=1.0.0; charset=utf-8; escaping=underscores",
-			expected: model.UnderscoreEscaping,
+			format:   "application/openmetrics-text; version=1.0.0; charset=utf-8; escaping=dots",
+			expected: model.DotsEscaping,
 		},
 		{
 			format:   "application/openmetrics-text; version=1.0.0; charset=utf-8; escaping=allow-utf-8",

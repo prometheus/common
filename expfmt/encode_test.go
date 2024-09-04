@@ -383,9 +383,9 @@ func TestEscapedEncode(t *testing.T) {
 		t.Errorf("expected the output bytes buffer to be non-empty")
 	}
 
-	expected := `# TYPE U__foo_2e_metric untyped
-U__foo_2e_metric 1.234
-U__foo_2e_metric{U__dotted_2e_label_2e_name="my.label.value"} 8
+	expected := `# TYPE foo_metric untyped
+foo_metric 1.234
+foo_metric{dotted_label_name="my.label.value"} 8
 `
 
 	if string(out) != expected {
