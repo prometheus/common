@@ -130,7 +130,6 @@ func (f Format) WithEscapingScheme(s model.EscapingScheme) Format {
 		if key != model.EscapingKey {
 			terms = append(terms, strings.TrimSpace(p))
 		}
-		continue
 	}
 	terms = append(terms, model.EscapingKey+"="+s.String())
 	return Format(strings.Join(terms, "; "))
