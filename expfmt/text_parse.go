@@ -73,8 +73,10 @@ type TextParser struct {
 	// These tell us if the currently processed line ends on '_count' or
 	// '_sum' respectively and belong to a summary/histogram, representing the sample
 	// count and sum of that summary/histogram.
-	currentIsSummaryCount, currentIsSummarySum                      bool
-	currentIsHistogramCount, currentIsHistogramSum                  bool
+	currentIsSummaryCount, currentIsSummarySum     bool
+	currentIsHistogramCount, currentIsHistogramSum bool
+	// These indicate if the metric name from the current line being parsed is inside
+	// braces and if that metric name was found respectively.
 	currentMetricIsInsideBraces, currentMetricInsideBracesIsPresent bool
 }
 
