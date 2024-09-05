@@ -594,6 +594,49 @@ request_duration_microseconds_count 2693
 				},
 			},
 		},
+		// 11: Multiple minimal metrics with quoted metric names.
+		{
+			in: `
+{"name.1"} 1
+{"name.2"} 1
+{"name.3"} 1
+`,
+			out: []*dto.MetricFamily{
+				{
+					Name: proto.String("name.1"),
+					Type: dto.MetricType_UNTYPED.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Untyped: &dto.Untyped{
+								Value: proto.Float64(1),
+							},
+						},
+					},
+				},
+				{
+					Name: proto.String("name.2"),
+					Type: dto.MetricType_UNTYPED.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Untyped: &dto.Untyped{
+								Value: proto.Float64(1),
+							},
+						},
+					},
+				},
+				{
+					Name: proto.String("name.3"),
+					Type: dto.MetricType_UNTYPED.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Untyped: &dto.Untyped{
+								Value: proto.Float64(1),
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for i, scenario := range scenarios {
