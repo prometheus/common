@@ -44,6 +44,7 @@ var (
 	DefaultHTTPClientConfig = HTTPClientConfig{
 		FollowRedirects: true,
 		EnableHTTP2:     true,
+		EnableKeepAlive: true,
 	}
 
 	// defaultHTTPClientOptions holds the default HTTP client options.
@@ -324,6 +325,10 @@ type HTTPClientConfig struct {
 	// HTTPHeaders specify headers to inject in the requests. Those headers
 	// could be marshalled back to the users.
 	HTTPHeaders *Headers `yaml:"http_headers,omitempty" json:"http_headers,omitempty"`
+	// EnableKeepAlive determines whether to reuse TCP connections for multiple
+	// requests. If true, it keeps connections open, improving performance. If
+	// false, it closes connections after each request.
+	EnableKeepAlive bool `yaml:"enable_keepalive" json:"enable_keepalive"`
 }
 
 // SetDirectory joins any relative file paths with dir.
@@ -593,7 +598,7 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 			ProxyConnectHeader:    cfg.ProxyConfig.GetProxyConnectHeader(),
 			MaxIdleConns:          20000,
 			MaxIdleConnsPerHost:   1000, // see https://github.com/golang/go/issues/13801
-			DisableKeepAlives:     !opts.keepAlivesEnabled,
+			DisableKeepAlives:     !cfg.EnableKeepAlive && !opts.keepAlivesEnabled,
 			TLSClientConfig:       tlsConfig,
 			DisableCompression:    true,
 			IdleConnTimeout:       opts.idleConnTimeout,
