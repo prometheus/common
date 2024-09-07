@@ -112,7 +112,7 @@ func TestDynamicLevels(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			buf.Reset() // Ensure buf is reset prior to tests
-			config := &Config{ioWriter: &buf, Style: tc.logStyle}
+			config := &Config{Writer: &buf, Style: tc.logStyle}
 			logger := New(config)
 
 			// Test that log level can be adjusted on-the-fly to debug and that a
