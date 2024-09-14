@@ -148,10 +148,10 @@ func (f *AllowedFormat) Set(s string) error {
 
 // Config is a struct containing configurable settings for the logger
 type Config struct {
-	Level    *AllowedLevel
-	Format   *AllowedFormat
-	Style    LogStyle
-	ioWriter io.Writer
+	Level  *AllowedLevel
+	Format *AllowedFormat
+	Style  LogStyle
+	Writer io.Writer
 }
 
 // New returns a new slog.Logger. Each logged line will be annotated
@@ -162,8 +162,8 @@ func New(config *Config) *slog.Logger {
 		_ = config.Level.Set("info")
 	}
 
-	if config.ioWriter == nil {
-		config.ioWriter = defaultWriter
+	if config.Writer == nil {
+		config.Writer = defaultWriter
 	}
 
 	logHandlerOpts := &slog.HandlerOptions{
@@ -176,7 +176,7 @@ func New(config *Config) *slog.Logger {
 	}
 
 	if config.Format != nil && config.Format.s == "json" {
-		return slog.New(slog.NewJSONHandler(config.ioWriter, logHandlerOpts))
+		return slog.New(slog.NewJSONHandler(config.Writer, logHandlerOpts))
 	}
-	return slog.New(slog.NewTextHandler(config.ioWriter, logHandlerOpts))
+	return slog.New(slog.NewTextHandler(config.Writer, logHandlerOpts))
 }
