@@ -52,7 +52,7 @@ var (
 			// of .999999999 which changes the timestamp from 9 variable to 3 fixed
 			// decimals (.130 instead of .130987456).
 			t := a.Value.Time()
-			a.Value = slog.StringValue(t.Format("2006-01-02T15:04:05.000Z07:00"))
+			a.Value = slog.StringValue(t.UTC().Format("2006-01-02T15:04:05.000Z07:00"))
 		case slog.SourceKey:
 			a.Key = "caller"
 			src, _ := a.Value.Any().(*slog.Source)
