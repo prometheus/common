@@ -15,8 +15,6 @@
 // across Prometheus components.
 // It should typically only ever be imported by main packages.
 
-//go:build go1.21
-
 package flag
 
 import (
