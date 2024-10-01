@@ -1,6 +1,6 @@
 module github.com/prometheus/common
 
-go 1.20
+go 1.21
 
 require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
@@ -25,7 +25,7 @@ require (
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/prometheus/client_golang v1.20.0 // indirect
+	github.com/prometheus/client_golang v1.20.4 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/xhit/go-str2duration/v2 v2.1.0 // indirect

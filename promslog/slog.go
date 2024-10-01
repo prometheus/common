@@ -15,8 +15,6 @@
 // library's log/slog logger.
 // It should typically only ever be imported by main packages.
 
-//go:build go1.21
-
 package promslog
 
 import (
