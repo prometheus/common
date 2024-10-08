@@ -146,3 +146,47 @@ func TestDynamicLevels(t *testing.T) {
 		})
 	}
 }
+
+func TestTruncateSourceFileName_DefaultStyle(t *testing.T) {
+	var buf bytes.Buffer
+
+	config := &Config{
+		Writer: &buf,
+	}
+
+	logger := New(config)
+	logger.Info("test message")
+
+	output := buf.String()
+
+	if !strings.Contains(output, "source=slog_test.go:") {
+		t.Errorf("Expected source file name to be truncated to basename, got: %s", output)
+	}
+
+	if strings.Contains(output, "/") {
+		t.Errorf("Expected no directory separators in source file name, got: %s", output)
+	}
+}
+
+func TestTruncateSourceFileName_GoKitStyle(t *testing.T) {
+	var buf bytes.Buffer
+
+	config := &Config{
+		Writer: &buf,
+		Style:  GoKitStyle,
+	}
+
+	logger := New(config)
+	logger.Info("test message")
+
+	output := buf.String()
+
+	// In GoKitStyle, the source key is "caller".
+	if !strings.Contains(output, "caller=slog_test.go:") {
+		t.Errorf("Expected caller to contain basename of source file, got: %s", output)
+	}
+
+	if strings.Contains(output, "/") {
+		t.Errorf("Expected no directory separators in caller, got: %s", output)
+	}
+}
