@@ -68,6 +68,17 @@ var (
 
 		return a
 	}
+	truncateSourceAttrFunc = func(groups []string, a slog.Attr) slog.Attr {
+		if a.Key != slog.SourceKey {
+			return a
+		}
+
+		if src, ok := a.Value.Any().(*slog.Source); ok {
+			a.Value = slog.StringValue(filepath.Base(src.File) + ":" + strconv.Itoa(src.Line))
+		}
+
+		return a
+	}
 )
 
 // AllowedLevel is a settable identifier for the minimum level a log entry
@@ -165,8 +176,9 @@ func New(config *Config) *slog.Logger {
 	}
 
 	logHandlerOpts := &slog.HandlerOptions{
-		Level:     config.Level.lvl,
-		AddSource: true,
+		Level:       config.Level.lvl,
+		AddSource:   true,
+		ReplaceAttr: truncateSourceAttrFunc,
 	}
 
 	if config.Style == GoKitStyle {
