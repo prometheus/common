@@ -37,9 +37,10 @@ var sigv4HeaderDenylist = []string{
 }
 
 type sigV4RoundTripper struct {
-	region string
-	next   http.RoundTripper
-	pool   sync.Pool
+	region  string
+	next    http.RoundTripper
+	pool    sync.Pool
+	service string
 
 	signer *signer.Signer
 }
@@ -88,11 +89,15 @@ func NewSigV4RoundTripper(cfg *SigV4Config, next http.RoundTripper) (http.RoundT
 	if cfg.RoleARN != "" {
 		signerCreds = stscreds.NewCredentials(sess, cfg.RoleARN)
 	}
+	if cfg.Service == "" {
+		cfg.Service = "aps"
+	}
 
 	rt := &sigV4RoundTripper{
-		region: cfg.Region,
-		next:   next,
-		signer: signer.NewSigner(signerCreds),
+		region:  cfg.Region,
+		next:    next,
+		signer:  signer.NewSigner(signerCreds),
+		service: cfg.Service,
 	}
 	rt.pool.New = rt.newBuf
 	return rt, nil
@@ -136,7 +141,7 @@ func (rt *sigV4RoundTripper) RoundTrip(req *http.Request) (*http.Response, error
 		signReq.Header.Del(header)
 	}
 
-	headers, err := rt.signer.Sign(signReq, seeker, "aps", rt.region, time.Now().UTC())
+	headers, err := rt.signer.Sign(signReq, seeker, rt.service, rt.region, time.Now().UTC())
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign request: %w", err)
 	}
