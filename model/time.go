@@ -168,7 +168,6 @@ func (t *Time) UnmarshalJSON(b []byte) error {
 // Duration wraps time.Duration. It is used to parse the custom duration format
 // from YAML.
 // This type should not propagate beyond the scope of input/output processing.
-// +kubebuilder:validation:Schemaless
 // +kubebuilder:validation:Type=string
 // +kubebuilder:validation:Format=duration
 type Duration time.Duration
