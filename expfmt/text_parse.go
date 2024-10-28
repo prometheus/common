@@ -36,16 +36,23 @@ import (
 // by nil.
 type stateFn func() stateFn
 
+var (
+	// The format values for the parse error.
+	FormatText        = "text"
+	FormatOpenMetrics = "openmetrics"
+)
+
 // ParseError signals errors while parsing the simple and flat text-based
 // exchange format.
 type ParseError struct {
-	Line int
-	Msg  string
+	Line   int
+	Msg    string
+	Format string
 }
 
 // Error implements the error interface.
 func (e ParseError) Error() string {
-	return fmt.Sprintf("text format parsing error in line %d: %s", e.Line, e.Msg)
+	return fmt.Sprintf("%s format parsing error in line %d: %s", e.Format, e.Line, e.Msg)
 }
 
 // TextParser is used to parse the simple and flat text-based exchange format. Its
@@ -534,8 +541,9 @@ func (p *TextParser) readingType() stateFn {
 // message.
 func (p *TextParser) parseError(msg string) {
 	p.err = ParseError{
-		Line: p.lineCount,
-		Msg:  msg,
+		Line:   p.lineCount,
+		Msg:    msg,
+		Format: FormatText,
 	}
 }
 
