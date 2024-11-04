@@ -65,7 +65,7 @@ var expectedTLSConfigs = []struct {
 	},
 	{
 		filename: "tls_config.next_protos.good.json",
-		config:   &tls.Config{NextProtos: []string{"testproto1", "testproto2"}},
+		config:   &tls.Config{NextProtos: []string{"h2", "http/1.1"}},
 	},
 	{
 		filename: "tls_config.tlsversion.good.json",
@@ -85,7 +85,7 @@ var expectedTLSConfigs = []struct {
 	},
 	{
 		filename: "tls_config.next_protos.good.yml",
-		config:   &tls.Config{NextProtos: []string{"testproto1", "testproto2"}},
+		config:   &tls.Config{NextProtos: []string{"h2", "http/1.1"}},
 	},
 	{
 		filename: "tls_config.tlsversion.good.yml",
