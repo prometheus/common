@@ -11,6 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Deprecated: This package has been migrated to github.com/prometheus/sigv4.
 package sigv4
 
 import (
