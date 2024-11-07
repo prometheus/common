@@ -15,9 +15,9 @@ package sigv4
 
 import (
 	"os"
-	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
 )
 
@@ -35,9 +35,7 @@ func loadSigv4Config(filename string) (*SigV4Config, error) {
 
 func testGoodConfig(t *testing.T, filename string) {
 	_, err := loadSigv4Config(filename)
-	if err != nil {
-		t.Fatalf("Unexpected error parsing %s: %s", filename, err)
-	}
+	require.NoErrorf(t, err, "Unexpected error parsing %s: %s", filename, err)
 }
 
 func TestGoodSigV4Configs(t *testing.T) {
@@ -50,10 +48,6 @@ func TestGoodSigV4Configs(t *testing.T) {
 func TestBadSigV4Config(t *testing.T) {
 	filename := "testdata/sigv4_bad.yaml"
 	_, err := loadSigv4Config(filename)
-	if err == nil {
-		t.Fatalf("Did not receive expected error unmarshaling bad sigv4 config")
-	}
-	if !strings.Contains(err.Error(), "must provide a AWS SigV4 Access key and Secret Key") {
-		t.Errorf("Received unexpected error from unmarshal of %s: %s", filename, err.Error())
-	}
+	require.Errorf(t, err, "Did not receive expected error unmarshaling bad sigv4 config")
+	require.ErrorContainsf(t, err, "must provide a AWS SigV4 Access key and Secret Key", "Received unexpected error from unmarshal of %s: %s", filename, err.Error())
 }
