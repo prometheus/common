@@ -18,6 +18,8 @@ import (
 	"math"
 	"sort"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestEqualSamples(t *testing.T) {
@@ -351,12 +353,8 @@ func TestVectorSort(t *testing.T) {
 		actualFp := actual.Metric.Fingerprint()
 		expectedFp := expected[i].Metric.Fingerprint()
 
-		if actualFp != expectedFp {
-			t.Fatalf("%d. Incorrect fingerprint. Got %s; want %s", i, actualFp.String(), expectedFp.String())
-		}
+		require.Equalf(t, expectedFp, actualFp, "%d. Incorrect fingerprint. Got %s; want %s", i, actualFp.String(), expectedFp.String())
 
-		if actual.Timestamp != expected[i].Timestamp {
-			t.Fatalf("%d. Incorrect timestamp. Got %s; want %s", i, actual.Timestamp, expected[i].Timestamp)
-		}
+		require.Equalf(t, actual.Timestamp, expected[i].Timestamp, "%d. Incorrect timestamp. Got %s; want %s", i, actual.Timestamp, expected[i].Timestamp)
 	}
 }

@@ -24,6 +24,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	dto "github.com/prometheus/client_model/go"
+	"github.com/stretchr/testify/require"
 
 	"github.com/prometheus/common/model"
 )
@@ -862,9 +863,7 @@ func BenchmarkOpenMetricsCreate(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		_, err := MetricFamilyToOpenMetrics(out, mf)
-		if err != nil {
-			b.Fatal(err)
-		}
+		require.NoError(b, err)
 		out.Reset()
 	}
 }
