@@ -16,6 +16,7 @@ package sigv4
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -82,7 +83,7 @@ func NewSigV4RoundTripper(cfg *SigV4Config, next http.RoundTripper) (http.RoundT
 		return nil, fmt.Errorf("could not get SigV4 credentials: %w", err)
 	}
 	if aws.StringValue(sess.Config.Region) == "" {
-		return nil, fmt.Errorf("region not configured in sigv4 or in default credentials chain")
+		return nil, errors.New("region not configured in sigv4 or in default credentials chain")
 	}
 
 	signerCreds := sess.Config.Credentials
