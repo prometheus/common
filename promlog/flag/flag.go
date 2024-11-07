@@ -11,6 +11,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Deprecated: This package has been deprecated in favor of migrating to
+// `github.com/prometheus/common/promslog` which uses the Go standard library
+// `log/slog` package.
 package flag
 
 import (
@@ -18,7 +21,7 @@ import (
 
 	kingpin "github.com/alecthomas/kingpin/v2"
 
-	"github.com/prometheus/common/promlog"
+	"github.com/prometheus/common/promlog" //nolint:staticcheck
 )
 
 // LevelFlagName is the canonical flag name to configure the allowed log level
