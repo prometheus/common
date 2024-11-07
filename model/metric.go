@@ -14,6 +14,7 @@
 package model
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"sort"
@@ -443,7 +444,7 @@ func (e EscapingScheme) String() string {
 
 func ToEscapingScheme(s string) (EscapingScheme, error) {
 	if s == "" {
-		return NoEscaping, fmt.Errorf("got empty string instead of escaping scheme")
+		return NoEscaping, errors.New("got empty string instead of escaping scheme")
 	}
 	switch s {
 	case AllowUTF8:

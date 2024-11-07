@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -159,7 +160,7 @@ func TestTLSVersionMarshalYAML(t *testing.T) {
 		{
 			input:    TLSVersion(999),
 			expected: "",
-			err:      fmt.Errorf("unknown TLS version: 999"),
+			err:      errors.New("unknown TLS version: 999"),
 		},
 	}
 
@@ -199,7 +200,7 @@ func TestTLSVersionMarshalJSON(t *testing.T) {
 		{
 			input:    TLSVersion(999),
 			expected: "",
-			err:      fmt.Errorf("unknown TLS version: 999"),
+			err:      errors.New("unknown TLS version: 999"),
 		},
 	}
 

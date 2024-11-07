@@ -609,7 +609,7 @@ func TestNewClientFromInvalidConfig(t *testing.T) {
 					InsecureSkipVerify: true,
 				},
 			},
-			errorMsg: fmt.Sprintf("unable to read CA cert: unable to read file %s", MissingCA),
+			errorMsg: "unable to read CA cert: unable to read file " + MissingCA,
 		},
 		{
 			clientConfig: HTTPClientConfig{
@@ -618,7 +618,7 @@ func TestNewClientFromInvalidConfig(t *testing.T) {
 					InsecureSkipVerify: true,
 				},
 			},
-			errorMsg: fmt.Sprintf("unable to use specified CA cert file %s", InvalidCA),
+			errorMsg: "unable to use specified CA cert file " + InvalidCA,
 		},
 	}
 
@@ -864,7 +864,7 @@ func TestTLSConfigInvalidCA(t *testing.T) {
 				ServerName:         "",
 				InsecureSkipVerify: false,
 			},
-			errorMessage: fmt.Sprintf("unable to read CA cert: unable to read file %s", MissingCA),
+			errorMessage: "unable to read CA cert: unable to read file " + MissingCA,
 		},
 		{
 			configTLSConfig: TLSConfig{
@@ -874,7 +874,7 @@ func TestTLSConfigInvalidCA(t *testing.T) {
 				ServerName:         "",
 				InsecureSkipVerify: false,
 			},
-			errorMessage: fmt.Sprintf("unable to read specified client cert: unable to read file %s", MissingCert),
+			errorMessage: "unable to read specified client cert: unable to read file " + MissingCert,
 		},
 		{
 			configTLSConfig: TLSConfig{
@@ -884,7 +884,7 @@ func TestTLSConfigInvalidCA(t *testing.T) {
 				ServerName:         "",
 				InsecureSkipVerify: false,
 			},
-			errorMessage: fmt.Sprintf("unable to read specified client key: unable to read file %s", MissingKey),
+			errorMessage: "unable to read specified client key: unable to read file " + MissingKey,
 		},
 		{
 			configTLSConfig: TLSConfig{
@@ -1715,7 +1715,7 @@ func TestOAuth2UserAgent(t *testing.T) {
 		ClientSecret:   "2",
 		Scopes:         []string{"A", "B"},
 		EndpointParams: map[string]string{"hi": "hello"},
-		TokenURL:       fmt.Sprintf("%s/token", ts.URL),
+		TokenURL:       ts.URL + "/token",
 	}
 
 	rt, err := NewRoundTripperFromConfig(config, "test_oauth2", WithUserAgent("myuseragent"))
@@ -2281,7 +2281,7 @@ func TestProxyConfig_Proxy(t *testing.T) {
 		},
 		{
 			name:             "valid proxy_url and localhost",
-			proxyConfig:      fmt.Sprintf(`proxy_url: %s`, proxyServer.URL),
+			proxyConfig:      "proxy_url: " + proxyServer.URL,
 			expectedProxyURL: proxyServer.URL,
 			targetURL:        "http://localhost/",
 		},
@@ -2294,7 +2294,7 @@ no_proxy: prometheus.io`, proxyServer.URL),
 		},
 		{
 			name:             "valid proxy_url",
-			proxyConfig:      fmt.Sprintf(`proxy_url: %s`, proxyServer.URL),
+			proxyConfig:      "proxy_url: " + proxyServer.URL,
 			expectedProxyURL: proxyServer.URL,
 			targetURL:        "http://prometheus.io/",
 		},
