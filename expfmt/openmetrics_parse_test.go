@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	dto "github.com/prometheus/client_model/go"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -137,7 +138,7 @@ func testOpenMetricsParse(t testing.TB) {
 			},
 		},
 
-		// 7: type summary
+		// 7: type gaugehistogram
 		{
 			in: `# HELP foo_seconds abc
 # TYPE foo_seconds gaugehistogram
@@ -184,31 +185,15 @@ func testOpenMetricsParse(t testing.TB) {
 
 	for i, scenario := range scenarios {
 		out, err := omParser.OpenMetricsToMetricFamilies(strings.NewReader(scenario.in))
-		if err != nil {
-			t.Errorf("%d. error: %s", i, err)
-			continue
-		}
-		if expected, got := len(scenario.out), len(out); expected != got {
-			t.Errorf(
-				"%d. expected %d MetricFamilies, got %d",
-				i, expected, got,
-			)
-		}
+		require.Nil(t, err)
+		require.Len(t, scenario.out, len(out), "%d. expected %d MetricFamilies, got %d",
+			i, len(scenario.out), len(out))
 		for _, expected := range scenario.out {
 			got, ok := out[expected.GetName()]
-			if !ok {
-				t.Errorf(
-					"%d. expected MetricFamily %q, found none",
-					i, expected.GetName(),
-				)
-				continue
-			}
-			if expected.String() != got.String() {
-				t.Errorf(
-					"%d. expected MetricFamily %s, got %s",
-					i, expected, got,
-				)
-			}
+			require.True(t, ok, "%d. expected MetricFamily %q, found none",
+				i, expected.GetName())
+			require.Equal(t, expected.String(), got.String(), "%d. expected MetricFamily %s, got %s",
+				i, expected, got)
 		}
 	}
 }
@@ -269,20 +254,15 @@ func testOpenMetricParseError(t testing.TB) {
 			err: `openmetrics format parsing error in line 2: '\t' is not a valid start token`,
 		},
 	}
+
 	var omParser OpenMetricsParser
 
 	for i, scenario := range scenarios {
 		_, err := omParser.OpenMetricsToMetricFamilies(strings.NewReader(scenario.in))
-		if err == nil {
-			t.Errorf("%d. expected error, got nil", i)
-			continue
-		}
-		if expected, got := scenario.err, err.Error(); strings.Index(got, expected) != 0 {
-			t.Errorf(
-				"%d. expected error starting with %q, got %q",
-				i, expected, got,
-			)
-		}
+		require.Error(t, err, "%d. expected error, got nil", i)
+		require.Zero(t, strings.Index(err.Error(), scenario.err), "%d. expected error starting with %q, got %q",
+			i, scenario.err, err.Error())
+
 	}
 }
 
