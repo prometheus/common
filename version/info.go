@@ -90,6 +90,10 @@ func GetTags() string {
 	return computedTags
 }
 
+func UserAgent() string {
+	return "Prometheus/" + Version
+}
+
 func init() {
 	computedRevision, computedTags = computeRevision()
 }

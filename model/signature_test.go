@@ -18,6 +18,8 @@ import (
 	"runtime"
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestLabelsToSignature(t *testing.T) {
@@ -188,9 +190,8 @@ func TestSignatureWithoutLabels(t *testing.T) {
 
 func benchmarkLabelToSignature(b *testing.B, l map[string]string, e uint64) {
 	for i := 0; i < b.N; i++ {
-		if a := LabelsToSignature(l); a != e {
-			b.Fatalf("expected signature of %d for %s, got %d", e, l, a)
-		}
+		a := LabelsToSignature(l)
+		require.Equalf(b, a, e, "expected signature of %d for %s, got %d", e, l, a)
 	}
 }
 
@@ -212,9 +213,8 @@ func BenchmarkLabelToSignatureTriple(b *testing.B) {
 
 func benchmarkMetricToFingerprint(b *testing.B, ls LabelSet, e Fingerprint) {
 	for i := 0; i < b.N; i++ {
-		if a := labelSetToFingerprint(ls); a != e {
-			b.Fatalf("expected signature of %d for %s, got %d", e, ls, a)
-		}
+		a := labelSetToFingerprint(ls)
+		require.Equalf(b, a, e, "expected signature of %d for %s, got %d", e, ls, a)
 	}
 }
 
@@ -236,9 +236,8 @@ func BenchmarkMetricToFingerprintTriple(b *testing.B) {
 
 func benchmarkMetricToFastFingerprint(b *testing.B, ls LabelSet, e Fingerprint) {
 	for i := 0; i < b.N; i++ {
-		if a := labelSetToFastFingerprint(ls); a != e {
-			b.Fatalf("expected signature of %d for %s, got %d", e, ls, a)
-		}
+		a := labelSetToFastFingerprint(ls)
+		require.Equalf(b, a, e, "expected signature of %d for %s, got %d", e, ls, a)
 	}
 }
 
@@ -272,9 +271,8 @@ func BenchmarkEmptyLabelSignature(b *testing.B) {
 
 	runtime.ReadMemStats(&ms)
 
-	if got := ms.Alloc; alloc != got {
-		b.Fatal("expected LabelsToSignature with empty labels not to perform allocations")
-	}
+	got := ms.Alloc
+	require.Equalf(b, alloc, got, "expected LabelsToSignature with empty labels not to perform allocations")
 }
 
 func benchmarkMetricToFastFingerprintConc(b *testing.B, ls LabelSet, e Fingerprint, concLevel int) {

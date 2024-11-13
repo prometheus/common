@@ -14,7 +14,7 @@
 package sigv4
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/prometheus/common/config"
 )
@@ -33,7 +33,7 @@ type SigV4Config struct {
 
 func (c *SigV4Config) Validate() error {
 	if (c.AccessKey == "") != (c.SecretKey == "") {
-		return fmt.Errorf("must provide a AWS SigV4 Access key and Secret Key if credentials are specified in the SigV4 config")
+		return errors.New("must provide a AWS SigV4 Access key and Secret Key if credentials are specified in the SigV4 config")
 	}
 	return nil
 }

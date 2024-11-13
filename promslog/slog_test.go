@@ -115,15 +115,14 @@ func TestDynamicLevels(t *testing.T) {
 
 			// Test that log level can be adjusted on-the-fly to debug and that a
 			// log entry can be written to the file.
-			if err := config.Level.Set("debug"); err != nil {
-				t.Fatal(err)
-			}
+			err := config.Level.Set("debug")
+			require.NoError(t, err)
 			logger.Info("info", "hello", "world")
 			logger.Debug("debug", "hello", "world")
 
 			counts := getLogEntryLevelCounts(buf.String(), tc.logStyleRegexp)
-			require.Equal(t, tc.wantedLevelCount["info"], counts["info"], "info log successfully detected")
-			require.Equal(t, tc.wantedLevelCount["debug"], counts["debug"], "debug log successfully detected")
+			require.Equalf(t, tc.wantedLevelCount["info"], counts["info"], "info log successfully detected")
+			require.Equalf(t, tc.wantedLevelCount["debug"], counts["debug"], "debug log successfully detected")
 			// Print logs for humans to see, if needed.
 			fmt.Println(buf.String())
 			buf.Reset()
@@ -131,15 +130,14 @@ func TestDynamicLevels(t *testing.T) {
 			// Test that log level can be adjusted on-the-fly to info and that a
 			// subsequent call to write a debug level log is _not_ written to the
 			// file.
-			if err := config.Level.Set("info"); err != nil {
-				t.Fatal(err)
-			}
+			err = config.Level.Set("info")
+			require.NoError(t, err)
 			logger.Info("info", "hello", "world")
 			logger.Debug("debug", "hello", "world")
 
 			counts = getLogEntryLevelCounts(buf.String(), tc.logStyleRegexp)
-			require.Equal(t, tc.wantedLevelCount["info"], counts["info"], "info log successfully detected")
-			require.NotEqual(t, tc.wantedLevelCount["debug"], counts["debug"], "extra debug log detected")
+			require.Equalf(t, tc.wantedLevelCount["info"], counts["info"], "info log successfully detected")
+			require.NotEqualf(t, tc.wantedLevelCount["debug"], counts["debug"], "extra debug log detected")
 			// Print logs for humans to see, if needed.
 			fmt.Println(buf.String())
 			buf.Reset()

@@ -27,6 +27,7 @@ import (
 	"testing"
 
 	dto "github.com/prometheus/client_model/go"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/prometheus/common/model"
@@ -91,16 +92,12 @@ mf2 4
 		if err != nil && errors.Is(err, io.EOF) {
 			break
 		}
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 		all = append(all, smpls...)
 	}
 	sort.Sort(all)
 	sort.Sort(out)
-	if !reflect.DeepEqual(all, out) {
-		t.Fatalf("output does not match")
-	}
+	require.Truef(t, reflect.DeepEqual(all, out), "output does not match")
 }
 
 func TestProtoDecoder(t *testing.T) {
@@ -379,9 +376,7 @@ func TestProtoDecoder(t *testing.T) {
 				break
 			}
 			if scenario.legacyNameFail {
-				if err == nil {
-					t.Fatal("Expected error when decoding without UTF-8 support enabled but got none")
-				}
+				require.Errorf(t, err, "Expected error when decoding without UTF-8 support enabled but got none")
 				model.NameValidationScheme = model.UTF8Validation
 				dec = &SampleDecoder{
 					Dec: &protoDecoder{r: strings.NewReader(scenario.in)},
@@ -393,34 +388,24 @@ func TestProtoDecoder(t *testing.T) {
 				if errors.Is(err, io.EOF) {
 					break
 				}
-				if err != nil {
-					t.Fatalf("Unexpected error when decoding with UTF-8 support: %v", err)
-				}
+				require.NoErrorf(t, err, "Unexpected error when decoding with UTF-8 support: %v", err)
 			}
 			if scenario.fail {
-				if err == nil {
-					t.Fatal("Expected error but got none")
-				}
+				require.Errorf(t, err, "Expected error but got none")
 				break
 			}
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 			all = append(all, smpls...)
 		}
 		sort.Sort(all)
 		sort.Sort(scenario.expected)
-		if !reflect.DeepEqual(all, scenario.expected) {
-			t.Fatalf("%d. output does not match, want: %#v, got %#v", i, scenario.expected, all)
-		}
+		require.Truef(t, reflect.DeepEqual(all, scenario.expected), "%d. output does not match, want: %#v, got %#v", i, scenario.expected, all)
 	}
 }
 
 func TestProtoMultiMessageDecoder(t *testing.T) {
 	data, err := os.ReadFile("testdata/protobuf-multimessage")
-	if err != nil {
-		t.Fatalf("Reading file failed: %v", err)
-	}
+	require.NoErrorf(t, err, "Reading file failed: %v", err)
 
 	buf := bytes.NewReader(data)
 	decoder := NewDecoder(buf, FmtProtoDelim)
@@ -436,9 +421,7 @@ func TestProtoMultiMessageDecoder(t *testing.T) {
 		metrics = append(metrics, &mf)
 	}
 
-	if len(metrics) != 6 {
-		t.Fatalf("Expected %d metrics but got %d!", 6, len(metrics))
-	}
+	require.Lenf(t, metrics, 6, "Expected %d metrics but got %d!", 6, len(metrics))
 }
 
 func testDiscriminatorHTTPHeader(t testing.TB) {
@@ -591,7 +574,5 @@ func TestTextDecoderWithBufioReader(t *testing.T) {
 		}
 		decoded = true
 	}
-	if !decoded {
-		t.Fatal("Metric foo not decoded")
-	}
+	require.Truef(t, decoded, "Metric foo not decoded")
 }
