@@ -95,7 +95,7 @@ func PrometheusUserAgent() string {
 }
 
 func ComponentUserAgent(component string) string {
-	return fmt.Sprintf("%s/%s", component, Version)
+	return component+"/"+Version
 }
 
 func init() {
