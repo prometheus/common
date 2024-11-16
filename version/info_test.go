@@ -14,15 +14,15 @@
 package version
 
 import (
-  "testing"
+	"testing"
 
 	"github.com/stretchr/testify/require"
-  )
+)
 
 func TestPrometheusUserAgent(t *testing.T) {
-  require.Equal(t, "Prometheus/" + Version, PrometheusUserAgent())
+	require.Equal(t, "Prometheus/" + Version, PrometheusUserAgent())
 }
 
 func TestComponentUserAgent(t *testing.T) {
-  require.Equal(t, "Component/" + Version, ComponentUserAgent("Component"))
+	require.Equal(t, "Component/" + Version, ComponentUserAgent("Component"))
 }
