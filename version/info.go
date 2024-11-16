@@ -90,8 +90,12 @@ func GetTags() string {
 	return computedTags
 }
 
-func UserAgent() string {
-	return "Prometheus/" + Version
+func PrometheusUserAgent() string {
+	return ComponentUserAgent("Prometheus")
+}
+
+func ComponentUserAgent(component string) string {
+	return component + "/" + Version
 }
 
 func init() {
