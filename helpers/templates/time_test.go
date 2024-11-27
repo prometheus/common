@@ -89,7 +89,7 @@ func TestHumanizeTimestamp(t *testing.T) {
 		{name: "negative", input: -1, expected: "1969-12-31 23:59:59 +0000 UTC"},
 		{name: "one", input: 1, expected: "1970-01-01 00:00:01 +0000 UTC"},
 		{name: "past", input: 1234567, expected: "1970-01-15 06:56:07 +0000 UTC"},
-		{name: "future", input: 9223372036, expected: "2262-04-11 23:47:16 +0000 UTC"},
+		{name: "future", input: int64(9223372036), expected: "2262-04-11 23:47:16 +0000 UTC"},
 		// Uint
 		{name: "zero", input: uint64(0), expected: "1970-01-01 00:00:00 +0000 UTC"},
 		{name: "one", input: uint64(1), expected: "1970-01-01 00:00:01 +0000 UTC"},
@@ -118,6 +118,6 @@ func TestHumanizeTimestamp(t *testing.T) {
 }
 
 func TestHumanizeTimestampError(t *testing.T) {
-	_, err := HumanizeTimestamp(math.MaxInt64)
+	_, err := HumanizeTimestamp(int64(math.MaxInt64))
 	require.Error(t, err)
 }

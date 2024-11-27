@@ -14,6 +14,10 @@
 // Package promlog defines standardised ways to initialize Go kit loggers
 // across Prometheus components.
 // It should typically only ever be imported by main packages.
+//
+// Deprecated: This package has been deprecated in favor of migrating to
+// `github.com/prometheus/common/promslog` which uses the Go standard library
+// `log/slog` package.
 package promlog
 
 import (

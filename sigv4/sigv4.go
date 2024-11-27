@@ -11,10 +11,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Deprecated: This package has been migrated to github.com/prometheus/sigv4.
 package sigv4
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -81,7 +83,7 @@ func NewSigV4RoundTripper(cfg *SigV4Config, next http.RoundTripper) (http.RoundT
 		return nil, fmt.Errorf("could not get SigV4 credentials: %w", err)
 	}
 	if aws.StringValue(sess.Config.Region) == "" {
-		return nil, fmt.Errorf("region not configured in sigv4 or in default credentials chain")
+		return nil, errors.New("region not configured in sigv4 or in default credentials chain")
 	}
 
 	signerCreds := sess.Config.Credentials
@@ -110,11 +112,14 @@ func (rt *sigV4RoundTripper) RoundTrip(req *http.Request) (*http.Response, error
 		buf.Reset()
 		rt.pool.Put(buf)
 	}()
-	if _, err := io.Copy(buf, req.Body); err != nil {
-		return nil, err
+
+	if req.Body != nil {
+		if _, err := io.Copy(buf, req.Body); err != nil {
+			return nil, err
+		}
+		// Close the original body since we don't need it anymore.
+		_ = req.Body.Close()
 	}
-	// Close the original body since we don't need it anymore.
-	_ = req.Body.Close()
 
 	// Ensure our seeker is back at the start of the buffer once we return.
 	var seeker io.ReadSeeker = bytes.NewReader(buf.Bytes())

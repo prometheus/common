@@ -222,56 +222,56 @@ func TestEncode(t *testing.T) {
 		// 1: Untyped ProtoDelim
 		{
 			metric: metric1,
-			format: fmtProtoDelim,
+			format: FmtProtoDelim,
 		},
-		// 2: Untyped fmtProtoCompact
+		// 2: Untyped FmtProtoCompact
 		{
 			metric: metric1,
-			format: fmtProtoCompact,
+			format: FmtProtoCompact,
 		},
-		// 3: Untyped fmtProtoText
+		// 3: Untyped FmtProtoText
 		{
 			metric: metric1,
-			format: fmtProtoText,
+			format: FmtProtoText,
 		},
-		// 4: Untyped fmtText
+		// 4: Untyped FmtText
 		{
 			metric: metric1,
-			format: fmtText,
+			format: FmtText,
 			expOut: `# TYPE foo_metric untyped
 foo_metric 1.234
 `,
 		},
-		// 5: Untyped fmtOpenMetrics_0_0_1
+		// 5: Untyped FmtOpenMetrics_0_0_1
 		{
 			metric: metric1,
-			format: fmtOpenMetrics_0_0_1,
+			format: FmtOpenMetrics_0_0_1,
 			expOut: `# TYPE foo_metric unknown
 foo_metric 1.234
 `,
 		},
-		// 6: Untyped fmtOpenMetrics_1_0_0
+		// 6: Untyped FmtOpenMetrics_1_0_0
 		{
 			metric: metric1,
-			format: fmtOpenMetrics_1_0_0,
+			format: FmtOpenMetrics_1_0_0,
 			expOut: `# TYPE foo_metric unknown
 foo_metric 1.234
 `,
 		},
-		// 7: Simple Counter fmtOpenMetrics_0_0_1 unit opted in
+		// 7: Simple Counter FmtOpenMetrics_0_0_1 unit opted in
 		{
 			metric:  metric1,
-			format:  fmtOpenMetrics_0_0_1,
+			format:  FmtOpenMetrics_0_0_1,
 			options: []EncoderOption{WithUnit()},
 			expOut: `# TYPE foo_metric_seconds unknown
 # UNIT foo_metric_seconds seconds
 foo_metric_seconds 1.234
 `,
 		},
-		// 8: Simple Counter fmtOpenMetrics_1_0_0 unit opted out
+		// 8: Simple Counter FmtOpenMetrics_1_0_0 unit opted out
 		{
 			metric: metric1,
-			format: fmtOpenMetrics_1_0_0,
+			format: FmtOpenMetrics_1_0_0,
 			expOut: `# TYPE foo_metric unknown
 foo_metric 1.234
 `,
@@ -310,7 +310,7 @@ foo_metric 1.234
 
 func TestEscapedEncode(t *testing.T) {
 	var buff bytes.Buffer
-	delimEncoder := NewEncoder(&buff, fmtProtoDelim+"; escaping=underscores")
+	delimEncoder := NewEncoder(&buff, FmtProtoDelim+"; escaping=underscores")
 	metric := &dto.MetricFamily{
 		Name: proto.String("foo.metric"),
 		Type: dto.MetricType_UNTYPED.Enum(),
@@ -346,7 +346,7 @@ func TestEscapedEncode(t *testing.T) {
 
 	buff.Reset()
 
-	compactEncoder := NewEncoder(&buff, fmtProtoCompact)
+	compactEncoder := NewEncoder(&buff, FmtProtoCompact)
 	err = compactEncoder.Encode(metric)
 	if err != nil {
 		t.Errorf("unexpected error during encode: %s", err.Error())
@@ -359,7 +359,7 @@ func TestEscapedEncode(t *testing.T) {
 
 	buff.Reset()
 
-	protoTextEncoder := NewEncoder(&buff, fmtProtoText)
+	protoTextEncoder := NewEncoder(&buff, FmtProtoText)
 	err = protoTextEncoder.Encode(metric)
 	if err != nil {
 		t.Errorf("unexpected error during encode: %s", err.Error())
@@ -372,7 +372,7 @@ func TestEscapedEncode(t *testing.T) {
 
 	buff.Reset()
 
-	textEncoder := NewEncoder(&buff, fmtText)
+	textEncoder := NewEncoder(&buff, FmtText)
 	err = textEncoder.Encode(metric)
 	if err != nil {
 		t.Errorf("unexpected error during encode: %s", err.Error())
@@ -383,9 +383,9 @@ func TestEscapedEncode(t *testing.T) {
 		t.Errorf("expected the output bytes buffer to be non-empty")
 	}
 
-	expected := `# TYPE U__foo_2e_metric untyped
-U__foo_2e_metric 1.234
-U__foo_2e_metric{U__dotted_2e_label_2e_name="my.label.value"} 8
+	expected := `# TYPE foo_metric untyped
+foo_metric 1.234
+foo_metric{dotted_label_name="my.label.value"} 8
 `
 
 	if string(out) != expected {

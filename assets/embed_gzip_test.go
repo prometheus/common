@@ -18,6 +18,8 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 //go:embed testdata
@@ -62,19 +64,13 @@ func TestFS(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			f, err := testFS.Open(c.path)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			stat, err := f.Stat()
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			size := stat.Size()
-			if size != c.expectedSize {
-				t.Fatalf("size is wrong, expected %d, got %d", c.expectedSize, size)
-			}
+			require.Equalf(t, c.expectedSize, size, "size is wrong, expected %d, got %d", c.expectedSize, size)
 
 			if strings.HasSuffix(c.path, ".gz") {
 				// don't read the comressed content
@@ -82,12 +78,8 @@ func TestFS(t *testing.T) {
 			}
 
 			content, err := io.ReadAll(f)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if string(content) != c.expectedContent {
-				t.Fatalf("content is wrong, expected %s, got %s", c.expectedContent, string(content))
-			}
+			require.NoError(t, err)
+			require.Equalf(t, c.expectedContent, string(content), "content is wrong, expected %s, got %s", c.expectedContent, string(content))
 		})
 	}
 }

@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/go-kit/log/level"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
 )
 
@@ -26,9 +27,8 @@ import (
 func TestDefaultConfig(t *testing.T) {
 	logger := New(&Config{})
 
-	if err := logger.Log("hello", "world"); err != nil {
-		t.Fatal(err)
-	}
+	err := logger.Log("hello", "world")
+	require.NoError(t, err)
 }
 
 func TestUnmarshallLevel(t *testing.T) {
@@ -86,42 +86,28 @@ func TestDynamic(t *testing.T) {
 	logger := NewDynamic(&Config{})
 
 	debugLevel := &AllowedLevel{}
-	if err := debugLevel.Set("debug"); err != nil {
-		t.Fatal(err)
-	}
+	err := debugLevel.Set("debug")
+	require.NoError(t, err)
 	infoLevel := &AllowedLevel{}
-	if err := infoLevel.Set("info"); err != nil {
-		t.Fatal(err)
-	}
+	err = infoLevel.Set("info")
+	require.NoError(t, err)
 
 	recorder := &recordKeyvalLogger{}
 	logger.base = recorder
 	logger.SetLevel(debugLevel)
-	if err := level.Debug(logger).Log("hello", "world"); err != nil {
-		t.Fatal(err)
-	}
-	if recorder.count != 1 {
-		t.Fatal("log not found")
-	}
+	err = level.Debug(logger).Log("hello", "world")
+	require.NoError(t, err)
+	require.Equalf(t, 1, recorder.count, "log not found")
 
 	recorder.count = 0
 	logger.SetLevel(infoLevel)
-	if err := level.Debug(logger).Log("hello", "world"); err != nil {
-		t.Fatal(err)
-	}
-	if recorder.count != 0 {
-		t.Fatal("log found")
-	}
-	if err := level.Info(logger).Log("hello", "world"); err != nil {
-		t.Fatal(err)
-	}
-	if recorder.count != 1 {
-		t.Fatal("log not found")
-	}
-	if err := level.Debug(logger).Log("hello", "world"); err != nil {
-		t.Fatal(err)
-	}
-	if recorder.count != 1 {
-		t.Fatal("extra log found")
-	}
+	err = level.Debug(logger).Log("hello", "world")
+	require.NoError(t, err)
+	require.Equalf(t, 0, recorder.count, "log found")
+	err = level.Info(logger).Log("hello", "world")
+	require.NoError(t, err)
+	require.Equalf(t, 1, recorder.count, "log not found")
+	err = level.Debug(logger).Log("hello", "world")
+	require.NoError(t, err)
+	require.Equalf(t, 1, recorder.count, "extra log found")
 }

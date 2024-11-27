@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
 )
 
@@ -71,12 +72,8 @@ func TestJSONMarshalSecret(t *testing.T) {
 				marshalFN = json.Marshal
 			}
 			c, err := marshalFN(tc.data)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if tc.expected != string(c) {
-				t.Fatalf("Secret not marshaled correctly, got '%s'", string(c))
-			}
+			require.NoError(t, err)
+			require.Equalf(t, tc.expected, string(c), "Secret not marshaled correctly, got '%s'", string(c))
 		})
 	}
 }
@@ -109,9 +106,7 @@ func TestHeaderHTTPHeader(t *testing.T) {
 	for name, tc := range testcases {
 		t.Run(name, func(t *testing.T) {
 			actual := tc.header.HTTPHeader()
-			if !reflect.DeepEqual(actual, tc.expected) {
-				t.Fatalf("expecting: %#v, actual: %#v", tc.expected, actual)
-			}
+			require.Truef(t, reflect.DeepEqual(actual, tc.expected), "expecting: %#v, actual: %#v", tc.expected, actual)
 		})
 	}
 }
@@ -146,12 +141,8 @@ func TestHeaderYamlUnmarshal(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			var actual ProxyHeader
 			err := yaml.Unmarshal([]byte(tc.input), &actual)
-			if err != nil {
-				t.Fatalf("error unmarshaling %s: %s", tc.input, err)
-			}
-			if !reflect.DeepEqual(actual, tc.expected) {
-				t.Fatalf("expecting: %#v, actual: %#v", tc.expected, actual)
-			}
+			require.NoErrorf(t, err, "error unmarshaling %s: %s", tc.input, err)
+			require.Truef(t, reflect.DeepEqual(actual, tc.expected), "expecting: %#v, actual: %#v", tc.expected, actual)
 		})
 	}
 }
@@ -182,12 +173,8 @@ func TestHeaderYamlMarshal(t *testing.T) {
 	for name, tc := range testcases {
 		t.Run(name, func(t *testing.T) {
 			actual, err := yaml.Marshal(tc.input)
-			if err != nil {
-				t.Fatalf("error unmarshaling %#v: %s", tc.input, err)
-			}
-			if !bytes.Equal(actual, tc.expected) {
-				t.Fatalf("expecting: %q, actual: %q", tc.expected, actual)
-			}
+			require.NoErrorf(t, err, "error unmarshaling %#v: %s", tc.input, err)
+			require.Truef(t, bytes.Equal(actual, tc.expected), "expecting: %q, actual: %q", tc.expected, actual)
 		})
 	}
 }
@@ -222,12 +209,8 @@ func TestHeaderJsonUnmarshal(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			var actual ProxyHeader
 			err := json.Unmarshal([]byte(tc.input), &actual)
-			if err != nil {
-				t.Fatalf("error unmarshaling %s: %s", tc.input, err)
-			}
-			if !reflect.DeepEqual(actual, tc.expected) {
-				t.Fatalf("expecting: %#v, actual: %#v", tc.expected, actual)
-			}
+			require.NoErrorf(t, err, "error unmarshaling %s: %s", tc.input, err)
+			require.Truef(t, reflect.DeepEqual(actual, tc.expected), "expecting: %#v, actual: %#v", tc.expected, actual)
 		})
 	}
 }
@@ -258,12 +241,8 @@ func TestHeaderJsonMarshal(t *testing.T) {
 	for name, tc := range testcases {
 		t.Run(name, func(t *testing.T) {
 			actual, err := json.Marshal(tc.input)
-			if err != nil {
-				t.Fatalf("error marshaling %#v: %s", tc.input, err)
-			}
-			if !bytes.Equal(actual, tc.expected) {
-				t.Fatalf("expecting: %q, actual: %q", tc.expected, actual)
-			}
+			require.NoErrorf(t, err, "error marshaling %#v: %s", tc.input, err)
+			require.Truef(t, bytes.Equal(actual, tc.expected), "expecting: %q, actual: %q", tc.expected, actual)
 		})
 	}
 }
