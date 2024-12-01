@@ -115,7 +115,7 @@ func (l *AllowedLevel) Set(s string) error {
 		l.lvl = &slog.LevelVar{}
 	}
 
-	switch s {
+	switch strings.ToLower(s) {
 	case "debug":
 		l.lvl.Set(slog.LevelDebug)
 		callerAddFunc = true
