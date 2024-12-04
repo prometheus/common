@@ -8,7 +8,3 @@ updates:
     directory: "/assets"
     schedule:
       interval: monthly
-  - package-ecosystem: "gomod"
-    directory: "/sigv4"
-    schedule:
-      interval: monthly
