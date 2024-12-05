@@ -25,7 +25,6 @@ jobs:
             - go/load-cache:
                 key: v1-go<< parameters.go_version >>
       - run: make test
-      - run: make -C sigv4 test
       - when:
           condition: << parameters.use_gomod_cache >>
           steps:
@@ -74,7 +73,6 @@ jobs:
             - go/load-cache:
                 key: v1-go<< parameters.go_version >>
       - run: make style
-      - run: make -C sigv4 style
       - run: make -C assets style
       - run: make check-go-mod-version
       - when:
