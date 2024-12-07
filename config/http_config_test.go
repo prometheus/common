@@ -656,6 +656,34 @@ func TestCustomIdleConnTimeout(t *testing.T) {
 	require.Equalf(t, transport.IdleConnTimeout, timeout, "Unexpected idle connection timeout: %+v", timeout)
 }
 
+func TestPingTimeoutAndReadIdleTimeout(t *testing.T) {
+	clientDone := make(chan struct{})
+	pingTimeout := time.Millisecond * 10
+	readIdleTimeout := time.Millisecond * 50
+
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-clientDone
+	}))
+	ts.Start()
+	defer ts.Close()
+
+	cfg := HTTPClientConfig{}
+	rt, err := NewRoundTripperFromConfig(cfg, "test", WithPingTimeout(pingTimeout), WithReadIdleTimeout(readIdleTimeout))
+	if err != nil {
+		t.Fatalf("Can't create a round-tripper from this config: %+v", cfg)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	defer close(clientDone)
+	req, _ := http.NewRequestWithContext(ctx, "GET", ts.URL, nil)
+	_, err = rt.RoundTrip(req)
+	if err == nil || !strings.Contains(err.Error(), "context deadline exceeded") {
+		t.Fatalf("expected to get error about \"deadline exceeded\", got %+v", err)
+	}
+}
+
 func TestMissingBearerAuthFile(t *testing.T) {
 	cfg := HTTPClientConfig{
 		BearerTokenFile: MissingBearerTokenFile,

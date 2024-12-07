@@ -53,6 +53,18 @@ var (
 		// 5 minutes is typically above the maximum sane scrape interval. So we can
 		// use keepalive for all configurations.
 		idleConnTimeout: 5 * time.Minute,
+		// readIdleTimeout is the timeout after which a health check using ping
+		// frame will be carried out if no frame is received on the connection.
+		// Note that a ping response will is considered a received frame, so if
+		// there is no other traffic on the connection, the health check will
+		// be performed every readIdleTimeout interval.
+		// If zero, no health check is performed.
+		// Defaults to 1min.
+		readIdleTimeout: 1 * time.Minute,
+		// PingTimeout is the timeout after which the connection will be closed
+		// if a response to Ping is not received.
+		// Defaults to 15s.
+		pingTimeout: 15 * time.Second,
 	}
 )
 
@@ -457,6 +469,8 @@ type httpClientOptions struct {
 	keepAlivesEnabled bool
 	http2Enabled      bool
 	idleConnTimeout   time.Duration
+	readIdleTimeout   time.Duration
+	pingTimeout       time.Duration
 	userAgent         string
 	host              string
 	secretManager     SecretManager
@@ -531,6 +545,22 @@ func (s *secretManagerOption) applyToTLSConfigOptions(opts *tlsConfigOptions) {
 func WithSecretManager(manager SecretManager) *secretManagerOption {
 	return &secretManagerOption{
 		secretManager: manager,
+	}
+}
+
+// WithReadIdleTimeout allows setting the health check will
+// be performed every HTTP2 readIdleTimeout interval .
+func WithReadIdleTimeout(timeout time.Duration) HTTPClientOption {
+	return func(opts *httpClientOptions) {
+		opts.readIdleTimeout = timeout
+	}
+}
+
+// WithPingTimeout allows setting the timeout after which the connection
+// will be closed if a response to Ping is not received.
+func WithPingTimeout(timeout time.Duration) HTTPClientOption {
+	return func(opts *httpClientOptions) {
+		opts.pingTimeout = timeout
 	}
 }
 
@@ -612,7 +642,8 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 			if err != nil {
 				return nil, err
 			}
-			http2t.ReadIdleTimeout = time.Minute
+			http2t.ReadIdleTimeout = opts.readIdleTimeout
+			http2t.PingTimeout = opts.pingTimeout
 		}
 
 		// If a authorization_credentials is provided, create a round tripper that will set the
