@@ -22,10 +22,10 @@ import (
 )
 
 func TestReservedHeaders(t *testing.T) {
-	for k := range reservedHeaders {
+	for k := range ReservedHeaders {
 		l := http.CanonicalHeaderKey(k)
 		if k != l {
-			t.Errorf("reservedHeaders keys should be lowercase: got %q, expected %q", k, http.CanonicalHeaderKey(k))
+			t.Errorf("ReservedHeaders keys should be lowercase: got %q, expected %q", k, http.CanonicalHeaderKey(k))
 		}
 	}
 }
