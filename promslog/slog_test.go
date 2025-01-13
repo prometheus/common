@@ -188,3 +188,42 @@ func TestTruncateSourceFileName_GoKitStyle(t *testing.T) {
 		t.Errorf("Expected no directory separators in caller, got: %s", output)
 	}
 }
+
+func TestReservedKeys(t *testing.T) {
+	var buf bytes.Buffer
+	reservedKeyTestVal := "surprise! I'm a string"
+
+	tests := map[string]struct {
+		logStyle  LogStyle
+		levelKey  string
+		sourceKey string
+		timeKey   string
+	}{
+		"slog_log_style":   {logStyle: SlogStyle, levelKey: "level", sourceKey: "source", timeKey: "time"},
+		"go-kit_log_style": {logStyle: GoKitStyle, levelKey: "level", sourceKey: "caller", timeKey: "ts"},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			buf.Reset() // Ensure buf is reset prior to tests
+			config := &Config{Writer: &buf, Style: tc.logStyle}
+			logger := New(config)
+
+			logger.LogAttrs(context.Background(),
+				slog.LevelInfo,
+				"reserved keys test for "+name,
+				slog.String(tc.levelKey, reservedKeyTestVal),
+				slog.String(tc.sourceKey, reservedKeyTestVal),
+				slog.String(tc.timeKey, reservedKeyTestVal),
+			)
+
+			output := buf.String()
+			require.Contains(t, output, fmt.Sprintf("%s%s=\"%s\"", reservedKeyPrefix, tc.levelKey, reservedKeyTestVal), "Expected duplicate level key to be renamed")
+			require.Contains(t, output, fmt.Sprintf("%s%s=\"%s\"", reservedKeyPrefix, tc.sourceKey, reservedKeyTestVal), "Expected duplicate source key to be renamed")
+			require.Contains(t, output, fmt.Sprintf("%s%s=\"%s\"", reservedKeyPrefix, tc.timeKey, reservedKeyTestVal), "Expected duplicate time key to be renamed")
+
+			// Print logs for humans to see, if needed.
+			fmt.Println(buf.String())
+		})
+	}
+}
