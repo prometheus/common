@@ -218,9 +218,9 @@ func TestReservedKeys(t *testing.T) {
 			)
 
 			output := buf.String()
-			require.Contains(t, output, fmt.Sprintf("%s%s=\"%s\"", reservedKeyPrefix, tc.levelKey, reservedKeyTestVal), "Expected duplicate level key to be renamed")
-			require.Contains(t, output, fmt.Sprintf("%s%s=\"%s\"", reservedKeyPrefix, tc.sourceKey, reservedKeyTestVal), "Expected duplicate source key to be renamed")
-			require.Contains(t, output, fmt.Sprintf("%s%s=\"%s\"", reservedKeyPrefix, tc.timeKey, reservedKeyTestVal), "Expected duplicate time key to be renamed")
+			require.Containsf(t, output, fmt.Sprintf("%s%s=\"%s\"", reservedKeyPrefix, tc.levelKey, reservedKeyTestVal), "Expected duplicate level key to be renamed")
+			require.Containsf(t, output, fmt.Sprintf("%s%s=\"%s\"", reservedKeyPrefix, tc.sourceKey, reservedKeyTestVal), "Expected duplicate source key to be renamed")
+			require.Containsf(t, output, fmt.Sprintf("%s%s=\"%s\"", reservedKeyPrefix, tc.timeKey, reservedKeyTestVal), "Expected duplicate time key to be renamed")
 
 			// Print logs for humans to see, if needed.
 			fmt.Println(buf.String())
