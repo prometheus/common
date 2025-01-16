@@ -453,13 +453,14 @@ func (a *BasicAuth) UnmarshalYAML(unmarshal func(interface{}) error) error {
 type DialContextFunc func(context.Context, string, string) (net.Conn, error)
 
 type httpClientOptions struct {
-	dialContextFunc   DialContextFunc
-	keepAlivesEnabled bool
-	http2Enabled      bool
-	idleConnTimeout   time.Duration
-	userAgent         string
-	host              string
-	secretManager     SecretManager
+	dialContextFunc     DialContextFunc
+	keepAlivesEnabled   bool
+	http2Enabled        bool
+	idleConnTimeout     time.Duration
+	userAgent           string
+	host                string
+	secretManager       SecretManager
+	extendTLSConfigFunc TLSConfigExtension
 }
 
 // HTTPClientOption defines an option that can be applied to the HTTP client.
@@ -512,6 +513,17 @@ func WithUserAgent(ua string) HTTPClientOption {
 func WithHost(host string) HTTPClientOption {
 	return httpClientOptionFunc(func(opts *httpClientOptions) {
 		opts.host = host
+	})
+}
+
+// TLSConfigExtension modifies the given tls config and settings.
+type TLSConfigExtension func(*tls.Config, TLSRoundTripperSettings) (*tls.Config, TLSRoundTripperSettings, error)
+
+// WithTLSConfigExtension allows to insert extension function that can freely modify
+// TLSConfig and TLSRoundTripperSettings used for the round tripper creation.
+func WithTLSConfigExtension(extendTLSConfigFunc TLSConfigExtension) HTTPClientOption {
+	return httpClientOptionFunc(func(opts *httpClientOptions) {
+		opts.extendTLSConfigFunc = extendTLSConfigFunc
 	})
 }
 
@@ -679,6 +691,15 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 	if err != nil {
 		return nil, err
 	}
+
+	// Allow customizing the TLS config and settings, if specified in opts.
+	if opts.extendTLSConfigFunc != nil {
+		tlsConfig, tlsSettings, err = opts.extendTLSConfigFunc(tlsConfig, tlsSettings)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	if tlsSettings.immutable() {
 		// No need for a RoundTripper that reloads the files automatically.
 		return newRT(tlsConfig)
