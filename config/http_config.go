@@ -52,7 +52,8 @@ var (
 		http2Enabled:      true,
 		// 5 minutes is typically above the maximum sane scrape interval. So we can
 		// use keepalive for all configurations.
-		idleConnTimeout: 5 * time.Minute,
+		idleConnTimeout:  5 * time.Minute,
+		newTLSConfigFunc: NewTLSConfigWithContext,
 	}
 )
 
@@ -452,8 +453,8 @@ func (a *BasicAuth) UnmarshalYAML(unmarshal func(interface{}) error) error {
 // by net.Dialer.
 type DialContextFunc func(context.Context, string, string) (net.Conn, error)
 
-// NewTLSConfigFunc returns new tls.Config.
-type NewTLSConfigFunc func() (*tls.Config, error)
+// NewTLSConfigFunc returns tls.Config.
+type NewTLSConfigFunc func(context.Context, *TLSConfig, ...TLSConfigOption) (*tls.Config, error)
 
 type httpClientOptions struct {
 	dialContextFunc   DialContextFunc
@@ -487,6 +488,7 @@ func WithDialContextFunc(fn DialContextFunc) HTTPClientOption {
 
 // WithNewTLSConfigFunc allows you to override the func that creates the TLS config
 // from the prometheus http config.
+// The default is `NewTLSConfigWithContext`.
 func WithNewTLSConfigFunc(newTLSConfigFunc NewTLSConfigFunc) HTTPClientOption {
 	return httpClientOptionFunc(func(opts *httpClientOptions) {
 		opts.newTLSConfigFunc = newTLSConfigFunc
@@ -683,15 +685,7 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 		return rt, nil
 	}
 
-	if opts.newTLSConfigFunc != nil {
-		tlsConfig, err := opts.newTLSConfigFunc()
-		if err != nil {
-			return nil, err
-		}
-		return newRT(tlsConfig)
-	}
-
-	tlsConfig, err := NewTLSConfig(&cfg.TLSConfig, WithSecretManager(opts.secretManager))
+	tlsConfig, err := opts.newTLSConfigFunc(ctx, &cfg.TLSConfig, WithSecretManager(opts.secretManager))
 	if err != nil {
 		return nil, err
 	}
