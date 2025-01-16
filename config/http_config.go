@@ -452,15 +452,18 @@ func (a *BasicAuth) UnmarshalYAML(unmarshal func(interface{}) error) error {
 // by net.Dialer.
 type DialContextFunc func(context.Context, string, string) (net.Conn, error)
 
+// NewTLSConfigFunc returns new tls.Config.
+type NewTLSConfigFunc func() (*tls.Config, error)
+
 type httpClientOptions struct {
-	dialContextFunc     DialContextFunc
-	keepAlivesEnabled   bool
-	http2Enabled        bool
-	idleConnTimeout     time.Duration
-	userAgent           string
-	host                string
-	secretManager       SecretManager
-	extendTLSConfigFunc TLSConfigExtension
+	dialContextFunc   DialContextFunc
+	newTLSConfigFunc  NewTLSConfigFunc
+	keepAlivesEnabled bool
+	http2Enabled      bool
+	idleConnTimeout   time.Duration
+	userAgent         string
+	host              string
+	secretManager     SecretManager
 }
 
 // HTTPClientOption defines an option that can be applied to the HTTP client.
@@ -474,10 +477,19 @@ func (f httpClientOptionFunc) applyToHTTPClientOptions(options *httpClientOption
 	f(options)
 }
 
-// WithDialContextFunc allows you to override func gets used for the actual dialing. The default is `net.Dialer.DialContext`.
+// WithDialContextFunc allows you to override the func gets used for the dialing.
+// The default is `net.Dialer.DialContext`.
 func WithDialContextFunc(fn DialContextFunc) HTTPClientOption {
 	return httpClientOptionFunc(func(opts *httpClientOptions) {
 		opts.dialContextFunc = fn
+	})
+}
+
+// WithNewTLSConfigFunc allows you to override the func that creates the TLS config
+// from the prometheus http config.
+func WithNewTLSConfigFunc(newTLSConfigFunc NewTLSConfigFunc) HTTPClientOption {
+	return httpClientOptionFunc(func(opts *httpClientOptions) {
+		opts.newTLSConfigFunc = newTLSConfigFunc
 	})
 }
 
@@ -513,17 +525,6 @@ func WithUserAgent(ua string) HTTPClientOption {
 func WithHost(host string) HTTPClientOption {
 	return httpClientOptionFunc(func(opts *httpClientOptions) {
 		opts.host = host
-	})
-}
-
-// TLSConfigExtension modifies the given tls config and settings.
-type TLSConfigExtension func(*tls.Config, TLSRoundTripperSettings) (*tls.Config, TLSRoundTripperSettings, error)
-
-// WithTLSConfigExtension allows to insert extension function that can freely modify
-// TLSConfig and TLSRoundTripperSettings used for the round tripper creation.
-func WithTLSConfigExtension(extendTLSConfigFunc TLSConfigExtension) HTTPClientOption {
-	return httpClientOptionFunc(func(opts *httpClientOptions) {
-		opts.extendTLSConfigFunc = extendTLSConfigFunc
 	})
 }
 
@@ -682,6 +683,14 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 		return rt, nil
 	}
 
+	if opts.newTLSConfigFunc != nil {
+		tlsConfig, err := opts.newTLSConfigFunc()
+		if err != nil {
+			return nil, err
+		}
+		return newRT(tlsConfig)
+	}
+
 	tlsConfig, err := NewTLSConfig(&cfg.TLSConfig, WithSecretManager(opts.secretManager))
 	if err != nil {
 		return nil, err
@@ -690,14 +699,6 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 	tlsSettings, err := cfg.TLSConfig.roundTripperSettings(opts.secretManager)
 	if err != nil {
 		return nil, err
-	}
-
-	// Allow customizing the TLS config and settings, if specified in opts.
-	if opts.extendTLSConfigFunc != nil {
-		tlsConfig, tlsSettings, err = opts.extendTLSConfigFunc(tlsConfig, tlsSettings)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	if tlsSettings.immutable() {
