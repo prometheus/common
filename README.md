@@ -1,5 +1,7 @@
 # Common
 ![circleci](https://circleci.com/gh/prometheus/common/tree/main.svg?style=shield)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/prometheus/common/badge)](https://securityscorecards.dev/viewer/?uri=github.com/prometheus/common)
+
 
 This repository contains Go libraries that are shared across Prometheus
 components and libraries. They are considered internal to Prometheus, without
