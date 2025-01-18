@@ -262,6 +262,14 @@ func TestEscapeName(t *testing.T) {
 			expectedValue:         "U__mysystem_2e_prod_2e_west_2e_cpu_2e_load",
 		},
 		{
+			name:                  "name with dots and underscore",
+			input:                 "mysystem.prod.west.cpu.load_total",
+			expectedUnderscores:   "mysystem_prod_west_cpu_load_total",
+			expectedDots:          "mysystem_dot_prod_dot_west_dot_cpu_dot_load__total",
+			expectedUnescapedDots: "mysystem.prod.west.cpu.load_total",
+			expectedValue:         "U__mysystem_2e_prod_2e_west_2e_cpu_2e_load__total",
+		},
+		{
 			name:                  "name with dots and colon",
 			input:                 "http.status:sum",
 			expectedUnderscores:   "http_status:sum",
@@ -270,14 +278,30 @@ func TestEscapeName(t *testing.T) {
 			expectedValue:         "U__http_2e_status:sum",
 		},
 		{
+			name:                  "name with spaces and emoji",
+			input:                 "label with 😱",
+			expectedUnderscores:   "label_with__",
+			expectedDots:          "label__with____",
+			expectedUnescapedDots: "label_with__",
+			expectedValue:         "U__label_20_with_20__1f631_",
+		},
+		{
 			name:                "name with unicode characters > 0x100",
 			input:               "花火",
 			expectedUnderscores: "__",
-			expectedDots:        "__",
+			expectedDots:        "____",
 			// Dots-replacement does not know the difference between two replaced
 			// characters and a single underscore.
-			expectedUnescapedDots: "_",
+			expectedUnescapedDots: "__",
 			expectedValue:         "U___82b1__706b_",
+		},
+		{
+			name:                  "name with spaces and edge-case value",
+			input:                 "label with \u0100",
+			expectedUnderscores:   "label_with__",
+			expectedDots:          "label__with____",
+			expectedUnescapedDots: "label_with__",
+			expectedValue:         "U__label_20_with_20__100_",
 		},
 	}
 
@@ -564,7 +588,7 @@ func TestEscapeMetricFamily(t *testing.T) {
 				},
 			},
 			expected: &dto.MetricFamily{
-				Name: proto.String("unicode_dot_and_dot_dots_dot___"),
+				Name: proto.String("unicode_dot_and_dot_dots_dot_____"),
 				Help: proto.String("some help text"),
 				Type: dto.MetricType_GAUGE.Enum(),
 				Metric: []*dto.Metric{
@@ -575,7 +599,7 @@ func TestEscapeMetricFamily(t *testing.T) {
 						Label: []*dto.LabelPair{
 							{
 								Name:  proto.String("__name__"),
-								Value: proto.String("unicode_dot_and_dot_dots_dot___"),
+								Value: proto.String("unicode_dot_and_dot_dots_dot_____"),
 							},
 							{
 								Name:  proto.String("some_label"),
