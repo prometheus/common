@@ -11,21 +11,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This package no longer handles safe yaml parsing. In order to
-// ensure correct yaml unmarshalling, use "yaml.UnmarshalStrict()".
-
-package config
+package version
 
 import (
-	"net/http"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
-func TestReservedHeaders(t *testing.T) {
-	for k := range ReservedHeaders {
-		l := http.CanonicalHeaderKey(k)
-		if k != l {
-			t.Errorf("ReservedHeaders keys should be lowercase: got %q, expected %q", k, http.CanonicalHeaderKey(k))
-		}
-	}
+func TestPrometheusUserAgent(t *testing.T) {
+	require.Equal(t, "Prometheus/"+Version, PrometheusUserAgent())
+}
+
+func TestComponentUserAgent(t *testing.T) {
+	require.Equal(t, "Component/"+Version, ComponentUserAgent("Component"))
 }

@@ -22,6 +22,11 @@ import (
 )
 
 func TestAlertValidate(t *testing.T) {
+	oldScheme := NameValidationScheme
+	NameValidationScheme = LegacyValidation
+	defer func() {
+		NameValidationScheme = oldScheme
+	}()
 	ts := time.Now()
 
 	cases := []struct {

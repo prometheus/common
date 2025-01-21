@@ -22,6 +22,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	dto "github.com/prometheus/client_model/go"
+	"github.com/stretchr/testify/require"
 
 	"github.com/prometheus/common/model"
 )
@@ -502,9 +503,7 @@ func BenchmarkCreate(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		_, err := MetricFamilyToText(out, mf)
-		if err != nil {
-			b.Fatal(err)
-		}
+		require.NoError(b, err)
 		out.Reset()
 	}
 }
@@ -540,9 +539,7 @@ func BenchmarkCreateBuildInfo(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		_, err := MetricFamilyToText(out, mf)
-		if err != nil {
-			b.Fatal(err)
-		}
+		require.NoError(b, err)
 		out.Reset()
 	}
 }

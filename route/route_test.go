@@ -17,26 +17,22 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestRedirect(t *testing.T) {
 	router := New().WithPrefix("/test/prefix")
 	w := httptest.NewRecorder()
 	r, err := http.NewRequest("GET", "http://localhost:9090/foo", nil)
-	if err != nil {
-		t.Fatalf("Error building test request: %s", err)
-	}
+	require.NoErrorf(t, err, "Error building test request: %s", err)
 
 	router.Redirect(w, r, "/some/endpoint", http.StatusFound)
-	if w.Code != http.StatusFound {
-		t.Fatalf("Unexpected redirect status code: got %d, want %d", w.Code, http.StatusFound)
-	}
+	require.Equalf(t, http.StatusFound, w.Code, "Unexpected redirect status code: got %d, want %d", w.Code, http.StatusFound)
 
 	want := "/test/prefix/some/endpoint"
 	got := w.Header()["Location"][0]
-	if want != got {
-		t.Fatalf("Unexpected redirect location: got %s, want %s", got, want)
-	}
+	require.Equalf(t, want, got, "Unexpected redirect location: got %s, want %s", got, want)
 }
 
 func TestContext(t *testing.T) {
@@ -44,15 +40,11 @@ func TestContext(t *testing.T) {
 	router.Get("/test/:foo/", func(w http.ResponseWriter, r *http.Request) {
 		want := "bar"
 		got := Param(r.Context(), "foo")
-		if want != got {
-			t.Fatalf("Unexpected context value: want %q, got %q", want, got)
-		}
+		require.Equalf(t, want, got, "Unexpected context value: want %q, got %q", want, got)
 	})
 
 	r, err := http.NewRequest("GET", "http://localhost:9090/test/bar/", nil)
-	if err != nil {
-		t.Fatalf("Error building test request: %s", err)
-	}
+	require.NoErrorf(t, err, "Error building test request: %s", err)
 	router.ServeHTTP(nil, r)
 }
 
@@ -61,25 +53,17 @@ func TestContextWithValue(t *testing.T) {
 	router.Get("/test/:foo/", func(w http.ResponseWriter, r *http.Request) {
 		want := "bar"
 		got := Param(r.Context(), "foo")
-		if want != got {
-			t.Fatalf("Unexpected context value: want %q, got %q", want, got)
-		}
+		require.Equalf(t, want, got, "Unexpected context value: want %q, got %q", want, got)
 		want = "ipsum"
 		got = Param(r.Context(), "lorem")
-		if want != got {
-			t.Fatalf("Unexpected context value: want %q, got %q", want, got)
-		}
+		require.Equalf(t, want, got, "Unexpected context value: want %q, got %q", want, got)
 		want = "sit"
 		got = Param(r.Context(), "dolor")
-		if want != got {
-			t.Fatalf("Unexpected context value: want %q, got %q", want, got)
-		}
+		require.Equalf(t, want, got, "Unexpected context value: want %q, got %q", want, got)
 	})
 
 	r, err := http.NewRequest("GET", "http://localhost:9090/test/bar/", nil)
-	if err != nil {
-		t.Fatalf("Error building test request: %s", err)
-	}
+	require.NoErrorf(t, err, "Error building test request: %s", err)
 	params := map[string]string{
 		"lorem": "ipsum",
 		"dolor": "sit",
@@ -98,15 +82,11 @@ func TestContextWithoutValue(t *testing.T) {
 	router.Get("/test", func(w http.ResponseWriter, r *http.Request) {
 		want := ""
 		got := Param(r.Context(), "foo")
-		if want != got {
-			t.Fatalf("Unexpected context value: want %q, got %q", want, got)
-		}
+		require.Equalf(t, want, got, "Unexpected context value: want %q, got %q", want, got)
 	})
 
 	r, err := http.NewRequest("GET", "http://localhost:9090/test", nil)
-	if err != nil {
-		t.Fatalf("Error building test request: %s", err)
-	}
+	require.NoErrorf(t, err, "Error building test request: %s", err)
 	router.ServeHTTP(nil, r)
 }
 
@@ -132,13 +112,9 @@ func TestInstrumentation(t *testing.T) {
 		c.router.Get("/foo", func(w http.ResponseWriter, r *http.Request) {})
 
 		r, err := http.NewRequest("GET", "http://localhost:9090/foo", nil)
-		if err != nil {
-			t.Fatalf("Error building test request: %s", err)
-		}
+		require.NoErrorf(t, err, "Error building test request: %s", err)
 		c.router.ServeHTTP(nil, r)
-		if c.want != got {
-			t.Fatalf("Unexpected value: want %q, got %q", c.want, got)
-		}
+		require.Equalf(t, c.want, got, "Unexpected value: want %q, got %q", c.want, got)
 	}
 }
 
@@ -176,17 +152,11 @@ func TestInstrumentations(t *testing.T) {
 		c.router.Get("/foo", func(w http.ResponseWriter, r *http.Request) {})
 
 		r, err := http.NewRequest("GET", "http://localhost:9090/foo", nil)
-		if err != nil {
-			t.Fatalf("Error building test request: %s", err)
-		}
+		require.NoErrorf(t, err, "Error building test request: %s", err)
 		c.router.ServeHTTP(nil, r)
-		if len(c.want) != len(got) {
-			t.Fatalf("Unexpected value: want %q, got %q", c.want, got)
-		}
+		require.Equalf(t, len(c.want), len(got), "Unexpected value: want %q, got %q", c.want, got)
 		for i, v := range c.want {
-			if v != got[i] {
-				t.Fatalf("Unexpected value: want %q, got %q", c.want, got)
-			}
+			require.Equalf(t, v, got[i], "Unexpected value: want %q, got %q", c.want, got)
 		}
 	}
 }

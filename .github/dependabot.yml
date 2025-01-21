@@ -5,6 +5,6 @@ updates:
     schedule:
       interval: monthly
   - package-ecosystem: "gomod"
-    directory: "/sigv4"
+    directory: "/assets"
     schedule:
       interval: monthly
