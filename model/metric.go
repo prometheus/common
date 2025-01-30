@@ -193,6 +193,32 @@ func IsValidLegacyMetricName(n string) bool {
 	return true
 }
 
+// IsValidLabelCharacter checks if a rune is valid based on its position in the string.
+func IsValidLabelCharacter(c rune, i int) bool {
+	return (c >= 'a' && c <= 'z') ||
+		(c >= 'A' && c <= 'Z') ||
+		c == '_' ||
+		(i > 0 && c >= '0' && c <= '9')
+}
+
+// IsValidLegacyLabelName checks if a label name follows the legacy validation rules.
+func IsValidLegacyLabelName(n string) bool {
+	if len(n) == 0 {
+		return false
+	}
+	for i, b := range n {
+		if !isValidLegacyLabelRune(b, i) {
+			return false
+		}
+	}
+	return true
+}
+
+// IsValidLegacyLabelRune checks if a rune is valid for a label name.
+func isValidLegacyLabelRune(b rune, i int) bool {
+	return IsValidLabelCharacter(b, i)
+}
+
 // EscapeMetricFamily escapes the given metric names and labels with the given
 // escaping scheme. Returns a new object that uses the same pointers to fields
 // when possible and creates new escaped versions so as not to mutate the
