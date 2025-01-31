@@ -242,7 +242,6 @@ func defaultReplaceAttr(_ []string, a slog.Attr) slog.Attr {
 func New(config *Config) *slog.Logger {
 	if config.Level == nil {
 		config.Level = NewLevel()
-		_ = config.Level.Set("info")
 	}
 
 	if config.Writer == nil {
