@@ -43,29 +43,29 @@ func TestDefaultConfig(t *testing.T) {
 }
 
 func TestUnmarshallLevel(t *testing.T) {
-	l := &AllowedLevel{}
+	l := NewLevel()
 	err := yaml.Unmarshal([]byte(`debug`), l)
 	if err != nil {
 		t.Error(err)
 	}
-	if l.s != "debug" {
-		t.Errorf("expected %s, got %s", "debug", l.s)
+	if got := l.String(); got != "debug" {
+		t.Errorf("expected %s, got %s", "debug", got)
 	}
 }
 
 func TestUnmarshallEmptyLevel(t *testing.T) {
-	l := &AllowedLevel{}
+	l := NewLevel()
 	err := yaml.Unmarshal([]byte(``), l)
 	if err != nil {
 		t.Error(err)
 	}
-	if l.s != "" {
-		t.Errorf("expected empty level, got %s", l.s)
+	if got := l.String(); got != "info" {
+		t.Errorf("expected info (default) level, got %s", got)
 	}
 }
 
 func TestUnmarshallBadLevel(t *testing.T) {
-	l := &AllowedLevel{}
+	l := NewLevel()
 	err := yaml.Unmarshal([]byte(`debugg`), l)
 	if err == nil {
 		t.Error("expected error")
@@ -74,8 +74,8 @@ func TestUnmarshallBadLevel(t *testing.T) {
 	if err.Error() != expErr {
 		t.Errorf("expected error %s, got %s", expErr, err.Error())
 	}
-	if l.s != "" {
-		t.Errorf("expected empty level, got %s", l.s)
+	if got := l.String(); got != "info" {
+		t.Errorf("expected info (default) level, got %s", got)
 	}
 }
 
