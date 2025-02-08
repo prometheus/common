@@ -16,17 +16,21 @@ package config
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -302,6 +306,8 @@ type HTTPClientConfig struct {
 	BasicAuth *BasicAuth `yaml:"basic_auth,omitempty" json:"basic_auth,omitempty"`
 	// The HTTP authorization credentials for the targets.
 	Authorization *Authorization `yaml:"authorization,omitempty" json:"authorization,omitempty"`
+	// The HMAC signature configuration.
+	HMACSignature *HMACSignature `yaml:"hmac_signature,omitempty" json:"hmac_signature,omitempty"`
 	// The OAuth2 client credentials used to fetch a token for the targets.
 	OAuth2 *OAuth2 `yaml:"oauth2,omitempty" json:"oauth2,omitempty"`
 	// The bearer token for the targets. Deprecated in favour of
@@ -417,6 +423,11 @@ func (c *HTTPClientConfig) Validate() error {
 	}
 	if c.HTTPHeaders != nil {
 		if err := c.HTTPHeaders.Validate(); err != nil {
+			return err
+		}
+	}
+	if c.HMACSignature != nil {
+		if err := c.HMACSignature.Validate(); err != nil {
 			return err
 		}
 	}
@@ -669,6 +680,14 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 			rt = NewOAuth2RoundTripper(clientSecret, cfg.OAuth2, rt, &opts)
 		}
 
+		if cfg.HMACSignature != nil {
+			secret, err := toSecret(opts.secretManager, cfg.HMACSignature.Secret, cfg.HMACSignature.SecretFile, cfg.HMACSignature.SecretRef)
+			if err != nil {
+				return nil, fmt.Errorf("unable to use HMAC secret: %w", err)
+			}
+			rt = NewHMACSignatureRoundTripper(secret, cfg.HMACSignature.Header, cfg.HMACSignature.TimestampHeader, rt)
+		}
+
 		if cfg.HTTPHeaders != nil {
 			rt = NewHeadersRoundTripper(cfg.HTTPHeaders, rt)
 		}
@@ -700,6 +719,109 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 		return newRT(tlsConfig)
 	}
 	return NewTLSRoundTripperWithContext(ctx, tlsConfig, tlsSettings, newRT)
+}
+
+// HMACSignature contains configuration for HMAC SHA256 signing.
+//
+// The HMAC signature is calculated over the request body and added to the
+// request headers.
+//
+// If the timestamp header is set, the timestamp is included in the HMAC
+// by concatenating the timestamp header value with the request body using
+// a colon character as separator.
+type HMACSignature struct {
+	// The secret key used for HMAC signing.
+	Secret Secret `yaml:"secret,omitempty" json:"secret,omitempty"`
+	// The secret key file for HMAC signing.
+	SecretFile string `yaml:"secret_file,omitempty" json:"secret_file,omitempty"`
+	// SecretRef is the name of the secret within the secret manager to use as the HMAC key
+	SecretRef string `yaml:"secret_ref,omitempty" json:"secret_ref,omitempty"`
+	// Header is the name of the header containing the HMAC signature
+	Header string `yaml:"header,omitempty" json:"header,omitempty"`
+	// TimestampHeader is the name of the header containing the timestamp
+	// used to generate the HMAC signature. If empty, time is not included.
+	TimestampHeader string `yaml:"timestamp_header,omitempty" json:"timestamp_header,omitempty"`
+}
+
+// SetDirectory joins any relative file paths with dir.
+func (h *HMACSignature) SetDirectory(dir string) {
+	if h == nil {
+		return
+	}
+	h.SecretFile = JoinDir(dir, h.SecretFile)
+}
+
+// Validate checks that the HMAC signature config is valid.
+func (h *HMACSignature) Validate() error {
+	if h == nil {
+		return nil
+	}
+	if nonZeroCount(len(h.Secret) > 0, len(h.SecretFile) > 0, len(h.SecretRef) > 0) > 1 {
+		return errors.New("at most one of secret, secret_file & secret_ref must be configured")
+	}
+	if h.Header == "" {
+		h.Header = "X-HMAC-SHA256"
+	}
+	return nil
+}
+
+// hmacRoundTripper adds HMAC signatures to HTTP requests.
+type hmacRoundTripper struct {
+	secret          SecretReader
+	header          string
+	timestampHeader string
+	rt              http.RoundTripper
+}
+
+// NewHMACSignatureRoundTripper creates a new round tripper that creates HMAC SHA256
+// signature and adds it to a header in the request.
+func NewHMACSignatureRoundTripper(secret SecretReader, header, timestampHeader string, rt http.RoundTripper) http.RoundTripper {
+	return &hmacRoundTripper{secret: secret, header: header, timestampHeader: timestampHeader, rt: rt}
+}
+
+func (rt *hmacRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if rt.secret == nil {
+		return rt.rt.RoundTrip(req)
+	}
+
+	secret, err := rt.secret.Fetch(req.Context())
+	if err != nil {
+		return nil, fmt.Errorf("unable to read HMAC secret: %w", err)
+	}
+
+	var body []byte
+	if req.Body != nil {
+		body, err = io.ReadAll(req.Body)
+		if err != nil {
+			return nil, fmt.Errorf("error reading request body: %w", err)
+		}
+		req.Body = io.NopCloser(bytes.NewBuffer(body))
+	}
+	req = cloneRequest(req)
+
+	mac := hmac.New(sha256.New, []byte(secret))
+
+	// If the timestamp header is set, include the timestamp in the HMAC
+	// using colon as separator between the timestamp and the request body.
+	if rt.timestampHeader != "" {
+		timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+		req.Header.Set(rt.timestampHeader, timestamp)
+		mac.Write([]byte(timestamp))
+		mac.Write([]byte(":"))
+	}
+
+	mac.Write([]byte(body))
+	signature := hex.EncodeToString(mac.Sum(nil))
+
+	req.Header.Set(rt.header, signature)
+
+	return rt.rt.RoundTrip(req)
+}
+
+func (rt *hmacRoundTripper) CloseIdleConnections() {
+	if ci, ok := rt.rt.(closeIdler); ok {
+		ci.CloseIdleConnections()
+	}
 }
 
 // SecretManager manages secret data mapped to names known as "references" or "refs".

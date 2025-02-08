@@ -1,0 +1,3 @@
+hmac_signature:
+  secret: "123"
+  secret_ref: "456"

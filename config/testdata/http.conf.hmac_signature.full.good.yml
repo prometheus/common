@@ -1,0 +1,4 @@
+hmac_signature:
+  secret: "123"
+  header: "X-HMAC-Custom-Header"
+  timestamp_header: "X-HMAC-Custom-Timestamp-Header"
