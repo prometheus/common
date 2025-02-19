@@ -66,6 +66,10 @@ var expectedTLSConfigs = []struct {
 		config:   &tls.Config{InsecureSkipVerify: true},
 	},
 	{
+		filename: "tls_config.next_protos.good.json",
+		config:   &tls.Config{NextProtos: []string{"h2", "http/1.1"}},
+	},
+	{
 		filename: "tls_config.tlsversion.good.json",
 		config:   &tls.Config{MinVersion: tls.VersionTLS11},
 	},
@@ -80,6 +84,10 @@ var expectedTLSConfigs = []struct {
 	{
 		filename: "tls_config.insecure.good.yml",
 		config:   &tls.Config{InsecureSkipVerify: true},
+	},
+	{
+		filename: "tls_config.next_protos.good.yml",
+		config:   &tls.Config{NextProtos: []string{"h2", "http/1.1"}},
 	},
 	{
 		filename: "tls_config.tlsversion.good.yml",
