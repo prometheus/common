@@ -1,6 +1,7 @@
 module github.com/prometheus/common
 
 go 1.21
+toolchain go1.23.6
 
 require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
@@ -11,7 +12,7 @@ require (
 	github.com/prometheus/client_model v0.6.1
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/net v0.35.0
-	golang.org/x/oauth2 v0.25.0
+	golang.org/x/oauth2 v0.27.0
 	google.golang.org/protobuf v1.36.5
 	gopkg.in/yaml.v2 v2.4.0
 )
