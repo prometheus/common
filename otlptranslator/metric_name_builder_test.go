@@ -239,6 +239,14 @@ func TestBuildCompliantMetricName(t *testing.T) {
 			expected:          "_5xx_errors",
 		},
 		{
+			name:              "metric name starting with digit, with suffixes",
+			metricName:        "5xx_errors",
+			unit:              "",
+			metricType:        MetricTypeMonotonicCounter,
+			addMetricSuffixes: true,
+			expected:          "_5xx_errors_total",
+		},
+		{
 			name:              "metric name with multiple consecutive invalid chars",
 			metricName:        "api..//request--time",
 			unit:              "",
