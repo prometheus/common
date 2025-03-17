@@ -16,110 +16,89 @@ package otlptranslator
 import (
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/collector/pdata/pmetric"
 )
 
 func TestBuildMetricName(t *testing.T) {
 	tests := []struct {
 		name              string
-		metricName        string
-		unit              string
-		metricType        MetricType
+		metric            pmetric.Metric
 		addMetricSuffixes bool
 		expected          string
 	}{
 		{
 			name:              "simple metric without suffixes",
-			metricName:        "http_requests",
-			unit:              "",
-			metricType:        MetricTypeGauge,
+			metric:            createGauge("http_requests", ""),
 			addMetricSuffixes: false,
 			expected:          "http_requests",
 		},
 		{
 			name:              "counter with total suffix",
-			metricName:        "http_requests",
-			unit:              "",
-			metricType:        MetricTypeMonotonicCounter,
+			metric:            createCounter("http_requests", ""),
 			addMetricSuffixes: true,
 			expected:          "http_requests_total",
 		},
 		{
 			name:              "gauge with time unit",
-			metricName:        "request_duration",
-			unit:              "s",
-			metricType:        MetricTypeGauge,
+			metric:            createGauge("request_duration", "s"),
 			addMetricSuffixes: true,
 			expected:          "request_duration_seconds",
 		},
 		{
 			name:              "counter with time unit",
-			metricName:        "request_duration",
-			unit:              "ms",
-			metricType:        MetricTypeMonotonicCounter,
+			metric:            createCounter("request_duration", "ms"),
 			addMetricSuffixes: true,
 			expected:          "request_duration_milliseconds_total",
 		},
 		{
 			name:              "gauge with compound unit",
-			metricName:        "throughput",
-			unit:              "By/s",
-			metricType:        MetricTypeGauge,
+			metric:            createGauge("throughput", "By/s"),
 			addMetricSuffixes: true,
 			expected:          "throughput_bytes_per_second",
 		},
 		{
 			name:              "ratio metric",
-			metricName:        "cpu_utilization",
-			unit:              "1",
-			metricType:        MetricTypeGauge,
+			metric:            createGauge("cpu_utilization", "1"),
 			addMetricSuffixes: true,
 			expected:          "cpu_utilization_ratio",
 		},
 		{
 			name:              "counter with unit 1 (no ratio suffix)",
-			metricName:        "error_count",
-			unit:              "1",
-			metricType:        MetricTypeMonotonicCounter,
+			metric:            createCounter("error_count", "1"),
 			addMetricSuffixes: true,
 			expected:          "error_count_total",
 		},
 		{
 			name:              "metric with byte units",
-			metricName:        "memory_usage",
-			unit:              "MiBy",
-			metricType:        MetricTypeGauge,
+			metric:            createGauge("memory_usage", "MiBy"),
 			addMetricSuffixes: true,
 			expected:          "memory_usage_mebibytes",
 		},
 		{
 			name:              "metric with SI units",
-			metricName:        "temperature",
-			unit:              "Cel",
-			metricType:        MetricTypeGauge,
+			metric:            createGauge("temperature", "Cel"),
 			addMetricSuffixes: true,
 			expected:          "temperature_celsius",
 		},
 		{
 			name:              "metric with dots",
-			metricName:        "system.cpu.usage",
-			unit:              "1",
-			metricType:        MetricTypeGauge,
+			metric:            createGauge("system.cpu.usage", "1"),
 			addMetricSuffixes: true,
 			expected:          "system.cpu.usage_ratio",
 		},
 		{
-			name:              "metric with japanese characters (memory usage rate)",
-			metricName:        "メモリ使用率", // memori shiyouritsu (memory usage rate) xD
-			unit:              "By",
-			metricType:        MetricTypeGauge,
+			name: "metric with japanese characters (memory usage rate)",
+			// memori shiyouritsu (memory usage rate) xD
+			metric:            createGauge("メモリ使用率", "By"),
 			addMetricSuffixes: true,
 			expected:          "メモリ使用率_bytes",
 		},
 		{
-			name:              "metric with mixed special characters (system.memory.usage.rate)",
-			metricName:        "system.メモリ.usage.率", // system.memory.usage.rate
-			unit:              "By/s",
-			metricType:        MetricTypeGauge,
+			name: "metric with mixed special characters (system.memory.usage.rate)",
+			// system.memory.usage.rate
+			metric:            createGauge("system.メモリ.usage.率", "By/s"),
 			addMetricSuffixes: true,
 			expected:          "system.メモリ.usage.率_bytes_per_second",
 		},
@@ -127,10 +106,8 @@ func TestBuildMetricName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := BuildMetricName(tt.metricName, tt.unit, tt.metricType, tt.addMetricSuffixes)
-			if tt.expected != result {
-				t.Errorf("expected %s, got %s", tt.expected, result)
-			}
+			result := BuildMetricName(tt.metric, "", tt.addMetricSuffixes)
+			require.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -195,12 +172,8 @@ func TestBuildUnitSuffixes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mainUnit, perUnit := buildUnitSuffixes(tt.unit)
-			if tt.expectedMain != mainUnit {
-				t.Errorf("expected main unit %s, got %s", tt.expectedMain, mainUnit)
-			}
-			if tt.expectedPerUnit != perUnit {
-				t.Errorf("expected per unit %s, got %s", tt.expectedPerUnit, perUnit)
-			}
+			require.Equal(t, tt.expectedMain, mainUnit)
+			require.Equal(t, tt.expectedPerUnit, perUnit)
 		})
 	}
 }
@@ -208,97 +181,73 @@ func TestBuildUnitSuffixes(t *testing.T) {
 func TestBuildCompliantMetricName(t *testing.T) {
 	tests := []struct {
 		name              string
-		metricName        string
-		unit              string
-		metricType        MetricType
+		metric            pmetric.Metric
 		addMetricSuffixes bool
 		expected          string
 	}{
 		{
 			name:              "simple valid metric name",
-			metricName:        "http_requests",
-			unit:              "",
-			metricType:        MetricTypeGauge,
+			metric:            createGauge("http_requests", ""),
 			addMetricSuffixes: false,
 			expected:          "http_requests",
 		},
 		{
 			name:              "metric name with invalid characters",
-			metricName:        "http-requests@in_flight",
-			unit:              "",
-			metricType:        MetricTypeNonMonotonicCounter,
+			metric:            createCounter("http-requests@in_flight", ""),
 			addMetricSuffixes: false,
 			expected:          "http_requests_in_flight",
 		},
 		{
 			name:              "metric name starting with digit",
-			metricName:        "5xx_errors",
-			unit:              "",
-			metricType:        MetricTypeGauge,
+			metric:            createGauge("5xx_errors", ""),
 			addMetricSuffixes: false,
 			expected:          "_5xx_errors",
 		},
 		{
 			name:              "metric name starting with digit, with suffixes",
-			metricName:        "5xx_errors",
-			unit:              "",
-			metricType:        MetricTypeMonotonicCounter,
+			metric:            createCounter("5xx_errors", ""),
 			addMetricSuffixes: true,
 			expected:          "_5xx_errors_total",
 		},
 		{
 			name:              "metric name with multiple consecutive invalid chars",
-			metricName:        "api..//request--time",
-			unit:              "",
-			metricType:        MetricTypeGauge,
+			metric:            createGauge("api..//request--time", ""),
 			addMetricSuffixes: false,
 			expected:          "api_request_time",
 		},
 		{
 			name:              "full normalization with units and type",
-			metricName:        "system.cpu-utilization",
-			unit:              "ms/s",
-			metricType:        MetricTypeMonotonicCounter,
+			metric:            createCounter("system.cpu-utilization", "ms/s"),
 			addMetricSuffixes: true,
 			expected:          "system_cpu_utilization_milliseconds_per_second_total",
 		},
 		{
 			name:              "metric with special characters and ratio",
-			metricName:        "memory.usage%rate",
-			unit:              "1",
-			metricType:        MetricTypeGauge,
+			metric:            createGauge("memory.usage%rate", "1"),
 			addMetricSuffixes: true,
 			expected:          "memory_usage_rate_ratio",
 		},
 		{
 			name:              "metric with unicode characters",
-			metricName:        "error_rate_£_€_¥",
-			unit:              "",
-			metricType:        MetricTypeGauge,
+			metric:            createGauge("error_rate_£_€_¥", ""),
 			addMetricSuffixes: false,
 			expected:          "error_rate_____",
 		},
 		{
 			name:              "metric with multiple spaces",
-			metricName:        "api   response   time",
-			unit:              "ms",
-			metricType:        MetricTypeGauge,
+			metric:            createGauge("api   response   time", "ms"),
 			addMetricSuffixes: true,
 			expected:          "api_response_time_milliseconds",
 		},
 		{
 			name:              "metric with colons (valid prometheus chars)",
-			metricName:        "app:request:latency",
-			unit:              "s",
-			metricType:        MetricTypeGauge,
+			metric:            createGauge("app:request:latency", "s"),
 			addMetricSuffixes: true,
 			expected:          "app:request:latency_seconds",
 		},
 		{
 			name:              "empty metric name",
-			metricName:        "",
-			unit:              "",
-			metricType:        MetricTypeGauge,
+			metric:            createGauge("", ""),
 			addMetricSuffixes: false,
 			expected:          "",
 		},
@@ -306,10 +255,8 @@ func TestBuildCompliantMetricName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := BuildCompliantMetricName(tt.metricName, tt.unit, tt.metricType, tt.addMetricSuffixes)
-			if tt.expected != result {
-				t.Errorf("expected %s, got %s", tt.expected, result)
-			}
+			result := BuildCompliantMetricName(tt.metric, "", tt.addMetricSuffixes)
+			require.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -420,9 +367,7 @@ func TestCleanUpStrings(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := CleanUpString(tt.input)
-			if result != tt.expected {
-				t.Errorf("expected %q, got %q", tt.expected, result)
-			}
+			require.Equal(t, tt.expected, result)
 		})
 	}
 }

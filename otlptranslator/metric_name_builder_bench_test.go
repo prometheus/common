@@ -15,97 +15,69 @@ package otlptranslator
 import (
 	"fmt"
 	"testing"
+
+	"go.opentelemetry.io/collector/pdata/pmetric"
 )
 
 var benchmarkInputs = []struct {
-	name       string
-	metricName string
-	unit       string
-	metricType MetricType
+	name   string
+	metric pmetric.Metric
 }{
 	{
-		name:       "simple_metric",
-		metricName: "http_requests",
-		unit:       "",
-		metricType: MetricTypeGauge,
+		name:   "simple_metric",
+		metric: createGauge("http_requests", ""),
 	},
 	{
-		name:       "compound_unit",
-		metricName: "request_throughput",
-		unit:       "By/s",
-		metricType: MetricTypeMonotonicCounter,
+		name:   "compound_unit",
+		metric: createCounter("request_throughput", "By/s"),
 	},
 	{
-		name:       "complex_unit",
-		metricName: "disk_usage",
-		unit:       "KiBy/m",
-		metricType: MetricTypeGauge,
+		name:   "complex_unit",
+		metric: createGauge("disk_usage", "KiBy/m"),
 	},
 	{
-		name:       "ratio_metric",
-		metricName: "cpu_utilization",
-		unit:       "1",
-		metricType: MetricTypeGauge,
+		name:   "ratio_metric",
+		metric: createGauge("cpu_utilization", "1"),
 	},
 	{
-		name:       "metric_with_dots",
-		metricName: "system.cpu.usage.idle",
-		unit:       "%",
-		metricType: MetricTypeGauge,
+		name:   "metric_with_dots",
+		metric: createGauge("system.cpu.usage.idle", "%"),
 	},
 	{
-		name:       "metric_with_unicode",
-		metricName: "メモリ使用率",
-		unit:       "By",
-		metricType: MetricTypeGauge,
+		name:   "metric_with_unicode",
+		metric: createGauge("メモリ使用率", "By"),
 	},
 	{
-		name:       "metric_with_special_chars",
-		metricName: "error-rate@host{instance}/service#component",
-		unit:       "ms",
-		metricType: MetricTypeMonotonicCounter,
+		name:   "metric_with_special_chars",
+		metric: createGauge("error-rate@host{instance}/service#component", "ms"),
 	},
 	{
-		name:       "metric_with_multiple_slashes",
-		metricName: "network/throughput/total",
-		unit:       "By/s/min",
-		metricType: MetricTypeGauge,
+		name:   "metric_with_multiple_slashes",
+		metric: createGauge("network/throughput/total", "By/s/min"),
 	},
 	{
-		name:       "metric_with_spaces",
-		metricName: "api   response   time   total",
-		unit:       "ms",
-		metricType: MetricTypeMonotonicCounter,
+		name:   "metric_with_spaces",
+		metric: createCounter("api   response   time   total", "ms"),
 	},
 	{
-		name:       "metric_with_curly_braces",
-		metricName: "custom_{tag}_metric",
-		unit:       "{custom}/s",
-		metricType: MetricTypeGauge,
+		name:   "metric_with_curly_braces",
+		metric: createGauge("custom_{tag}_metric", "{custom}/s"),
 	},
 	{
-		name:       "metric_starting_with_digit",
-		metricName: "5xx_error_count",
-		unit:       "1",
-		metricType: MetricTypeMonotonicCounter,
+		name:   "metric_starting_with_digit",
+		metric: createCounter("5xx_error_count", "1"),
 	},
 	{
-		name:       "empty_metric",
-		metricName: "",
-		unit:       "",
-		metricType: MetricTypeGauge,
+		name:   "empty_metric",
+		metric: createGauge("", ""),
 	},
 	{
-		name:       "metric_with_SI_units",
-		metricName: "power_consumption",
-		unit:       "W",
-		metricType: MetricTypeGauge,
+		name:   "metric_with_SI_units",
+		metric: createGauge("power_consumption", "W"),
 	},
 	{
-		name:       "metric_with_temperature",
-		metricName: "server_temperature",
-		unit:       "Cel",
-		metricType: MetricTypeGauge,
+		name:   "metric_with_temperature",
+		metric: createGauge("server_temperature", "Cel"),
 	},
 }
 
@@ -114,7 +86,7 @@ func BenchmarkBuildMetricName(b *testing.B) {
 		b.Run(fmt.Sprintf("with_metric_suffixes=%t", addSuffixes), func(b *testing.B) {
 			for _, input := range benchmarkInputs {
 				for i := 0; i < b.N; i++ {
-					BuildMetricName(input.metricName, input.unit, input.metricType, addSuffixes)
+					BuildMetricName(input.metric, "", addSuffixes)
 				}
 			}
 		})
@@ -126,7 +98,7 @@ func BenchmarkBuildCompliantMetricName(b *testing.B) {
 		b.Run(fmt.Sprintf("with_metric_suffixes=%t", addSuffixes), func(b *testing.B) {
 			for _, input := range benchmarkInputs {
 				for i := 0; i < b.N; i++ {
-					BuildCompliantMetricName(input.metricName, input.unit, input.metricType, addSuffixes)
+					BuildCompliantMetricName(input.metric, "", addSuffixes)
 				}
 			}
 		})
