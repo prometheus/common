@@ -21,4 +21,6 @@
 // Use BuildMetricName to build a metric name that will be accepted by Prometheus with full UTF-8 support.
 //
 // Use NormalizeLabel to normalize a label name to a valid format that can be used in Prometheus before UTF-8 characters were supported.
+//
+// Deprecated: Use github.com/prometheus/otlptranslator instead.
 package otlptranslator
