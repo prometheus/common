@@ -2,6 +2,8 @@ module github.com/prometheus/common
 
 go 1.23.0
 
+toolchain go1.24.1
+
 require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/google/go-cmp v0.7.0
@@ -12,7 +14,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/net v0.37.0
 	golang.org/x/oauth2 v0.28.0
-	google.golang.org/protobuf v1.36.5
+	google.golang.org/protobuf v1.36.6
 	gopkg.in/yaml.v2 v2.4.0
 )
 
