@@ -154,7 +154,7 @@ func TestInstrumentations(t *testing.T) {
 		r, err := http.NewRequest("GET", "http://localhost:9090/foo", nil)
 		require.NoErrorf(t, err, "Error building test request: %s", err)
 		c.router.ServeHTTP(nil, r)
-		require.Equalf(t, len(c.want), len(got), "Unexpected value: want %q, got %q", c.want, got)
+		require.Lenf(t, got, len(c.want), "Unexpected value: want %q, got %q", c.want, got)
 		for i, v := range c.want {
 			require.Equalf(t, v, got[i], "Unexpected value: want %q, got %q", c.want, got)
 		}
