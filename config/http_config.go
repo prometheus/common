@@ -31,12 +31,17 @@ import (
 	"sync"
 	"time"
 
-	conntrack "github.com/mwitkow/go-conntrack"
+	"github.com/mwitkow/go-conntrack"
 	"golang.org/x/net/http/httpproxy"
 	"golang.org/x/net/http2"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
+	"golang.org/x/oauth2/jwt"
 	"gopkg.in/yaml.v2"
+)
+
+const (
+	grantTypeJWTBearer = "urn:ietf:params:oauth:grant-type:jwt-bearer"
 )
 
 var (
@@ -241,8 +246,22 @@ type OAuth2 struct {
 	Scopes          []string          `yaml:"scopes,omitempty" json:"scopes,omitempty"`
 	TokenURL        string            `yaml:"token_url" json:"token_url"`
 	EndpointParams  map[string]string `yaml:"endpoint_params,omitempty" json:"endpoint_params,omitempty"`
-	TLSConfig       TLSConfig         `yaml:"tls_config,omitempty"`
-	ProxyConfig     `yaml:",inline"`
+
+	ClientCertificateKeyID   string `yaml:"client_certificate_key_id" json:"client_certificate_key_id"`
+	ClientCertificateKey     Secret `yaml:"client_certificate_key" json:"client_certificate_key"`
+	ClientCertificateKeyFile string `yaml:"client_certificate_key_file" json:"client_certificate_key_file"`
+	// ClientCertificateKeyRef is the name of the secret within the secret manager to use as the client
+	// secret.
+	ClientCertificateKeyRef string `yaml:"client_certificate_key_ref" json:"client_certificate_key_ref"`
+	// GrantType is the OAuth2 grant type to use. It can be one of
+	// "client_credentials" or "urn:ietf:params:oauth:grant-type:jwt-bearer" (RFC 7523).
+	GrantType string `yaml:"grant_type" json:"grant_type"`
+	// Claims is a map of claims to be added to the JWT token. Only used if
+	// GrantType is set to "urn:ietf:params:oauth:grant-type:jwt-bearer".
+	Claims map[string]interface{} `yaml:"claims,omitempty" json:"claims,omitempty"`
+
+	TLSConfig   TLSConfig `yaml:"tls_config,omitempty"`
+	ProxyConfig `yaml:",inline"`
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface
@@ -408,8 +427,12 @@ func (c *HTTPClientConfig) Validate() error {
 		if len(c.OAuth2.TokenURL) == 0 {
 			return errors.New("oauth2 token_url must be configured")
 		}
-		if nonZeroCount(len(c.OAuth2.ClientSecret) > 0, len(c.OAuth2.ClientSecretFile) > 0, len(c.OAuth2.ClientSecretRef) > 0) > 1 {
-			return errors.New("at most one of oauth2 client_secret, client_secret_file & client_secret_ref must be configured")
+		if nonZeroCount(
+			len(c.OAuth2.ClientSecret) > 0, len(c.OAuth2.ClientSecretFile) > 0, len(c.OAuth2.ClientSecretRef) > 0,
+			len(c.OAuth2.ClientCertificateKey) > 0, len(c.OAuth2.ClientCertificateKeyFile) > 0, len(c.OAuth2.ClientCertificateKeyRef) > 0,
+		) > 1 {
+			return errors.New("at most one of oauth2 client_secret, client_secret_file, client_secret_ref, " +
+				"client_certificate_key, client_certificate_key_file, client_certificate_key_ref must be configured")
 		}
 	}
 	if err := c.ProxyConfig.Validate(); err != nil {
@@ -662,11 +685,24 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 		}
 
 		if cfg.OAuth2 != nil {
-			clientSecret, err := toSecret(opts.secretManager, cfg.OAuth2.ClientSecret, cfg.OAuth2.ClientSecretFile, cfg.OAuth2.ClientSecretRef)
-			if err != nil {
-				return nil, fmt.Errorf("unable to use client secret: %w", err)
+			var (
+				clientCredential SecretReader
+				err              error
+			)
+
+			if cfg.OAuth2.GrantType == grantTypeJWTBearer {
+				clientCredential, err = toSecret(opts.secretManager, cfg.OAuth2.ClientCertificateKey, cfg.OAuth2.ClientCertificateKeyFile, cfg.OAuth2.ClientCertificateKeyRef)
+				if err != nil {
+					return nil, fmt.Errorf("unable to use client certificate: %w", err)
+				}
+			} else {
+				clientCredential, err = toSecret(opts.secretManager, cfg.OAuth2.ClientSecret, cfg.OAuth2.ClientSecretFile, cfg.OAuth2.ClientSecretRef)
+				if err != nil {
+					return nil, fmt.Errorf("unable to use client secret: %w", err)
+				}
 			}
-			rt = NewOAuth2RoundTripper(clientSecret, cfg.OAuth2, rt, &opts)
+
+			rt = NewOAuth2RoundTripper(clientCredential, cfg.OAuth2, rt, &opts)
 		}
 
 		if cfg.HTTPHeaders != nil {
@@ -885,27 +921,34 @@ type oauth2RoundTripper struct {
 	lastSecret string
 
 	// Required for interaction with Oauth2 server.
-	config       *OAuth2
-	clientSecret SecretReader
-	opts         *httpClientOptions
-	client       *http.Client
+	config           *OAuth2
+	clientCredential SecretReader // SecretReader for client secret or client certificate key.
+	opts             *httpClientOptions
+	client           *http.Client
 }
 
-func NewOAuth2RoundTripper(clientSecret SecretReader, config *OAuth2, next http.RoundTripper, opts *httpClientOptions) http.RoundTripper {
-	if clientSecret == nil {
-		clientSecret = NewInlineSecret("")
+// NewOAuth2RoundTripper returns a http.RoundTripper
+// that handles the OAuth2 authentication.
+// It uses the provided clientCredential to fetch the client secret or client certificate key.
+func NewOAuth2RoundTripper(clientCredential SecretReader, config *OAuth2, next http.RoundTripper, opts *httpClientOptions) http.RoundTripper {
+	if clientCredential == nil {
+		clientCredential = NewInlineSecret("")
 	}
 
 	return &oauth2RoundTripper{
 		config: config,
 		// A correct tokenSource will be added later on.
-		lastRT:       &oauth2.Transport{Base: next},
-		opts:         opts,
-		clientSecret: clientSecret,
+		lastRT:           &oauth2.Transport{Base: next},
+		opts:             opts,
+		clientCredential: clientCredential,
 	}
 }
 
-func (rt *oauth2RoundTripper) newOauth2TokenSource(req *http.Request, secret string) (client *http.Client, source oauth2.TokenSource, err error) {
+type oauth2TokenSourceConfig interface {
+	TokenSource(ctx context.Context) oauth2.TokenSource
+}
+
+func (rt *oauth2RoundTripper) newOauth2TokenSource(req *http.Request, clientCredential string) (client *http.Client, source oauth2.TokenSource, err error) {
 	tlsConfig, err := NewTLSConfig(&rt.config.TLSConfig, WithSecretManager(rt.opts.secretManager))
 	if err != nil {
 		return nil, nil, err
@@ -943,13 +986,30 @@ func (rt *oauth2RoundTripper) newOauth2TokenSource(req *http.Request, secret str
 		t = NewUserAgentRoundTripper(ua, t)
 	}
 
-	config := &clientcredentials.Config{
-		ClientID:       rt.config.ClientID,
-		ClientSecret:   secret,
-		Scopes:         rt.config.Scopes,
-		TokenURL:       rt.config.TokenURL,
-		EndpointParams: mapToValues(rt.config.EndpointParams),
+	var config oauth2TokenSourceConfig
+
+	if rt.config.GrantType == grantTypeJWTBearer {
+		// RFC 7523 3.1 - JWT authorization grants
+		// RFC 7523 3.2 - Client Authentication Processing is not implement upstream yet,
+		// see https://github.com/golang/oauth2/pull/745
+
+		config = &jwt.Config{
+			PrivateKey:    []byte(clientCredential),
+			PrivateKeyID:  rt.config.ClientCertificateKeyID,
+			Scopes:        rt.config.Scopes,
+			TokenURL:      rt.config.TokenURL,
+			PrivateClaims: rt.config.Claims,
+		}
+	} else {
+		config = &clientcredentials.Config{
+			ClientID:       rt.config.ClientID,
+			ClientSecret:   clientCredential,
+			Scopes:         rt.config.Scopes,
+			TokenURL:       rt.config.TokenURL,
+			EndpointParams: mapToValues(rt.config.EndpointParams),
+		}
 	}
+
 	client = &http.Client{Transport: t}
 	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, client)
 	return client, config.TokenSource(ctx), nil
@@ -967,8 +1027,8 @@ func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 	rt.mtx.RUnlock()
 
 	// Fetch the secret if it's our first run or always if the secret can change.
-	if !rt.clientSecret.Immutable() || needsInit {
-		newSecret, err := rt.clientSecret.Fetch(req.Context())
+	if !rt.clientCredential.Immutable() || needsInit {
+		newSecret, err := rt.clientCredential.Fetch(req.Context())
 		if err != nil {
 			return nil, fmt.Errorf("unable to read oauth2 client secret: %w", err)
 		}
