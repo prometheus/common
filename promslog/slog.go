@@ -266,5 +266,10 @@ func New(config *Config) *slog.Logger {
 // NewNopLogger is a convenience function to return an slog.Logger that writes
 // to io.Discard.
 func NewNopLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(io.Discard, nil))
+	// Set log level to debug, in case there are code paths that are only
+	// triggered when debug logging is enabled.
+	level := NewLevel()
+	_ = level.Set("debug")
+
+	return New(&Config{Level: level, Writer: io.Discard})
 }
