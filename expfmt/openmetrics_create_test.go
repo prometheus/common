@@ -347,18 +347,16 @@ unknown_name{name_1="value 1"} -1.23e-45
 			options: []EncoderOption{WithCreatedLines()},
 			out: `# HELP summary_name summary docstring
 # TYPE summary_name summary
-summary_name{quantile="0.5"} -1.23
-summary_name{quantile="0.9"} 0.2342354
-summary_name{quantile="0.99"} 0.0
-summary_name_sum -3.4567
-summary_name_count 42
-summary_name_created 12345.6
-summary_name{name_1="value 1",name_2="value 2",quantile="0.5"} 1.0
-summary_name{name_1="value 1",name_2="value 2",quantile="0.9"} 2.0
-summary_name{name_1="value 1",name_2="value 2",quantile="0.99"} 3.0
-summary_name_sum{name_1="value 1",name_2="value 2"} 2010.1971
-summary_name_count{name_1="value 1",name_2="value 2"} 4711
-summary_name_created{name_1="value 1",name_2="value 2"} 12345.6
+summary_name{quantile="0.5"} -1.23 ct@12345.6
+summary_name{quantile="0.9"} 0.2342354 ct@12345.6
+summary_name{quantile="0.99"} 0.0 ct@12345.6
+summary_name_sum -3.4567 ct@12345.6
+summary_name_count 42 ct@12345.6
+summary_name{name_1="value 1",name_2="value 2",quantile="0.5"} 1.0 ct@12345.6
+summary_name{name_1="value 1",name_2="value 2",quantile="0.9"} 2.0 ct@12345.6
+summary_name{name_1="value 1",name_2="value 2",quantile="0.99"} 3.0 ct@12345.6
+summary_name_sum{name_1="value 1",name_2="value 2"} 2010.1971 ct@12345.6
+summary_name_count{name_1="value 1",name_2="value 2"} 4711 ct@12345.6
 `,
 		},
 		// 7: Histogram
@@ -404,14 +402,13 @@ summary_name_created{name_1="value 1",name_2="value 2"} 12345.6
 			out: `# HELP request_duration_microseconds The response latency.
 # TYPE request_duration_microseconds histogram
 # UNIT request_duration_microseconds microseconds
-request_duration_microseconds_bucket{le="100.0"} 123
-request_duration_microseconds_bucket{le="120.0"} 412
-request_duration_microseconds_bucket{le="144.0"} 592
-request_duration_microseconds_bucket{le="172.8"} 1524
-request_duration_microseconds_bucket{le="+Inf"} 2693
-request_duration_microseconds_sum 1.7560473e+06
-request_duration_microseconds_count 2693
-request_duration_microseconds_created 12345.6
+request_duration_microseconds_bucket{le="100.0"} 123 ct@12345.6
+request_duration_microseconds_bucket{le="120.0"} 412 ct@12345.6
+request_duration_microseconds_bucket{le="144.0"} 592 ct@12345.6
+request_duration_microseconds_bucket{le="172.8"} 1524 ct@12345.6
+request_duration_microseconds_bucket{le="+Inf"} 2693 ct@12345.6
+request_duration_microseconds_sum 1.7560473e+06 ct@12345.6
+request_duration_microseconds_count 2693 ct@12345.6
 `,
 		},
 		// 8: Histogram with missing +Inf bucket.
@@ -544,8 +541,7 @@ request_duration_microseconds_count 2693
 			options: []EncoderOption{WithCreatedLines()},
 			out: `# HELP foos Number of foos.
 # TYPE foos counter
-foos_total 42.0
-foos_created 12345.6
+foos_total 42.0 ct@12345.6
 `,
 		},
 		// 11: Simple Counter without created line.

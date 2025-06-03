@@ -22,9 +22,8 @@ import (
 	"strconv"
 	"strings"
 
-	"google.golang.org/protobuf/types/known/timestamppb"
-
 	"github.com/prometheus/common/model"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	dto "github.com/prometheus/client_model/go"
 )
@@ -245,8 +244,6 @@ func MetricFamilyToOpenMetrics(out io.Writer, in *dto.MetricFamily, options ...E
 		}
 	}
 
-	var createdTsBytesWritten int
-
 	// Finally the samples, one line for each.
 	if metricType == dto.MetricType_COUNTER && strings.HasSuffix(name, "_total") {
 		compliantName = compliantName + "_total"
@@ -262,12 +259,8 @@ func MetricFamilyToOpenMetrics(out io.Writer, in *dto.MetricFamily, options ...E
 			n, err = writeOpenMetricsSample(
 				w, compliantName, "", metric, "", 0,
 				metric.Counter.GetValue(), 0, false,
-				metric.Counter.Exemplar,
+				metric.Counter.Exemplar, toOM.withCreatedLines, metric.Counter.CreatedTimestamp,
 			)
-			if toOM.withCreatedLines && metric.Counter.CreatedTimestamp != nil {
-				createdTsBytesWritten, err = writeOpenMetricsCreated(w, compliantName, "_total", metric, "", 0, metric.Counter.GetCreatedTimestamp())
-				n += createdTsBytesWritten
-			}
 		case dto.MetricType_GAUGE:
 			if metric.Gauge == nil {
 				return written, fmt.Errorf(
@@ -277,7 +270,7 @@ func MetricFamilyToOpenMetrics(out io.Writer, in *dto.MetricFamily, options ...E
 			n, err = writeOpenMetricsSample(
 				w, compliantName, "", metric, "", 0,
 				metric.Gauge.GetValue(), 0, false,
-				nil,
+				nil, toOM.withCreatedLines, nil,
 			)
 		case dto.MetricType_UNTYPED:
 			if metric.Untyped == nil {
@@ -288,7 +281,7 @@ func MetricFamilyToOpenMetrics(out io.Writer, in *dto.MetricFamily, options ...E
 			n, err = writeOpenMetricsSample(
 				w, compliantName, "", metric, "", 0,
 				metric.Untyped.GetValue(), 0, false,
-				nil,
+				nil, toOM.withCreatedLines, nil,
 			)
 		case dto.MetricType_SUMMARY:
 			if metric.Summary == nil {
@@ -301,7 +294,7 @@ func MetricFamilyToOpenMetrics(out io.Writer, in *dto.MetricFamily, options ...E
 					w, compliantName, "", metric,
 					model.QuantileLabel, q.GetQuantile(),
 					q.GetValue(), 0, false,
-					nil,
+					nil, toOM.withCreatedLines, metric.Summary.CreatedTimestamp,
 				)
 				written += n
 				if err != nil {
@@ -311,7 +304,7 @@ func MetricFamilyToOpenMetrics(out io.Writer, in *dto.MetricFamily, options ...E
 			n, err = writeOpenMetricsSample(
 				w, compliantName, "_sum", metric, "", 0,
 				metric.Summary.GetSampleSum(), 0, false,
-				nil,
+				nil, toOM.withCreatedLines, metric.Summary.CreatedTimestamp,
 			)
 			written += n
 			if err != nil {
@@ -320,12 +313,8 @@ func MetricFamilyToOpenMetrics(out io.Writer, in *dto.MetricFamily, options ...E
 			n, err = writeOpenMetricsSample(
 				w, compliantName, "_count", metric, "", 0,
 				0, metric.Summary.GetSampleCount(), true,
-				nil,
+				nil, toOM.withCreatedLines, metric.Summary.CreatedTimestamp,
 			)
-			if toOM.withCreatedLines && metric.Summary.CreatedTimestamp != nil {
-				createdTsBytesWritten, err = writeOpenMetricsCreated(w, compliantName, "", metric, "", 0, metric.Summary.GetCreatedTimestamp())
-				n += createdTsBytesWritten
-			}
 		case dto.MetricType_HISTOGRAM:
 			if metric.Histogram == nil {
 				return written, fmt.Errorf(
@@ -338,7 +327,7 @@ func MetricFamilyToOpenMetrics(out io.Writer, in *dto.MetricFamily, options ...E
 					w, compliantName, "_bucket", metric,
 					model.BucketLabel, b.GetUpperBound(),
 					0, b.GetCumulativeCount(), true,
-					b.Exemplar,
+					b.Exemplar, toOM.withCreatedLines, metric.Histogram.CreatedTimestamp,
 				)
 				written += n
 				if err != nil {
@@ -353,7 +342,7 @@ func MetricFamilyToOpenMetrics(out io.Writer, in *dto.MetricFamily, options ...E
 					w, compliantName, "_bucket", metric,
 					model.BucketLabel, math.Inf(+1),
 					0, metric.Histogram.GetSampleCount(), true,
-					nil,
+					nil, toOM.withCreatedLines, metric.Histogram.CreatedTimestamp,
 				)
 				written += n
 				if err != nil {
@@ -363,7 +352,7 @@ func MetricFamilyToOpenMetrics(out io.Writer, in *dto.MetricFamily, options ...E
 			n, err = writeOpenMetricsSample(
 				w, compliantName, "_sum", metric, "", 0,
 				metric.Histogram.GetSampleSum(), 0, false,
-				nil,
+				nil, toOM.withCreatedLines, metric.Histogram.CreatedTimestamp,
 			)
 			written += n
 			if err != nil {
@@ -372,12 +361,8 @@ func MetricFamilyToOpenMetrics(out io.Writer, in *dto.MetricFamily, options ...E
 			n, err = writeOpenMetricsSample(
 				w, compliantName, "_count", metric, "", 0,
 				0, metric.Histogram.GetSampleCount(), true,
-				nil,
+				nil, toOM.withCreatedLines, metric.Histogram.CreatedTimestamp,
 			)
-			if toOM.withCreatedLines && metric.Histogram.CreatedTimestamp != nil {
-				createdTsBytesWritten, err = writeOpenMetricsCreated(w, compliantName, "", metric, "", 0, metric.Histogram.GetCreatedTimestamp())
-				n += createdTsBytesWritten
-			}
 		default:
 			return written, fmt.Errorf(
 				"unexpected type in metric %s %s", compliantName, metric,
@@ -409,6 +394,7 @@ func writeOpenMetricsSample(
 	additionalLabelName string, additionalLabelValue float64,
 	floatValue float64, intValue uint64, useIntValue bool,
 	exemplar *dto.Exemplar,
+	writeCT bool, createdTimestamp *timestamppb.Timestamp,
 ) (int, error) {
 	written := 0
 	n, err := writeOpenMetricsNameAndLabelPairs(
@@ -440,6 +426,18 @@ func writeOpenMetricsSample(
 		}
 		// TODO(beorn7): Format this directly without converting to a float first.
 		n, err = writeOpenMetricsFloat(w, float64(*metric.TimestampMs)/1000)
+		written += n
+		if err != nil {
+			return written, err
+		}
+	}
+	if writeCT && createdTimestamp != nil {
+		createdSuffixWritten, err := w.WriteString(" ct@")
+		written += createdSuffixWritten
+		if err != nil {
+			return written, err
+		}
+		n, err = writeOpenMetricsFloat(w, float64(createdTimestamp.AsTime().UnixNano())/1e9)
 		written += n
 		if err != nil {
 			return written, err
@@ -561,49 +559,6 @@ func writeOpenMetricsNameAndLabelPairs(
 		}
 	}
 	err := w.WriteByte('}')
-	written++
-	if err != nil {
-		return written, err
-	}
-	return written, nil
-}
-
-// writeOpenMetricsCreated writes the created timestamp for a single time series
-// following OpenMetrics text format to w, given the metric name, the metric proto
-// message itself, optionally a suffix to be removed, e.g. '_total' for counters,
-// an additional label name with a float64 value (use empty string as label name if
-// not required) and the timestamp that represents the created timestamp.
-// The function returns the number of bytes written and any error encountered.
-func writeOpenMetricsCreated(w enhancedWriter,
-	name, suffixToTrim string, metric *dto.Metric,
-	additionalLabelName string, additionalLabelValue float64,
-	createdTimestamp *timestamppb.Timestamp,
-) (int, error) {
-	written := 0
-	n, err := writeOpenMetricsNameAndLabelPairs(
-		w, strings.TrimSuffix(name, suffixToTrim)+"_created", metric.Label, additionalLabelName, additionalLabelValue,
-	)
-	written += n
-	if err != nil {
-		return written, err
-	}
-
-	err = w.WriteByte(' ')
-	written++
-	if err != nil {
-		return written, err
-	}
-
-	// TODO(beorn7): Format this directly from components of ts to
-	// avoid overflow/underflow and precision issues of the float
-	// conversion.
-	n, err = writeOpenMetricsFloat(w, float64(createdTimestamp.AsTime().UnixNano())/1e9)
-	written += n
-	if err != nil {
-		return written, err
-	}
-
-	err = w.WriteByte('\n')
 	written++
 	if err != nil {
 		return written, err
