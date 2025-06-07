@@ -14,9 +14,13 @@
 package config
 
 import (
+	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -135,6 +139,10 @@ var invalidHTTPClientConfigs = []struct {
 	{
 		httpClientConfigFile: "testdata/http.conf.headers-reserved.bad.yaml",
 		errMsg:               `setting header "User-Agent" is not allowed`,
+	},
+	{
+		httpClientConfigFile: "testdata/http.conf.hmac_signature.bad.yaml",
+		errMsg:               `at most one of secret, secret_file & secret_ref must be configured`,
 	},
 }
 
@@ -2134,6 +2142,224 @@ func readFile(t *testing.T, filename string) string {
 	require.NoErrorf(t, err, "Failed to read file %q: %s", filename, err)
 
 	return string(content)
+}
+
+func TestHMACSignatureValidate(t *testing.T) {
+	t.Run("nil HMACSignature", func(t *testing.T) {
+		var hs *HMACSignature = nil
+		require.NoErrorf(t, hs.Validate(), "nil HMACSignature should return no error")
+	})
+
+	t.Run("sets default values", func(t *testing.T) {
+		hs := &HMACSignature{
+			Secret: "secret",
+		}
+		require.NoError(t, hs.Validate())
+		require.Equalf(t, "X-HMAC-SHA256", hs.Header, "default header should be set")
+		require.Emptyf(t, hs.TimestampHeader, "default timestamp header should be empty")
+	})
+
+	t.Run("sets the specified HMAC header", func(t *testing.T) {
+		hs := &HMACSignature{
+			Secret: "secret",
+			Header: "X-Custom-HMAC-Header",
+		}
+		require.NoErrorf(t, hs.Validate(), "custom header with single secret should be valid")
+		require.Equalf(t, "X-Custom-HMAC-Header", hs.Header, "custom header should be preserved")
+	})
+
+	t.Run("fails when multiple secrets are configured: secret and file", func(t *testing.T) {
+		hs := &HMACSignature{
+			Secret:     "secret1",
+			SecretFile: "file-secret",
+		}
+		err := hs.Validate()
+		require.Errorf(t, err, "multiple secret sources should cause validation error")
+		require.Containsf(t, err.Error(), "at most one", "error message should indicate multiple secrets configured")
+	})
+
+	t.Run("fails when multiple secrets are configured: file and ref", func(t *testing.T) {
+		hs := &HMACSignature{
+			SecretFile: "file-secret",
+			SecretRef:  "ref-secret",
+		}
+		err := hs.Validate()
+		require.Errorf(t, err, "multiple secret sources should cause validation error")
+		require.Containsf(t, err.Error(), "at most one", "error message should indicate multiple secrets configured")
+	})
+}
+
+func TestHMACSignature(t *testing.T) {
+	var capturedRequest *http.Request
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		capturedRequest = r
+	}
+
+	testServer, err := newTestServer(handler)
+	require.NoError(t, err)
+	defer testServer.Close()
+
+	// Create a temp file for the HMAC secret
+	secretFile, err := os.CreateTemp("", "hmac_secret")
+	require.NoError(t, err)
+	defer os.Remove(secretFile.Name())
+	secretFileHMACsecret := "file-secret"
+	_, err = secretFile.Write([]byte(secretFileHMACsecret))
+	require.NoError(t, err)
+
+	tlsConfig := TLSConfig{
+		CAFile:             TLSCAChainPath,
+		CertFile:           ClientCertificatePath,
+		KeyFile:            ClientKeyNoPassPath,
+		InsecureSkipVerify: true,
+	}
+
+	secretManagerHMACsecret := "ref-secret"
+	secretManager := &secretManager{
+		data: map[string]string{
+			"hmac-secret": secretManagerHMACsecret,
+		},
+	}
+
+	computeHMAC := func(secret, body, timestamp string) string {
+		mac := hmac.New(sha256.New, []byte(secret))
+
+		if timestamp != "" {
+			mac.Write([]byte(timestamp))
+			mac.Write([]byte(":"))
+		}
+
+		mac.Write([]byte(body))
+
+		return hex.EncodeToString(mac.Sum(nil))
+	}
+
+	tests := []struct {
+		name        string
+		config      HTTPClientConfig
+		requestBody string
+		verify      func(t *testing.T, r *http.Request)
+		expectError string
+	}{
+		{
+			name: "adds signature with inline secret",
+			config: HTTPClientConfig{
+				HMACSignature: &HMACSignature{
+					Secret: "mysecret",
+					Header: "X-HMAC-Signature",
+				},
+				TLSConfig: tlsConfig,
+			},
+			requestBody: "test request body",
+			verify: func(t *testing.T, r *http.Request) {
+				expected := computeHMAC("mysecret", "test request body", "")
+				header := r.Header.Get("X-HMAC-Signature")
+				require.Equalf(t, expected, header, "HMAC header mismatch")
+			},
+		},
+		{
+			name: "adds signature with secret file",
+			config: HTTPClientConfig{
+				HMACSignature: &HMACSignature{
+					SecretFile: secretFile.Name(),
+					Header:     "X-HMAC-Signature",
+				},
+				TLSConfig: tlsConfig,
+			},
+			requestBody: "another test body",
+			verify: func(t *testing.T, r *http.Request) {
+				expected := computeHMAC(secretFileHMACsecret, "another test body", "")
+				header := r.Header.Get("X-HMAC-Signature")
+				require.Equalf(t, expected, header, "HMAC header mismatch")
+			},
+		},
+		{
+			name: "adds signature with secret ref",
+			config: HTTPClientConfig{
+				HMACSignature: &HMACSignature{
+					SecretRef: "hmac-secret",
+					Header:    "X-HMAC-Signature",
+				},
+				TLSConfig: tlsConfig,
+			},
+			requestBody: "body with ref",
+			verify: func(t *testing.T, r *http.Request) {
+				expected := computeHMAC(secretManagerHMACsecret, "body with ref", "")
+				header := r.Header.Get("X-HMAC-Signature")
+				require.Equalf(t, expected, header, "HMAC header mismatch")
+			},
+		},
+		{
+			name: "adds signature with a timestamp header",
+			config: HTTPClientConfig{
+				HMACSignature: &HMACSignature{
+					SecretRef:       "hmac-secret",
+					Header:          "X-HMAC-Signature",
+					TimestampHeader: "X-HMAC-Timestamp",
+				},
+				TLSConfig: tlsConfig,
+			},
+			requestBody: "body with ref",
+			verify: func(t *testing.T, r *http.Request) {
+				timestampHeader := r.Header.Get("X-HMAC-Timestamp")
+				expected := computeHMAC(secretManagerHMACsecret, "body with ref", timestampHeader)
+				header := r.Header.Get("X-HMAC-Signature")
+				require.Equalf(t, expected, header, "HMAC header mismatch")
+
+				// check that the unix time timestamp header is recent
+				timestamp, err := strconv.ParseInt(timestampHeader, 10, 64)
+				require.NoError(t, err)
+				require.Less(t, time.Now().Unix()-timestamp, int64(5))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, err := NewClientFromConfig(tt.config, "test", WithSecretManager(secretManager))
+			require.NoError(t, err)
+
+			req, err := http.NewRequest(http.MethodGet, testServer.URL, bytes.NewBufferString(tt.requestBody))
+			require.NoError(t, err)
+
+			resp, err := client.Do(req)
+			if tt.expectError != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.expectError)
+				return
+			}
+
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			tt.verify(t, capturedRequest)
+		})
+	}
+}
+
+func TestHMACSignatureConfig(t *testing.T) {
+	t.Run("empty config", func(t *testing.T) {
+		cfg, _, err := LoadHTTPConfigFile("testdata/http.conf.hmac_signature.empty.yml")
+		require.NoError(t, err)
+		require.Nil(t, cfg.HMACSignature)
+	})
+
+	t.Run("simple config", func(t *testing.T) {
+		cfg, _, err := LoadHTTPConfigFile("testdata/http.conf.hmac_signature.good.yml")
+		require.NoError(t, err)
+		require.Equal(t, &HMACSignature{Secret: "123", Header: "X-HMAC-SHA256"}, cfg.HMACSignature)
+	})
+
+	t.Run("full config", func(t *testing.T) {
+		cfg, _, err := LoadHTTPConfigFile("testdata/http.conf.hmac_signature.full.good.yml")
+		require.NoError(t, err)
+		expConfig := &HMACSignature{
+			Secret:          "123",
+			Header:          "X-HMAC-Custom-Header",
+			TimestampHeader: "X-HMAC-Custom-Timestamp-Header",
+		}
+		require.Equal(t, expConfig, cfg.HMACSignature)
+	})
 }
 
 func TestHeaders(t *testing.T) {
