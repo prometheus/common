@@ -145,6 +145,11 @@ func TestMetricNameIsLegacyValid(t *testing.T) {
 			legacyValid: false,
 			utf8Valid:   false,
 		},
+		{
+			mn:          "dot.in.name",
+			legacyValid: false,
+			utf8Valid:   true,
+		},
 	}
 
 	for _, s := range scenarios {
