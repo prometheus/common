@@ -130,6 +130,14 @@ func TestParseDuration(t *testing.T) {
 			in:  "10y",
 			out: 10 * 365 * 24 * time.Hour,
 		},
+	}
+
+	casesAllowNegative := []struct {
+		in  string
+		out time.Duration
+
+		expectedString string
+	}{
 		{
 			in:  "-3s",
 			out: -3 * time.Second,
@@ -161,8 +169,27 @@ func TestParseDuration(t *testing.T) {
 		},
 	}
 
+	casesAllowNegative = append(casesAllowNegative, cases...)
+
 	for _, c := range cases {
 		d, err := ParseDuration(c.in)
+		if err != nil {
+			t.Errorf("Unexpected error on input %q", c.in)
+		}
+		if time.Duration(d) != c.out {
+			t.Errorf("Expected %v but got %v", c.out, d)
+		}
+		expectedString := c.expectedString
+		if c.expectedString == "" {
+			expectedString = c.in
+		}
+		if d.String() != expectedString {
+			t.Errorf("Expected duration string %q but got %q", c.in, d.String())
+		}
+	}
+
+	for _, c := range casesAllowNegative {
+		d, err := ParseDurationAllowNegative(c.in)
 		if err != nil {
 			t.Errorf("Unexpected error on input %q", c.in)
 		}
@@ -362,7 +389,6 @@ func TestParseBadDuration(t *testing.T) {
 		if err == nil {
 			t.Errorf("Expected error on input %s", c)
 		}
-
 	}
 }
 
