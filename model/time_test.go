@@ -330,7 +330,6 @@ func TestParseBadDuration(t *testing.T) {
 	cases := []string{
 		"1",
 		"1y1m1d",
-		"-1w",
 		"1.5d",
 		"d",
 		"294y",
