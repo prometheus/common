@@ -68,7 +68,6 @@ func TestDuration(t *testing.T) {
 }
 
 func TestParseDuration(t *testing.T) {
-
 	type testCase struct {
 		in              string
 		out             time.Duration
