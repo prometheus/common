@@ -260,69 +260,20 @@ func ParseDuration(s string) (Duration, error) {
 
 // ParseDurationAllowNegative is like ParseDuration but also accepts negative durations.
 func ParseDurationAllowNegative(s string) (Duration, error) {
-	switch s {
-	case "0":
-		// Allow 0 without a unit.
-		return 0, nil
-	case "":
+	if s == "" {
 		return 0, errors.New("empty duration string")
 	}
 
-	orig := s
-	var dur uint64
-	lastUnitPos := 0
-
-	negative := false
-	if s[0] == '-' {
-		negative = true
-		s = s[1:]
+	if s[0] != '-' {
+		return ParseDuration(s)
 	}
 
-	for s != "" {
-		if !isdigit(s[0]) {
-			return 0, fmt.Errorf("not a valid duration string: %q", orig)
-		}
-		// Consume [0-9]*
-		i := 0
-		for ; i < len(s) && isdigit(s[i]); i++ {
-		}
-		v, err := strconv.ParseUint(s[:i], 10, 0)
-		if err != nil {
-			return 0, fmt.Errorf("not a valid duration string: %q", orig)
-		}
-		s = s[i:]
-
-		// Consume unit.
-		for i = 0; i < len(s) && !isdigit(s[i]); i++ {
-		}
-		if i == 0 {
-			return 0, fmt.Errorf("not a valid duration string: %q", orig)
-		}
-		u := s[:i]
-		s = s[i:]
-		unit, ok := unitMap[u]
-		if !ok {
-			return 0, fmt.Errorf("unknown unit %q in duration %q", u, orig)
-		}
-		if unit.pos <= lastUnitPos { // Units must go in order from biggest to smallest.
-			return 0, fmt.Errorf("not a valid duration string: %q", orig)
-		}
-		lastUnitPos = unit.pos
-		// Check if the provided duration overflows time.Duration (> ~ 290years).
-		if v > 1<<63/unit.mult {
-			return 0, errors.New("duration out of range")
-		}
-		dur += v * unit.mult
-		if dur > 1<<63-1 {
-			return 0, errors.New("duration out of range")
-		}
+	d, err := ParseDuration(s[1:])
+	if err != nil {
+		return 0, err
 	}
 
-	if negative {
-		return Duration(-int64(dur)), nil
-	}
-
-	return Duration(dur), nil
+	return -d, nil
 }
 
 func (d Duration) String() string {
