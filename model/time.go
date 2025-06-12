@@ -278,16 +278,17 @@ func ParseDurationAllowNegative(s string) (Duration, error) {
 
 func (d Duration) String() string {
 	var (
-		ms = int64(time.Duration(d) / time.Millisecond)
-		r  = ""
+		ms   = int64(time.Duration(d) / time.Millisecond)
+		r    = ""
+		sign = ""
 	)
+
 	if ms == 0 {
 		return "0s"
 	}
 
-	negative := ms < 0
-	if negative {
-		ms = -ms
+	if ms < 0 {
+		sign, ms = "-", -ms
 	}
 
 	f := func(unit string, mult int64, exact bool) {
@@ -311,11 +312,7 @@ func (d Duration) String() string {
 	f("s", 1000, false)
 	f("ms", 1, false)
 
-	if negative {
-		return "-" + r
-	}
-
-	return r
+	return sign + r
 }
 
 // MarshalJSON implements the json.Marshaler interface.
