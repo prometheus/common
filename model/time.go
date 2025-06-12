@@ -214,10 +214,68 @@ func ParseDuration(s string) (Duration, error) {
 	var dur uint64
 	lastUnitPos := 0
 
-	// Check if duration is negative.
-	neg := false
+	for s != "" {
+		if !isdigit(s[0]) {
+			return 0, fmt.Errorf("not a valid duration string: %q", orig)
+		}
+		// Consume [0-9]*
+		i := 0
+		for ; i < len(s) && isdigit(s[i]); i++ {
+		}
+		v, err := strconv.ParseUint(s[:i], 10, 0)
+		if err != nil {
+			return 0, fmt.Errorf("not a valid duration string: %q", orig)
+		}
+		s = s[i:]
+
+		// Consume unit.
+		for i = 0; i < len(s) && !isdigit(s[i]); i++ {
+		}
+		if i == 0 {
+			return 0, fmt.Errorf("not a valid duration string: %q", orig)
+		}
+		u := s[:i]
+		s = s[i:]
+		unit, ok := unitMap[u]
+		if !ok {
+			return 0, fmt.Errorf("unknown unit %q in duration %q", u, orig)
+		}
+		if unit.pos <= lastUnitPos { // Units must go in order from biggest to smallest.
+			return 0, fmt.Errorf("not a valid duration string: %q", orig)
+		}
+		lastUnitPos = unit.pos
+		// Check if the provided duration overflows time.Duration (> ~ 290years).
+		if v > 1<<63/unit.mult {
+			return 0, errors.New("duration out of range")
+		}
+		dur += v * unit.mult
+		if dur > 1<<63-1 {
+			return 0, errors.New("duration out of range")
+		}
+	}
+
+	return Duration(dur), nil
+}
+
+// ParseDurationAllowNegative parses a string into a time.Duration, assuming that a year
+// always has 365d, a week always has 7d, and a day always has 24h.
+// Supporting negative durations as well.
+func ParseDurationAllowNegative(s string) (Duration, error) {
+	switch s {
+	case "0":
+		// Allow 0 without a unit.
+		return 0, nil
+	case "":
+		return 0, errors.New("empty duration string")
+	}
+
+	orig := s
+	var dur uint64
+	lastUnitPos := 0
+
+	negative := false
 	if s[0] == '-' {
-		neg = true
+		negative = true
 		s = s[1:]
 	}
 
@@ -261,8 +319,7 @@ func ParseDuration(s string) (Duration, error) {
 		}
 	}
 
-	if neg {
-		// Return negative duration.
+	if negative {
 		return Duration(-int64(dur)), nil
 	}
 
@@ -278,9 +335,8 @@ func (d Duration) String() string {
 		return "0s"
 	}
 
-	// Handle negative duration.
-	neg := ms < 0
-	if neg {
+	negative := ms < 0
+	if negative {
 		ms = -ms
 	}
 
@@ -305,8 +361,7 @@ func (d Duration) String() string {
 	f("s", 1000, false)
 	f("ms", 1, false)
 
-	if neg {
-		// Return negative duration.
+	if negative {
 		return "-" + r
 	}
 
