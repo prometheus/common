@@ -214,6 +214,13 @@ func ParseDuration(s string) (Duration, error) {
 	var dur uint64
 	lastUnitPos := 0
 
+	// Check if duration is negative.
+	neg := false
+	if s[0] == '-' {
+		neg = true
+		s = s[1:]
+	}
+
 	for s != "" {
 		if !isdigit(s[0]) {
 			return 0, fmt.Errorf("not a valid duration string: %q", orig)
@@ -253,6 +260,12 @@ func ParseDuration(s string) (Duration, error) {
 			return 0, errors.New("duration out of range")
 		}
 	}
+
+	if neg {
+		// Return negative duration.
+		return Duration(-int64(dur)), nil
+	}
+
 	return Duration(dur), nil
 }
 
@@ -263,6 +276,12 @@ func (d Duration) String() string {
 	)
 	if ms == 0 {
 		return "0s"
+	}
+
+	// Handle negative duration.
+	neg := ms < 0
+	if neg {
+		ms = -ms
 	}
 
 	f := func(unit string, mult int64, exact bool) {
@@ -285,6 +304,11 @@ func (d Duration) String() string {
 	f("m", 1000*60, false)
 	f("s", 1000, false)
 	f("ms", 1, false)
+
+	if neg {
+		// Return negative duration.
+		return "-" + r
+	}
 
 	return r
 }

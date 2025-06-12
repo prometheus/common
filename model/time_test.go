@@ -118,6 +118,29 @@ func TestParseDuration(t *testing.T) {
 			in:  "10y",
 			out: 10 * 365 * 24 * time.Hour,
 		},
+		{
+			in:  "-3s",
+			out: -3 * time.Second,
+		}, {
+			in:  "-5m",
+			out: -5 * time.Minute,
+		}, {
+			in:  "-1h",
+			out: -1 * time.Hour,
+		}, {
+			in:  "-2d",
+			out: -2 * 24 * time.Hour,
+		}, {
+			in:  "-1w",
+			out: -7 * 24 * time.Hour,
+		}, {
+			in:             "-3w2d1h",
+			out:            -(3*7*24*time.Hour + 2*24*time.Hour + time.Hour),
+			expectedString: "-23d1h",
+		}, {
+			in:  "-10y",
+			out: -10 * 365 * 24 * time.Hour,
+		},
 	}
 
 	for _, c := range cases {
