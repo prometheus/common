@@ -260,20 +260,13 @@ func ParseDuration(s string) (Duration, error) {
 
 // ParseDurationAllowNegative is like ParseDuration but also accepts negative durations.
 func ParseDurationAllowNegative(s string) (Duration, error) {
-	if s == "" {
-		return 0, errors.New("empty duration string")
-	}
-
-	if s[0] != '-' {
+	if s == "" || s[0] != '-' {
 		return ParseDuration(s)
 	}
 
 	d, err := ParseDuration(s[1:])
-	if err != nil {
-		return 0, err
-	}
 
-	return -d, nil
+	return -d, err
 }
 
 func (d Duration) String() string {
