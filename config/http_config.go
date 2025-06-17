@@ -36,7 +36,7 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
-	"gopkg.in/yaml.v2"
+	yaml "sigs.k8s.io/yaml/goyaml.v2"
 )
 
 var (

@@ -23,7 +23,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v2"
+	yaml "sigs.k8s.io/yaml/goyaml.v2"
 )
 
 var (
