@@ -22,28 +22,26 @@ import (
 )
 
 func TestAlertValidate(t *testing.T) {
-	oldScheme := NameValidationScheme
-	NameValidationScheme = LegacyValidation
-	defer func() {
-		NameValidationScheme = oldScheme
-	}()
 	ts := time.Now()
 
 	cases := []struct {
-		alert *Alert
-		err   string
+		alert  *Alert
+		err    string
+		scheme ValidationScheme
 	}{
 		{
 			alert: &Alert{
 				Labels:   LabelSet{"a": "b"},
 				StartsAt: ts,
 			},
+			scheme: LegacyValidation,
 		},
 		{
 			alert: &Alert{
 				Labels: LabelSet{"a": "b"},
 			},
-			err: "start time missing",
+			scheme: LegacyValidation,
+			err:    "start time missing",
 		},
 		{
 			alert: &Alert{
@@ -51,6 +49,7 @@ func TestAlertValidate(t *testing.T) {
 				StartsAt: ts,
 				EndsAt:   ts,
 			},
+			scheme: LegacyValidation,
 		},
 		{
 			alert: &Alert{
@@ -58,6 +57,7 @@ func TestAlertValidate(t *testing.T) {
 				StartsAt: ts,
 				EndsAt:   ts.Add(1 * time.Minute),
 			},
+			scheme: LegacyValidation,
 		},
 		{
 			alert: &Alert{
@@ -65,27 +65,31 @@ func TestAlertValidate(t *testing.T) {
 				StartsAt: ts,
 				EndsAt:   ts.Add(-1 * time.Minute),
 			},
-			err: "start time must be before end time",
+			scheme: LegacyValidation,
+			err:    "start time must be before end time",
 		},
 		{
 			alert: &Alert{
 				StartsAt: ts,
 			},
-			err: "at least one label pair required",
+			scheme: LegacyValidation,
+			err:    "at least one label pair required",
 		},
 		{
 			alert: &Alert{
 				Labels:   LabelSet{"a": "b", "!bad": "label"},
 				StartsAt: ts,
 			},
-			err: "invalid label set: invalid name",
+			scheme: LegacyValidation,
+			err:    "invalid label set: invalid name",
 		},
 		{
 			alert: &Alert{
 				Labels:   LabelSet{"a": "b", "bad": "\xfflabel"},
 				StartsAt: ts,
 			},
-			err: "invalid label set: invalid value",
+			scheme: LegacyValidation,
+			err:    "invalid label set: invalid value",
 		},
 		{
 			alert: &Alert{
@@ -93,7 +97,8 @@ func TestAlertValidate(t *testing.T) {
 				Annotations: LabelSet{"!bad": "label"},
 				StartsAt:    ts,
 			},
-			err: "invalid annotations: invalid name",
+			scheme: LegacyValidation,
+			err:    "invalid annotations: invalid name",
 		},
 		{
 			alert: &Alert{
@@ -101,12 +106,13 @@ func TestAlertValidate(t *testing.T) {
 				Annotations: LabelSet{"bad": "\xfflabel"},
 				StartsAt:    ts,
 			},
-			err: "invalid annotations: invalid value",
+			scheme: LegacyValidation,
+			err:    "invalid annotations: invalid value",
 		},
 	}
 
 	for i, c := range cases {
-		err := c.alert.Validate()
+		err := c.alert.Validate(c.scheme)
 		if err == nil {
 			if c.err == "" {
 				continue
