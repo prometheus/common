@@ -216,12 +216,12 @@ func IsValidMetricName(n LabelValue, scheme ValidationScheme) bool {
 		}
 		return utf8.ValidString(string(n))
 	default:
-		panic(fmt.Sprintf("Invalid name validation scheme requested: %s", scheme.String()))
+		panic(fmt.Sprintf("Invalid name validation scheme requested: %s", scheme))
 	}
 }
 
 // IsValidLegacyMetricName is similar to IsValidMetricName but always uses the
-// legacy validation scheme regardless of the value of NameValidationScheme.
+// legacy validation scheme.
 // This function, however, does not use MetricNameRE for the check but a much
 // faster hardcoded implementation.
 func IsValidLegacyMetricName(n string) bool {
