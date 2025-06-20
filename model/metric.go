@@ -35,7 +35,7 @@ import (
 // has that feature enabled.
 var NameEscapingScheme = UnderscoreEscaping
 
-// ValidationScheme is a Go enum for determining how metric and label names will
+// NameValidationScheme is a Go enum for determining how metric and label names will
 // be validated by this library.
 type ValidationScheme int
 
