@@ -88,7 +88,7 @@ mf2 4
 	var all model.Vector
 	for {
 		var smpls model.Vector
-		err := dec.Decode(&smpls)
+		err := dec.Decode(&smpls, model.UTF8Validation)
 		if err != nil && errors.Is(err, io.EOF) {
 			break
 		}
@@ -369,22 +369,20 @@ func TestProtoDecoder(t *testing.T) {
 
 		var all model.Vector
 		for {
-			model.NameValidationScheme = model.LegacyValidation //nolint:staticcheck
 			var smpls model.Vector
-			err := dec.Decode(&smpls)
+			err := dec.Decode(&smpls, model.LegacyValidation)
 			if err != nil && errors.Is(err, io.EOF) {
 				break
 			}
 			if scenario.legacyNameFail {
 				require.Errorf(t, err, "Expected error when decoding without UTF-8 support enabled but got none")
-				model.NameValidationScheme = model.UTF8Validation //nolint:staticcheck
 				dec = &SampleDecoder{
 					Dec: &protoDecoder{r: strings.NewReader(scenario.in)},
 					Opts: &DecodeOptions{
 						Timestamp: testTime,
 					},
 				}
-				err = dec.Decode(&smpls)
+				err = dec.Decode(&smpls, model.UTF8Validation)
 				if errors.Is(err, io.EOF) {
 					break
 				}
@@ -412,7 +410,7 @@ func TestProtoMultiMessageDecoder(t *testing.T) {
 	var metrics []*dto.MetricFamily
 	for {
 		var mf dto.MetricFamily
-		if err := decoder.Decode(&mf); err != nil {
+		if err := decoder.Decode(&mf, model.UTF8Validation); err != nil {
 			if errors.Is(err, io.EOF) {
 				break
 			}
@@ -560,7 +558,7 @@ func TestTextDecoderWithBufioReader(t *testing.T) {
 	dec := NewDecoder(r, FmtText)
 	for {
 		var mf dto.MetricFamily
-		if err := dec.Decode(&mf); err != nil {
+		if err := dec.Decode(&mf, model.UTF8Validation); err != nil {
 			if errors.Is(err, io.EOF) {
 				break
 			}

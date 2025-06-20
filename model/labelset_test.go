@@ -16,6 +16,8 @@ package model
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestUnmarshalJSONLabelSet(t *testing.T) {
@@ -55,12 +57,10 @@ func TestUnmarshalJSONLabelSet(t *testing.T) {
 	}
 }`
 
-	NameValidationScheme = LegacyValidation
 	err = json.Unmarshal([]byte(invalidlabelSetJSON), &c)
-	expectedErr := `"1nvalid_23name" is not a valid label name`
-	if err == nil || err.Error() != expectedErr {
-		t.Errorf("expected an error with message '%s' to be thrown", expectedErr)
-	}
+	require.NoError(t, err)
+	err = c.LabelSet.Validate(LegacyValidation)
+	require.EqualError(t, err, `invalid name "1nvalid_23name"`)
 }
 
 func TestLabelSetClone(t *testing.T) {

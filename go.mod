@@ -36,3 +36,5 @@ require (
 )
 
 retract v0.50.0 // Critical bug in counter suffixes, please read issue https://github.com/prometheus/common/issues/605
+
+replace github.com/prometheus/client_golang => github.com/juliusmh/client_golang v1.22.1-0.20250701110037-ceb5803cbf1f
