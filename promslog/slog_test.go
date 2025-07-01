@@ -21,6 +21,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
@@ -92,6 +93,41 @@ func getLogEntryLevelCounts(s string, re *regexp.Regexp) map[string]int {
 	}
 
 	return counters
+}
+
+func TestDurationValues(t *testing.T) {
+	var (
+		buf    bytes.Buffer
+		output string
+		dur, _ = time.ParseDuration("1m30s")
+		config = &Config{Writer: &buf}
+	)
+
+	// Test logfmt.
+	logger := New(config)
+	logger.Info("duration testing", slog.Duration("duration_raw", dur), slog.String("duration_string", dur.String()))
+	output = buf.String()
+	// Print logs for humans to see, if needed.
+	fmt.Println(output)
+
+	require.NotContainsf(t, output, "duration_raw=\"90000000000\"", "Expected duration to be output as Go duration string \"1m30s\", got \"90000000000\"")
+
+	buf.Reset()
+
+	// Test json.
+	jsonFmt := NewFormat()
+	_ = jsonFmt.Set("json")
+	config.Format = jsonFmt
+
+	logger = New(config)
+	logger.Info("duration testing", "duration_raw", dur, "duration_string", dur.String())
+	output = buf.String()
+	// Print logs for humans to see, if needed.
+	fmt.Println(output)
+
+	require.NotContainsf(t, output, "\"duration_raw\":90000000000", "Expected duration to be output as Go duration string \"1m30s\", got \"90000000000\"")
+
+	buf.Reset()
 }
 
 func TestDynamicLevels(t *testing.T) {
