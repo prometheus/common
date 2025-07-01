@@ -14,12 +14,16 @@
 package model
 
 import (
+	"errors"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	dto "github.com/prometheus/client_model/go"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"gopkg.in/yaml.v2"
 )
 
 func testMetric(t testing.TB) {
@@ -86,6 +90,115 @@ func TestMetric(t *testing.T) {
 func BenchmarkMetric(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		testMetric(b)
+	}
+}
+
+func TestValidationScheme(t *testing.T) {
+	var scheme ValidationScheme
+	require.Equal(t, UnsetValidation, scheme)
+}
+
+func TestValidationScheme_String(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		scheme ValidationScheme
+		want   string
+	}{
+		{
+			name:   "Unset",
+			scheme: UnsetValidation,
+			want:   `unset`,
+		},
+		{
+			name:   "Legacy",
+			scheme: LegacyValidation,
+			want:   "legacy",
+		},
+		{
+			name:   "UTF8",
+			scheme: UTF8Validation,
+			want:   "utf8",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, tc.scheme.String())
+		})
+	}
+}
+
+func TestValidationScheme_MarshalYAML(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		scheme ValidationScheme
+		want   string
+	}{
+		{
+			name:   "Unset",
+			scheme: UnsetValidation,
+			want:   `""`,
+		},
+		{
+			name:   "Legacy",
+			scheme: LegacyValidation,
+			want:   "legacy",
+		},
+		{
+			name:   "UTF8",
+			scheme: UTF8Validation,
+			want:   "utf8",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			marshaled, err := yaml.Marshal(tc.scheme)
+			require.NoError(t, err)
+			require.Equal(t, tc.want, strings.TrimSpace(string(marshaled)))
+		})
+	}
+}
+
+func TestValidationScheme_UnmarshalYAML(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		input     string
+		want      ValidationScheme
+		wantError error
+	}{
+		{
+			name:  "Unset empty input",
+			input: ``,
+			want:  UnsetValidation,
+		},
+		{
+			name:  "Unset quoted input",
+			input: `""`,
+			want:  UnsetValidation,
+		},
+		{
+			name:  "Legacy",
+			input: `legacy`,
+			want:  LegacyValidation,
+		},
+		{
+			name:  "UTF8",
+			input: `utf8`,
+			want:  UTF8Validation,
+		},
+		{
+			name:      "Invalid",
+			input:     `invalid`,
+			wantError: errors.New(`unrecognized ValidationScheme: "invalid"`),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			scheme := UnsetValidation
+			err := yaml.Unmarshal([]byte(tc.input), &scheme)
+			if tc.wantError == nil {
+				require.NoError(t, err)
+				require.Equal(t, tc.want, scheme)
+			} else {
+				require.EqualError(t, err, tc.wantError.Error())
+			}
+		})
 	}
 }
 
