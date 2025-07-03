@@ -103,8 +103,8 @@ func TestDurationValues(t *testing.T) {
 		logFormat string
 		want      string
 	}{
-		"logfmt_duration_testing": {want: "duration_raw=1m30s", logFormat: "logfmt"},
-		"json_duration_testing":   {want: "\"duration_raw\":\"1m30s\"", logFormat: "json"},
+		"logfmt_duration_testing": {want: "duration_raw=1m30s duration_string=1m30s", logFormat: "logfmt"},
+		"json_duration_testing":   {want: "\"duration_raw\":\"1m30s\",\"duration_string\":\"1m30s\"", logFormat: "json"},
 	}
 
 	for name, tc := range tests {
