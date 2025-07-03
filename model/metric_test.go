@@ -107,7 +107,7 @@ func TestValidationScheme_String(t *testing.T) {
 		{
 			name:   "Unset",
 			scheme: UnsetValidation,
-			want:   `unset`,
+			want:   "unset",
 		},
 		{
 			name:   "Legacy",
@@ -165,7 +165,7 @@ func TestValidationScheme_UnmarshalYAML(t *testing.T) {
 	}{
 		{
 			name:  "Unset empty input",
-			input: ``,
+			input: "",
 			want:  UnsetValidation,
 		},
 		{
@@ -175,17 +175,17 @@ func TestValidationScheme_UnmarshalYAML(t *testing.T) {
 		},
 		{
 			name:  "Legacy",
-			input: `legacy`,
+			input: "legacy",
 			want:  LegacyValidation,
 		},
 		{
 			name:  "UTF8",
-			input: `utf8`,
+			input: "utf8",
 			want:  UTF8Validation,
 		},
 		{
 			name:      "Invalid",
-			input:     `invalid`,
+			input:     "invalid",
 			wantError: errors.New(`unrecognized ValidationScheme: "invalid"`),
 		},
 	} {
