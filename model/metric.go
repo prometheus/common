@@ -216,7 +216,7 @@ func IsValidMetricName(n LabelValue, scheme ValidationScheme) bool {
 		}
 		return utf8.ValidString(string(n))
 	default:
-		panic(fmt.Sprintf("Invalid name validation scheme requested: %s", scheme))
+		panic(fmt.Sprintf("Invalid name validation scheme requested: %s", scheme.String()))
 	}
 }
 
