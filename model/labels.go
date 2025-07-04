@@ -115,7 +115,7 @@ func (ln LabelName) IsValid(scheme ValidationScheme) bool {
 	case UTF8Validation:
 		return utf8.ValidString(string(ln))
 	default:
-		panic(fmt.Sprintf("Invalid name validation scheme requested: %s", scheme))
+		panic(fmt.Sprintf("Invalid name validation scheme requested: %s", scheme.String()))
 	}
 }
 
