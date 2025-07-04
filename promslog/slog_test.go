@@ -21,6 +21,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
@@ -92,6 +93,33 @@ func getLogEntryLevelCounts(s string, re *regexp.Regexp) map[string]int {
 	}
 
 	return counters
+}
+
+func TestDurationValues(t *testing.T) {
+	dur, err := time.ParseDuration("1m30s")
+	require.NoError(t, err)
+
+	tests := map[string]struct {
+		logFormat string
+		want      string
+	}{
+		"logfmt_duration_testing": {want: "duration_raw=1m30s duration_string=1m30s", logFormat: "logfmt"},
+		"json_duration_testing":   {want: "\"duration_raw\":\"1m30s\",\"duration_string\":\"1m30s\"", logFormat: "json"},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			var buf bytes.Buffer
+			config := &Config{
+				Writer: &buf,
+				Format: NewFormat(),
+			}
+			require.NoError(t, config.Format.Set(tc.logFormat))
+			logger := New(config)
+			logger.Info("duration testing", "duration_raw", dur, "duration_string", dur.String())
+			require.Contains(t, buf.String(), tc.want)
+		})
+	}
 }
 
 func TestDynamicLevels(t *testing.T) {
