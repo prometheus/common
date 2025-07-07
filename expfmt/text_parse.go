@@ -290,7 +290,7 @@ func (p *TextParser) startLabelName() stateFn {
 		if p.skipBlankTab(); p.err != nil {
 			return nil // Unexpected end of input.
 		}
-		return p.readingValue
+		return p.validateLabelNames
 	}
 	if p.readTokenAsLabelName(); p.err != nil {
 		return nil // Unexpected end of input.
@@ -349,7 +349,13 @@ func (p *TextParser) startLabelName() stateFn {
 		(p.currentMF.GetType() != dto.MetricType_HISTOGRAM || p.currentLabelPair.GetName() != model.BucketLabel) {
 		p.currentLabelPairs = append(p.currentLabelPairs, p.currentLabelPair)
 	}
-	// Check for duplicate label names.
+
+	return p.startLabelValue
+}
+
+// validateLabelNames represents the state where label names and values have been read
+// and should be checked for duplicates
+func (p *TextParser) validateLabelNames() stateFn {
 	labels := make(map[string]struct{})
 	for _, l := range p.currentLabelPairs {
 		lName := l.GetName()
@@ -361,7 +367,7 @@ func (p *TextParser) startLabelName() stateFn {
 			return nil
 		}
 	}
-	return p.startLabelValue
+	return p.readingValue
 }
 
 // startLabelValue represents the state where the next byte read from p.buf is
@@ -426,7 +432,7 @@ func (p *TextParser) startLabelValue() stateFn {
 		if p.skipBlankTab(); p.err != nil {
 			return nil // Unexpected end of input.
 		}
-		return p.readingValue
+		return p.validateLabelNames
 	default:
 		p.parseError(fmt.Sprintf("unexpected end of label value %q", p.currentLabelPair.GetValue()))
 		p.currentLabelPairs = nil
