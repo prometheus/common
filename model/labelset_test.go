@@ -59,7 +59,7 @@ func TestUnmarshalJSONLabelSet(t *testing.T) {
 
 	err = json.Unmarshal([]byte(invalidlabelSetJSON), &c)
 	require.NoError(t, err)
-	err = c.LabelSet.Validate(LegacyValidation)
+	err = c.LabelSet.validate(LegacyValidation)
 	require.EqualError(t, err, `invalid name "1nvalid_23name"`)
 }
 

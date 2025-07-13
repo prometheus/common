@@ -23,6 +23,7 @@ import (
 	"os"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -88,7 +89,7 @@ mf2 4
 	var all model.Vector
 	for {
 		var smpls model.Vector
-		err := dec.Decode(&smpls, model.UTF8Validation)
+		err := dec.Decode(&smpls)
 		if err != nil && errors.Is(err, io.EOF) {
 			break
 		}
@@ -360,44 +361,46 @@ func TestProtoDecoder(t *testing.T) {
 	}
 
 	for i, scenario := range scenarios {
-		dec := &SampleDecoder{
-			Dec: &protoDecoder{r: strings.NewReader(scenario.in)},
-			Opts: &DecodeOptions{
-				Timestamp: testTime,
-			},
-		}
-
-		var all model.Vector
-		for {
-			var smpls model.Vector
-			err := dec.Decode(&smpls, model.LegacyValidation)
-			if err != nil && errors.Is(err, io.EOF) {
-				break
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			dec := &SampleDecoder{
+				Dec: newDecoder(t, strings.NewReader(scenario.in), FmtProtoDelim, model.LegacyValidation),
+				Opts: &DecodeOptions{
+					Timestamp: testTime,
+				},
 			}
-			if scenario.legacyNameFail {
-				require.Errorf(t, err, "Expected error when decoding without UTF-8 support enabled but got none")
-				dec = &SampleDecoder{
-					Dec: &protoDecoder{r: strings.NewReader(scenario.in)},
-					Opts: &DecodeOptions{
-						Timestamp: testTime,
-					},
-				}
-				err = dec.Decode(&smpls, model.UTF8Validation)
-				if errors.Is(err, io.EOF) {
+
+			var all model.Vector
+			for {
+				var smpls model.Vector
+				err := dec.Decode(&smpls)
+				if err != nil && errors.Is(err, io.EOF) {
 					break
 				}
-				require.NoErrorf(t, err, "Unexpected error when decoding with UTF-8 support: %v", err)
+				if scenario.legacyNameFail {
+					require.Errorf(t, err, "Expected error when decoding without UTF-8 support enabled but got none")
+					dec = &SampleDecoder{
+						Dec: newDecoder(t, strings.NewReader(scenario.in), FmtProtoDelim, model.UTF8Validation),
+						Opts: &DecodeOptions{
+							Timestamp: testTime,
+						},
+					}
+					err = dec.Decode(&smpls)
+					if errors.Is(err, io.EOF) {
+						break
+					}
+					require.NoErrorf(t, err, "Unexpected error when decoding with UTF-8 support: %v", err)
+				}
+				if scenario.fail {
+					require.Errorf(t, err, "Expected error but got none")
+					break
+				}
+				require.NoError(t, err)
+				all = append(all, smpls...)
 			}
-			if scenario.fail {
-				require.Errorf(t, err, "Expected error but got none")
-				break
-			}
-			require.NoError(t, err)
-			all = append(all, smpls...)
-		}
-		sort.Sort(all)
-		sort.Sort(scenario.expected)
-		require.Truef(t, reflect.DeepEqual(all, scenario.expected), "%d. output does not match, want: %#v, got %#v", i, scenario.expected, all)
+			sort.Sort(all)
+			sort.Sort(scenario.expected)
+			require.Truef(t, reflect.DeepEqual(all, scenario.expected), "%d. output does not match, want: %#v, got %#v", i, scenario.expected, all)
+		})
 	}
 }
 
@@ -406,11 +409,11 @@ func TestProtoMultiMessageDecoder(t *testing.T) {
 	require.NoErrorf(t, err, "Reading file failed: %v", err)
 
 	buf := bytes.NewReader(data)
-	decoder := NewDecoder(buf, FmtProtoDelim)
+	decoder := newDecoder(t, buf, FmtProtoDelim, model.UTF8Validation)
 	var metrics []*dto.MetricFamily
 	for {
 		var mf dto.MetricFamily
-		if err := decoder.Decode(&mf, model.UTF8Validation); err != nil {
+		if err := decoder.Decode(&mf); err != nil {
 			if errors.Is(err, io.EOF) {
 				break
 			}
@@ -555,10 +558,10 @@ func TestTextDecoderWithBufioReader(t *testing.T) {
 
 	var decoded bool
 	r := bufio.NewReader(strings.NewReader(example))
-	dec := NewDecoder(r, FmtText)
+	dec := newDecoder(t, r, FmtText, model.UTF8Validation)
 	for {
 		var mf dto.MetricFamily
-		if err := dec.Decode(&mf, model.UTF8Validation); err != nil {
+		if err := dec.Decode(&mf); err != nil {
 			if errors.Is(err, io.EOF) {
 				break
 			}

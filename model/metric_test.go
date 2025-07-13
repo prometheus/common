@@ -261,15 +261,7 @@ func TestMetricNameIsLegacyValid(t *testing.T) {
 	}
 
 	for _, s := range scenarios {
-		if IsValidMetricName(s.mn, LegacyValidation) != s.legacyValid {
-			t.Errorf("Expected %v for %q using legacy IsValidMetricName method", s.legacyValid, s.mn)
-		}
-		if MetricNameRE.MatchString(string(s.mn)) != s.legacyValid {
-			t.Errorf("Expected %v for %q using regexp matching", s.legacyValid, s.mn)
-		}
-		if IsValidMetricName(s.mn, UTF8Validation) != s.utf8Valid {
-			t.Errorf("Expected %v for %q using utf-8 IsValidMetricName method", s.legacyValid, s.mn)
-		}
+		testIsValidMetricName(t, s.mn, s.legacyValid, s.utf8Valid)
 	}
 }
 
