@@ -15,3 +15,16 @@ any stability guarantees for external usage.
 * **route**: A routing wrapper around [httprouter](https://github.com/julienschmidt/httprouter) using `context.Context`
 * **server**: Common servers
 * **version**: Version information and metrics
+
+## Metric/label name validation scheme
+
+The libraries in this Go module share a notion of metric and label name validation scheme.
+There are two different schemes to choose from:
+* `model.LegacyValidation` => Metric and label names have to conform to the original Prometheus character requirements
+* `model.UTF8Validation` => Metric and label names are only required to be valid UTF-8 strings
+
+The active name validation scheme is normally implicitly controlled via the global variable `model.NameValidationScheme`.
+It's used by functions such as `model.IsValidMetricName` and `model.LabelName.IsValid`.
+_However_, if building with the _experimental_ build tag `localvalidationscheme`, the `model.NameValidationScheme` global is removed, and the API changes to accept the name validation scheme as an explicit parameter.
+`model.NameValidationScheme` is deprecated, and at some point, the API currently controlled by the build tag `localvalidationscheme` becomes standard.
+For the time being, the `localvalidationscheme` build tag is experimental and the API enabled by it may change.
