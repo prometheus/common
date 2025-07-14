@@ -27,4 +27,5 @@ The active name validation scheme is normally implicitly controlled via the glob
 It's used by functions such as `model.IsValidMetricName` and `model.LabelName.IsValid`.
 _However_, if building with the _experimental_ build tag `localvalidationscheme`, the `model.NameValidationScheme` global is removed, and the API changes to accept the name validation scheme as an explicit parameter.
 `model.NameValidationScheme` is deprecated, and at some point, the API currently controlled by the build tag `localvalidationscheme` becomes standard.
+All users of this library will be expected to move to the new API, and there will be an announcement in the changelog when the global is removed.
 For the time being, the `localvalidationscheme` build tag is experimental and the API enabled by it may change.
