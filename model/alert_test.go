@@ -16,17 +16,13 @@ package model
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 )
 
 func TestAlertValidate(t *testing.T) {
-	oldScheme := NameValidationScheme
-	NameValidationScheme = LegacyValidation
-	defer func() {
-		NameValidationScheme = oldScheme
-	}()
 	ts := time.Now()
 
 	cases := []struct {
@@ -106,21 +102,23 @@ func TestAlertValidate(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		err := c.alert.Validate()
-		if err == nil {
-			if c.err == "" {
-				continue
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			err := testValidate(t, c.alert, LegacyValidation)
+			if err == nil {
+				if c.err == "" {
+					return
+				}
+				t.Errorf("%d. Expected error %q but got none", i, c.err)
+				return
 			}
-			t.Errorf("%d. Expected error %q but got none", i, c.err)
-			continue
-		}
-		if c.err == "" {
-			t.Errorf("%d. Expected no error but got %q", i, err)
-			continue
-		}
-		if !strings.Contains(err.Error(), c.err) {
-			t.Errorf("%d. Expected error to contain %q but got %q", i, c.err, err)
-		}
+			if c.err == "" {
+				t.Errorf("%d. Expected no error but got %q", i, err)
+				return
+			}
+			if !strings.Contains(err.Error(), c.err) {
+				t.Errorf("%d. Expected error to contain %q but got %q", i, c.err, err)
+			}
+		})
 	}
 }
 

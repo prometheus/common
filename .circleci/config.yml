@@ -12,6 +12,9 @@ jobs:
       use_gomod_cache:
         type: boolean
         default: true
+      build_tags:
+        type: string
+        default: ""
     docker:
       - image: cimg/go:<< parameters.go_version >>
     environment:
@@ -24,7 +27,12 @@ jobs:
           steps:
             - go/load-cache:
                 key: v1-go<< parameters.go_version >>
-      - run: make test
+      - run: |
+          if [ -n "<< parameters.build_tags >>" ]; then
+            make test GOOPTS="-tags=<< parameters.build_tags >>"
+          else
+            make test
+          fi
       - when:
           condition: << parameters.use_gomod_cache >>
           steps:
@@ -89,12 +97,15 @@ workflows:
     jobs:
       # Supported Go versions are synced with github.com/prometheus/client_golang.
       - test:
-          name: go-<< matrix.go_version >>
+          name: go-<< matrix.go_version >><<# matrix.build_tags >>-<< matrix.build_tags >><</matrix.build_tags >>
           matrix:
             parameters:
               go_version:
                 - "1.23"
                 - "1.24"
+              build_tags:
+                - ""
+                - "localvalidationscheme"
       - test-assets:
           name: assets-go-<< matrix.go_version >>
           matrix:
