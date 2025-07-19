@@ -1,4 +1,14 @@
-version: "2"
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/prometheus/common
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
 linters:
   enable:
     - errorlint
@@ -6,6 +16,14 @@ linters:
     - perfsprint
     - revive
     - testifylint
+  exclusions:
+    generated: strict
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    warn-unused: true
   settings:
     perfsprint:
       # Optimizes even if it requires an int or uint type cast.
@@ -25,36 +43,9 @@ linters:
           severity: warning
           disabled: true
     testifylint:
-      enable-all: true
       disable:
         - go-require
+      enable-all: true
       formatter:
         require-f-funcs: true
-  exclusions:
-    generated: lax
-    presets:
-      - comments
-      - common-false-positives
-      - legacy
-      - std-error-handling
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
-issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0
-formatters:
-  enable:
-    - gofumpt
-    - goimports
-  settings:
-    goimports:
-      local-prefixes:
-        - github.com/prometheus/common
-  exclusions:
-    generated: lax
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
+version: "2"
