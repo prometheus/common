@@ -15,6 +15,7 @@ package model
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -202,9 +203,9 @@ func TestValidationScheme_UnmarshalYAML(t *testing.T) {
 	}
 }
 
-func TestMetricNameIsLegacyValid(t *testing.T) {
+func TestValidationScheme_IsMetricNameValid(t *testing.T) {
 	scenarios := []struct {
-		mn          LabelValue
+		mn          string
 		legacyValid bool
 		utf8Valid   bool
 	}{
@@ -259,19 +260,35 @@ func TestMetricNameIsLegacyValid(t *testing.T) {
 			utf8Valid:   false,
 		},
 	}
-
 	for _, s := range scenarios {
-		NameValidationScheme = LegacyValidation
-		if IsValidMetricName(s.mn) != s.legacyValid {
-			t.Errorf("Expected %v for %q using legacy IsValidMetricName method", s.legacyValid, s.mn)
-		}
-		if MetricNameRE.MatchString(string(s.mn)) != s.legacyValid {
-			t.Errorf("Expected %v for %q using regexp matching", s.legacyValid, s.mn)
-		}
-		NameValidationScheme = UTF8Validation
-		if IsValidMetricName(s.mn) != s.utf8Valid {
-			t.Errorf("Expected %v for %q using utf-8 IsValidMetricName method", s.legacyValid, s.mn)
-		}
+		t.Run(fmt.Sprintf("%s,%t,%t", s.mn, s.legacyValid, s.utf8Valid), func(t *testing.T) {
+			if LegacyValidation.IsValidMetricName(s.mn) != s.legacyValid {
+				t.Errorf("Expected %v for %q using LegacyValidation.IsValidMetricName", s.legacyValid, s.mn)
+			}
+			if MetricNameRE.MatchString(string(s.mn)) != s.legacyValid {
+				t.Errorf("Expected %v for %q using regexp matching", s.legacyValid, s.mn)
+			}
+			if UTF8Validation.IsValidMetricName(s.mn) != s.utf8Valid {
+				t.Errorf("Expected %v for %q using UTF8Validation.IsValidMetricName", s.utf8Valid, s.mn)
+			}
+
+			// Test deprecated functions.
+			if IsValidLegacyMetricName(s.mn) != s.legacyValid {
+				t.Errorf("Expected %v for %q using IsValidLegacyMetricNames", s.legacyValid, s.mn)
+			}
+			origScheme := NameValidationScheme
+			t.Cleanup(func() {
+				NameValidationScheme = origScheme
+			})
+			NameValidationScheme = LegacyValidation
+			if IsValidMetricName(LabelValue(s.mn)) != s.legacyValid {
+				t.Errorf("Expected %v for %q using legacy IsValidMetricName", s.legacyValid, s.mn)
+			}
+			NameValidationScheme = UTF8Validation
+			if IsValidMetricName(LabelValue(s.mn)) != s.utf8Valid {
+				t.Errorf("Expected %v for %q using utf-8 IsValidMetricName method", s.legacyValid, s.mn)
+			}
+		})
 	}
 }
 
