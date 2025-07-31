@@ -14,6 +14,7 @@
 package model
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -199,6 +200,94 @@ func TestValidationScheme_UnmarshalYAML(t *testing.T) {
 			} else {
 				require.EqualError(t, err, tc.wantError.Error())
 			}
+		})
+	}
+}
+
+func TestValidationScheme_UnmarshalJSON(t *testing.T) {
+	testCases := []struct {
+		name    string
+		input   string
+		want    ValidationScheme
+		wantErr bool
+	}{
+		{
+			name:    "invalid",
+			input:   `invalid`,
+			wantErr: true,
+		},
+		{
+			name:  "empty",
+			input: `""`,
+			want:  UnsetValidation,
+		},
+		{
+			name:  "legacy validation",
+			input: `"legacy"`,
+			want:  LegacyValidation,
+		},
+		{
+			name:  "utf8 validation",
+			input: `"utf8"`,
+			want:  UTF8Validation,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var got ValidationScheme
+			err := json.Unmarshal([]byte(tc.input), &got)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.want, ValidationScheme(got))
+
+			output, err := json.Marshal(got)
+			require.NoError(t, err)
+			require.Equal(t, tc.input, string(output))
+		})
+	}
+}
+
+func TestValidationScheme_Set(t *testing.T) {
+	testCases := []struct {
+		name    string
+		input   string
+		want    ValidationScheme
+		wantErr bool
+	}{
+		{
+			name:    "invalid",
+			input:   `invalid`,
+			wantErr: true,
+		},
+		{
+			name:  "empty",
+			input: ``,
+			want:  UnsetValidation,
+		},
+		{
+			name:  "legacy validation",
+			input: `legacy`,
+			want:  LegacyValidation,
+		},
+		{
+			name:  "utf8 validation",
+			input: `utf8`,
+			want:  UTF8Validation,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var got ValidationScheme
+			err := got.Set(tc.input)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.want, ValidationScheme(got))
 		})
 	}
 }
