@@ -152,9 +152,6 @@ func (s ValidationScheme) IsValidMetricName(metricName string) bool {
 
 // IsValidLabelName returns whether labelName is valid according to s.
 func (s ValidationScheme) IsValidLabelName(labelName string) bool {
-	if len(labelName) == 0 {
-		return false
-	}
 	switch s {
 	case LegacyValidation:
 		if len(labelName) == 0 {
@@ -168,6 +165,9 @@ func (s ValidationScheme) IsValidLabelName(labelName string) bool {
 		}
 		return true
 	case UTF8Validation:
+		if len(labelName) == 0 {
+			return false
+		}
 		return utf8.ValidString(string(labelName))
 	default:
 		panic(fmt.Sprintf("Invalid name validation scheme requested: %s", s))
