@@ -142,6 +142,11 @@ func TestValidationScheme_IsLabelNameValid(t *testing.T) {
 			legacyValid: false,
 			utf8Valid:   false,
 		},
+		{
+			ln:          "",
+			legacyValid: false,
+			utf8Valid:   false,
+		},
 	}
 	for _, s := range scenarios {
 		t.Run(fmt.Sprintf("%s,%t,%t", s.ln, s.legacyValid, s.utf8Valid), func(t *testing.T) {
