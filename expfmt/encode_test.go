@@ -344,8 +344,21 @@ func TestEscapedEncode(t *testing.T) {
 		t.Errorf("expected the output bytes buffer to be non-empty")
 	}
 
-	buff.Reset()
+	dec, err := NewDecoder(bytes.NewReader(out), FmtProtoDelim)
+	if err != nil {
+		t.Errorf("unexpected error calling NewDecoder: %s", err.Error())
+	}
+	var gotFamily dto.MetricFamily
+	err = dec.Decode(&gotFamily)
+	if err != nil {
+		t.Errorf("unexpected error during proto decode: %s", err.Error())
+	}
+	expectEscapedName := "foo_metric"
+	if gotFamily.GetName() != expectEscapedName {
+		t.Errorf("incorrect encoded metric name, want %v, got %v", expectEscapedName, gotFamily.GetName())
+	}
 
+	buff.Reset()
 	compactEncoder := NewEncoder(&buff, FmtProtoCompact)
 	err = compactEncoder.Encode(metric)
 	if err != nil {
@@ -356,9 +369,19 @@ func TestEscapedEncode(t *testing.T) {
 	if len(out) == 0 {
 		t.Errorf("expected the output bytes buffer to be non-empty")
 	}
+	dec, err = NewDecoder(bytes.NewReader(out), FmtProtoCompact)
+	if err != nil {
+		t.Errorf("unexpected error calling NewDecoder: %s", err.Error())
+	}
+	err = dec.Decode(&gotFamily)
+	if err != nil {
+		t.Errorf("unexpected error during proto decode: %s", err.Error())
+	}
+	if gotFamily.GetName() != "foo_metric" {
+		t.Errorf("incorrect encoded metricname , want foo_metric, got %v", gotFamily.GetName())
+	}
 
 	buff.Reset()
-
 	protoTextEncoder := NewEncoder(&buff, FmtProtoText)
 	err = protoTextEncoder.Encode(metric)
 	if err != nil {
@@ -369,9 +392,19 @@ func TestEscapedEncode(t *testing.T) {
 	if len(out) == 0 {
 		t.Errorf("expected the output bytes buffer to be non-empty")
 	}
+	dec, err = NewDecoder(bytes.NewReader(out), FmtProtoText)
+	if err != nil {
+		t.Errorf("unexpected error calling NewDecoder: %s", err.Error())
+	}
+	err = dec.Decode(&gotFamily)
+	if err != nil {
+		t.Errorf("unexpected error during proto decode: %s", err.Error())
+	}
+	if gotFamily.GetName() != "foo_metric" {
+		t.Errorf("incorrect encoded metric name, want foo_metic, got %v", gotFamily.GetName())
+	}
 
 	buff.Reset()
-
 	textEncoder := NewEncoder(&buff, FmtText)
 	err = textEncoder.Encode(metric)
 	if err != nil {
@@ -390,5 +423,118 @@ foo_metric{dotted_label_name="my.label.value"} 8
 
 	if string(out) != expected {
 		t.Errorf("expected TextEncoder to return %s, but got %s instead", expected, string(out))
+	}
+}
+
+func TestDottedEncode(t *testing.T) {
+	//nolint:staticcheck
+	model.NameValidationScheme = model.UTF8Validation
+	metric := &dto.MetricFamily{
+		Name: proto.String("foo.metric"),
+		Type: dto.MetricType_COUNTER.Enum(),
+		Metric: []*dto.Metric{
+			{
+				Counter: &dto.Counter{
+					Value: proto.Float64(1.234),
+				},
+			},
+			{
+				Label: []*dto.LabelPair{
+					{
+						Name:  proto.String("dotted.label.name"),
+						Value: proto.String("my.label.value"),
+					},
+				},
+				Counter: &dto.Counter{
+					Value: proto.Float64(8),
+				},
+			},
+		},
+	}
+
+	scenarios := []struct {
+		format           Format
+		expectMetricName string
+		expectLabelName  string
+	}{
+		{
+			format:           FmtProtoDelim,
+			expectMetricName: "foo_metric",
+			expectLabelName:  "dotted_label_name",
+		},
+		{
+			format:           FmtProtoDelim.WithEscapingScheme(model.NoEscaping),
+			expectMetricName: "foo.metric",
+			expectLabelName:  "dotted.label.name",
+		},
+		{
+			format:           FmtProtoDelim.WithEscapingScheme(model.DotsEscaping),
+			expectMetricName: "foo_dot_metric",
+			expectLabelName:  "dotted_dot_label_dot_name",
+		},
+		{
+			format:           FmtProtoCompact,
+			expectMetricName: "foo_metric",
+			expectLabelName:  "dotted_label_name",
+		},
+		{
+			format:           FmtProtoCompact.WithEscapingScheme(model.NoEscaping),
+			expectMetricName: "foo.metric",
+			expectLabelName:  "dotted.label.name",
+		},
+		{
+			format:           FmtProtoCompact.WithEscapingScheme(model.ValueEncodingEscaping),
+			expectMetricName: "U__foo_2e_metric",
+			expectLabelName:  "U__dotted_2e_label_2e_name",
+		},
+		{
+			format:           FmtProtoText,
+			expectMetricName: "foo_metric",
+			expectLabelName:  "dotted_label_name",
+		},
+		{
+			format:           FmtProtoText.WithEscapingScheme(model.NoEscaping),
+			expectMetricName: "foo.metric",
+			expectLabelName:  "dotted.label.name",
+		},
+		{
+			format:           FmtText,
+			expectMetricName: "foo_metric",
+			expectLabelName:  "dotted_label_name",
+		},
+		{
+			format:           FmtText.WithEscapingScheme(model.NoEscaping),
+			expectMetricName: "foo.metric",
+			expectLabelName:  "dotted.label.name",
+		},
+		// common library does not support open metrics parsing so we do not test
+		// that here.
+	}
+
+	for i, scenario := range scenarios {
+		out := bytes.NewBuffer(make([]byte, 0))
+		enc := NewEncoder(out, scenario.format)
+		err := enc.Encode(metric)
+		if err != nil {
+			t.Errorf("%d. error: %s", i, err)
+			continue
+		}
+
+		dec, err := NewDecoder(bytes.NewReader(out.Bytes()), scenario.format)
+		if err != nil {
+			t.Errorf("unexpected error calling NewDecoder: %s", err.Error())
+		}
+		var gotFamily dto.MetricFamily
+		err = dec.Decode(&gotFamily)
+		if err != nil {
+			t.Errorf("%v: unexpected error during decode: %s", scenario.format, err.Error())
+		}
+		if gotFamily.GetName() != scenario.expectMetricName {
+			t.Errorf("%v: incorrect encoded metric name, want %v, got %v", scenario.format, scenario.expectMetricName, gotFamily.GetName())
+		}
+		lName := gotFamily.GetMetric()[1].Label[0].GetName()
+		if lName != scenario.expectLabelName {
+			t.Errorf("%v: incorrect encoded label name, want %v, got %v", scenario.format, scenario.expectLabelName, lName)
+		}
 	}
 }

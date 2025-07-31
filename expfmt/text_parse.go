@@ -574,7 +574,14 @@ func (p *TextParser) readingType() stateFn {
 	if p.readTokenUntilNewline(false); p.err != nil {
 		return nil // Unexpected end of input.
 	}
-	metricType, ok := dto.MetricType_value[strings.ToUpper(p.currentToken.String())]
+	typString := strings.ToUpper(p.currentToken.String())
+	// OpenMetrics uses UNKNOWN for untyped metrics instead of UNTYPED, so we add
+	// a special case for that here.
+	if typString == "UNKNOWN" {
+		p.parseError("found metric type UNKNOWN, is the input OpenMetrics instead of Prometheus format?")
+		return nil
+	}
+	metricType, ok := dto.MetricType_value[typString]
 	if !ok {
 		p.parseError(fmt.Sprintf("unknown metric type %q", p.currentToken.String()))
 		return nil

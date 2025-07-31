@@ -15,6 +15,7 @@ package expfmt
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -23,6 +24,7 @@ import (
 
 	dto "github.com/prometheus/client_model/go"
 	"google.golang.org/protobuf/encoding/protodelim"
+	"google.golang.org/protobuf/encoding/prototext"
 
 	"github.com/prometheus/common/model"
 )
@@ -72,12 +74,17 @@ func ResponseFormat(h http.Header) Format {
 
 // NewDecoder returns a new decoder based on the given input format.
 // If the input format does not imply otherwise, a text format decoder is returned.
-func NewDecoder(r io.Reader, format Format) Decoder {
+func NewDecoder(r io.Reader, format Format) (Decoder, error) {
 	switch format.FormatType() {
 	case TypeProtoDelim:
-		return &protoDecoder{r: bufio.NewReader(r)}
+		return &protoDecoder{r: bufio.NewReader(r)}, nil
+	case TypeProtoText, TypeProtoCompact:
+		return &prototextDecoder{r: r}, nil
 	}
-	return &textDecoder{r: r}
+	if format.FormatType() == TypeOpenMetrics {
+		return nil, errors.New("cannot decode openmetrics")
+	}
+	return &textDecoder{r: r}, nil
 }
 
 // protoDecoder implements the Decoder interface for protocol buffers.
@@ -91,6 +98,44 @@ func (d *protoDecoder) Decode(v *dto.MetricFamily) error {
 		MaxSize: -1,
 	}
 	if err := opts.UnmarshalFrom(d.r, v); err != nil {
+		return err
+	}
+	if !model.IsValidMetricName(model.LabelValue(v.GetName())) {
+		return fmt.Errorf("invalid metric name %q", v.GetName())
+	}
+	for _, m := range v.GetMetric() {
+		if m == nil {
+			continue
+		}
+		for _, l := range m.GetLabel() {
+			if l == nil {
+				continue
+			}
+			if !model.LabelValue(l.GetValue()).IsValid() {
+				return fmt.Errorf("invalid label value %q", l.GetValue())
+			}
+			if !model.LabelName(l.GetName()).IsValid() {
+				return fmt.Errorf("invalid label name %q", l.GetName())
+			}
+		}
+	}
+	return nil
+}
+
+// prototextDecoder implements the Decoder interface for protocol buffers that
+// are encoded in text format.
+type prototextDecoder struct {
+	r io.Reader
+}
+
+// Decode implements the Decoder interface.
+func (d *prototextDecoder) Decode(v *dto.MetricFamily) error {
+	opts := prototext.UnmarshalOptions{}
+	b, err := io.ReadAll(d.r)
+	if err != nil {
+		return err
+	}
+	if err := opts.Unmarshal(b, v); err != nil {
 		return err
 	}
 	if !model.IsValidMetricName(model.LabelValue(v.GetName())) {
