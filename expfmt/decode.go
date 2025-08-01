@@ -23,6 +23,7 @@ import (
 
 	dto "github.com/prometheus/client_model/go"
 	"google.golang.org/protobuf/encoding/protodelim"
+	"google.golang.org/protobuf/encoding/prototext"
 
 	"github.com/prometheus/common/model"
 )
@@ -70,12 +71,22 @@ func ResponseFormat(h http.Header) Format {
 	return FmtUnknown
 }
 
-// NewDecoder returns a new decoder based on the given input format.
-// If the input format does not imply otherwise, a text format decoder is returned.
+// NewDecoder returns a new decoder based on the given input format. Supported
+// formats include delimited protobuf, text protos, and Prometheus text format.
+// This decoder does not fully support OpenMetrics although it may often succeed
+// due to the similarities between the formats. This decoder may not support the
+// latest features of Prometheus text format and is not intended for
+// high-performance applications. The parsers in Prometheus
+// (https://github.com/prometheus/prometheus/blob/main/model/textparse/promparse.go
+// and
+// https://github.com/prometheus/prometheus/blob/main/model/textparse/openmetricsparse.go)
+// are more regularly maintained.
 func NewDecoder(r io.Reader, format Format) Decoder {
 	switch format.FormatType() {
 	case TypeProtoDelim:
 		return &protoDecoder{r: bufio.NewReader(r)}
+	case TypeProtoText, TypeProtoCompact:
+		return &prototextDecoder{r: r}
 	}
 	return &textDecoder{r: r}
 }
@@ -109,6 +120,44 @@ func (d *protoDecoder) Decode(v *dto.MetricFamily) error {
 				return fmt.Errorf("invalid label value %q", l.GetValue())
 			}
 			//nolint:staticcheck // model.LabelName.IsValid is deprecated.
+			if !model.LabelName(l.GetName()).IsValid() {
+				return fmt.Errorf("invalid label name %q", l.GetName())
+			}
+		}
+	}
+	return nil
+}
+
+// prototextDecoder implements the Decoder interface for protocol buffers that
+// are encoded in text format.
+type prototextDecoder struct {
+	r io.Reader
+}
+
+// Decode implements the Decoder interface.
+func (d *prototextDecoder) Decode(v *dto.MetricFamily) error {
+	opts := prototext.UnmarshalOptions{}
+	b, err := io.ReadAll(d.r)
+	if err != nil {
+		return err
+	}
+	if err := opts.Unmarshal(b, v); err != nil {
+		return err
+	}
+	if !model.IsValidMetricName(model.LabelValue(v.GetName())) {
+		return fmt.Errorf("invalid metric name %q", v.GetName())
+	}
+	for _, m := range v.GetMetric() {
+		if m == nil {
+			continue
+		}
+		for _, l := range m.GetLabel() {
+			if l == nil {
+				continue
+			}
+			if !model.LabelValue(l.GetValue()).IsValid() {
+				return fmt.Errorf("invalid label value %q", l.GetValue())
+			}
 			if !model.LabelName(l.GetName()).IsValid() {
 				return fmt.Errorf("invalid label name %q", l.GetName())
 			}
