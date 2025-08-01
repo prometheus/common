@@ -408,8 +408,7 @@ func TestProtoMultiMessageDecoder(t *testing.T) {
 	require.NoErrorf(t, err, "Reading file failed: %v", err)
 
 	buf := bytes.NewReader(data)
-	decoder, err := NewDecoder(buf, FmtProtoDelim)
-	require.NoError(t, err)
+	decoder := NewDecoder(buf, FmtProtoDelim)
 	var metrics []*dto.MetricFamily
 	for {
 		var mf dto.MetricFamily
@@ -558,8 +557,7 @@ func TestTextDecoderWithBufioReader(t *testing.T) {
 
 	var decoded bool
 	r := bufio.NewReader(strings.NewReader(example))
-	dec, err := NewDecoder(r, FmtText)
-	require.NoError(t, err)
+	dec := NewDecoder(r, FmtText)
 	for {
 		var mf dto.MetricFamily
 		if err := dec.Decode(&mf); err != nil {
