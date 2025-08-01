@@ -153,7 +153,7 @@ func NewEncoder(w io.Writer, format Format, options ...EncoderOption) Encoder {
 	case TypeProtoDelim:
 		return encoderCloser{
 			encode: func(v *dto.MetricFamily) error {
-				_, err := protodelim.MarshalTo(w, v)
+				_, err := protodelim.MarshalTo(w, model.EscapeMetricFamily(v, escapingScheme))
 				return err
 			},
 			close: func() error { return nil },
