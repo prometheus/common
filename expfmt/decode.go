@@ -15,7 +15,6 @@ package expfmt
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -72,19 +71,17 @@ func ResponseFormat(h http.Header) Format {
 	return FmtUnknown
 }
 
-// NewDecoder returns a new decoder based on the given input format.
-// If the input format does not imply otherwise, a text format decoder is returned.
+// NewDecoder returns a new decoder based on the given input format. If the
+// input format does not imply otherwise, a text format decoder is returned.
+// This decoder does not fully support OpenMetrics and
 func NewDecoder(r io.Reader, format Format) Decoder {
 	switch format.FormatType() {
 	case TypeProtoDelim:
-		return &protoDecoder{r: bufio.NewReader(r)}, nil
+		return &protoDecoder{r: bufio.NewReader(r)}
 	case TypeProtoText, TypeProtoCompact:
-		return &prototextDecoder{r: r}, nil
+		return &prototextDecoder{r: r}
 	}
-	if format.FormatType() == TypeOpenMetrics {
-		return nil, errors.New("cannot decode openmetrics")
-	}
-	return &textDecoder{r: r}, nil
+	return &textDecoder{r: r}
 }
 
 // protoDecoder implements the Decoder interface for protocol buffers.
