@@ -344,10 +344,7 @@ func TestEscapedEncode(t *testing.T) {
 		t.Errorf("expected the output bytes buffer to be non-empty")
 	}
 
-	dec, err := NewDecoder(bytes.NewReader(out), FmtProtoDelim)
-	if err != nil {
-		t.Errorf("unexpected error calling NewDecoder: %s", err.Error())
-	}
+	dec := NewDecoder(bytes.NewReader(out), FmtProtoDelim)
 	var gotFamily dto.MetricFamily
 	err = dec.Decode(&gotFamily)
 	if err != nil {
@@ -369,10 +366,7 @@ func TestEscapedEncode(t *testing.T) {
 	if len(out) == 0 {
 		t.Errorf("expected the output bytes buffer to be non-empty")
 	}
-	dec, err = NewDecoder(bytes.NewReader(out), FmtProtoCompact)
-	if err != nil {
-		t.Errorf("unexpected error calling NewDecoder: %s", err.Error())
-	}
+	dec = NewDecoder(bytes.NewReader(out), FmtProtoCompact)
 	err = dec.Decode(&gotFamily)
 	if err != nil {
 		t.Errorf("unexpected error during proto decode: %s", err.Error())
@@ -392,10 +386,7 @@ func TestEscapedEncode(t *testing.T) {
 	if len(out) == 0 {
 		t.Errorf("expected the output bytes buffer to be non-empty")
 	}
-	dec, err = NewDecoder(bytes.NewReader(out), FmtProtoText)
-	if err != nil {
-		t.Errorf("unexpected error calling NewDecoder: %s", err.Error())
-	}
+	dec = NewDecoder(bytes.NewReader(out), FmtProtoText)
 	err = dec.Decode(&gotFamily)
 	if err != nil {
 		t.Errorf("unexpected error during proto decode: %s", err.Error())
@@ -520,10 +511,7 @@ func TestDottedEncode(t *testing.T) {
 			continue
 		}
 
-		dec, err := NewDecoder(bytes.NewReader(out.Bytes()), scenario.format)
-		if err != nil {
-			t.Errorf("unexpected error calling NewDecoder: %s", err.Error())
-		}
+		dec := NewDecoder(bytes.NewReader(out.Bytes()), scenario.format)
 		var gotFamily dto.MetricFamily
 		err = dec.Decode(&gotFamily)
 		if err != nil {
