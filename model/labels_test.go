@@ -172,7 +172,7 @@ func TestValidationScheme_IsLabelNameValid(t *testing.T) {
 			}
 			NameValidationScheme = UTF8Validation
 			if labelName.IsValid() != s.utf8Valid {
-				t.Errorf("Expected %v for %q using UTF-8 IsValid method", s.legacyValid, s.ln)
+				t.Errorf("Expected %v for %q using UTF-8 IsValid method", s.utf8Valid, s.ln)
 			}
 		})
 	}

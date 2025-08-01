@@ -286,7 +286,7 @@ func TestValidationScheme_IsMetricNameValid(t *testing.T) {
 			}
 			NameValidationScheme = UTF8Validation
 			if IsValidMetricName(LabelValue(s.mn)) != s.utf8Valid {
-				t.Errorf("Expected %v for %q using utf-8 IsValidMetricName method", s.legacyValid, s.mn)
+				t.Errorf("Expected %v for %q using utf-8 IsValidMetricName method", s.utf8Valid, s.mn)
 			}
 		})
 	}
