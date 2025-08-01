@@ -71,9 +71,16 @@ func ResponseFormat(h http.Header) Format {
 	return FmtUnknown
 }
 
-// NewDecoder returns a new decoder based on the given input format. If the
-// input format does not imply otherwise, a text format decoder is returned.
-// This decoder does not fully support OpenMetrics and
+// NewDecoder returns a new decoder based on the given input format. Supported
+// formats include delimited protobuf, text protos, and Prometheus text format.
+// This decoder does not fully support OpenMetrics although it may often succeed
+// due to the similarities between the formats. This decoder may not support the
+// latest features of Prometheus text format and is not intended for
+// high-performance applications. The parsers in Prometheus
+// (https://github.com/prometheus/prometheus/blob/main/model/textparse/promparse.go
+// and
+// https://github.com/prometheus/prometheus/blob/main/model/textparse/openmetricsparse.go)
+// are more regularly maintained.
 func NewDecoder(r io.Reader, format Format) Decoder {
 	switch format.FormatType() {
 	case TypeProtoDelim:
