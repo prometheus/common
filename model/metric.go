@@ -144,9 +144,9 @@ func (s ValidationScheme) IsValidMetricName(metricName string) bool {
 		if len(metricName) == 0 {
 			return false
 		}
-		return utf8.ValidString(string(metricName))
+		return utf8.ValidString(metricName)
 	default:
-		panic(fmt.Sprintf("Invalid metricName validation scheme requested: %s", s.String()))
+		panic(fmt.Sprintf("Invalid name validation scheme requested: %s", s.String()))
 	}
 }
 
@@ -168,7 +168,7 @@ func (s ValidationScheme) IsValidLabelName(labelName string) bool {
 		if len(labelName) == 0 {
 			return false
 		}
-		return utf8.ValidString(string(labelName))
+		return utf8.ValidString(labelName)
 	default:
 		panic(fmt.Sprintf("Invalid name validation scheme requested: %s", s))
 	}
