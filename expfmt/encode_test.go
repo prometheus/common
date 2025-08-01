@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/prometheus/common/model"
@@ -309,8 +310,54 @@ foo_metric 1.234
 }
 
 func TestEscapedEncode(t *testing.T) {
-	var buff bytes.Buffer
-	delimEncoder := NewEncoder(&buff, FmtProtoDelim+"; escaping=underscores")
+	tests := []struct {
+		name           string
+		format         Format
+		expectedOutput string // empty means no specific output check
+	}{
+		{
+			name:           "ProtoDelim with escaping",
+			format:         FmtProtoDelim + "; escaping=underscores",
+			expectedOutput: "M\n\nfoo_metric\x18\x03\"\v*\t\tX9\xb4\xc8v\xbe\xf3?\"0\n#\n\x11dotted_label_name\x12\x0emy.label.value*\t\t\x00\x00\x00\x00\x00\x00 @",
+		},
+		{
+			name:   "ProtoCompact",
+			format: FmtProtoCompact,
+			expectedOutput: `name:"foo_metric" type:UNTYPED metric:{untyped:{value:1.234}} metric:{label:{name:"dotted_label_name" value:"my.label.value"} untyped:{value:8}}
+`,
+		},
+		{
+			name:   "ProtoText",
+			format: FmtProtoText,
+			expectedOutput: `name: "foo_metric"
+type: UNTYPED
+metric: {
+  untyped: {
+    value: 1.234
+  }
+}
+metric: {
+  label: {
+    name: "dotted_label_name"
+    value: "my.label.value"
+  }
+  untyped: {
+    value: 8
+  }
+}
+
+`,
+		},
+		{
+			name:   "Text",
+			format: FmtText,
+			expectedOutput: `# TYPE foo_metric untyped
+foo_metric 1.234
+foo_metric{dotted_label_name="my.label.value"} 8
+`,
+		},
+	}
+
 	metric := &dto.MetricFamily{
 		Name: proto.String("foo.metric"),
 		Type: dto.MetricType_UNTYPED.Enum(),
@@ -334,61 +381,17 @@ func TestEscapedEncode(t *testing.T) {
 		},
 	}
 
-	err := delimEncoder.Encode(metric)
-	if err != nil {
-		t.Errorf("unexpected error during encode: %s", err.Error())
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buff bytes.Buffer
+			encoder := NewEncoder(&buff, tt.format)
+			err := encoder.Encode(metric)
+			require.NoError(t, err)
 
-	out := buff.Bytes()
-	if len(out) == 0 {
-		t.Errorf("expected the output bytes buffer to be non-empty")
-	}
+			out := buff.Bytes()
+			require.NotEmptyf(t, out, "expected the output bytes buffer to be non-empty")
 
-	buff.Reset()
-
-	compactEncoder := NewEncoder(&buff, FmtProtoCompact)
-	err = compactEncoder.Encode(metric)
-	if err != nil {
-		t.Errorf("unexpected error during encode: %s", err.Error())
-	}
-
-	out = buff.Bytes()
-	if len(out) == 0 {
-		t.Errorf("expected the output bytes buffer to be non-empty")
-	}
-
-	buff.Reset()
-
-	protoTextEncoder := NewEncoder(&buff, FmtProtoText)
-	err = protoTextEncoder.Encode(metric)
-	if err != nil {
-		t.Errorf("unexpected error during encode: %s", err.Error())
-	}
-
-	out = buff.Bytes()
-	if len(out) == 0 {
-		t.Errorf("expected the output bytes buffer to be non-empty")
-	}
-
-	buff.Reset()
-
-	textEncoder := NewEncoder(&buff, FmtText)
-	err = textEncoder.Encode(metric)
-	if err != nil {
-		t.Errorf("unexpected error during encode: %s", err.Error())
-	}
-
-	out = buff.Bytes()
-	if len(out) == 0 {
-		t.Errorf("expected the output bytes buffer to be non-empty")
-	}
-
-	expected := `# TYPE foo_metric untyped
-foo_metric 1.234
-foo_metric{dotted_label_name="my.label.value"} 8
-`
-
-	if string(out) != expected {
-		t.Errorf("expected TextEncoder to return %s, but got %s instead", expected, string(out))
+			require.Equal(t, tt.expectedOutput, string(out))
+		})
 	}
 }
