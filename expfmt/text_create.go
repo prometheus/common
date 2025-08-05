@@ -76,10 +76,6 @@ var (
 //
 // This method fulfills the type 'prometheus.encoder'.
 func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (written int, err error) {
-	// Fail-fast checks.
-	if len(in.Metric) == 0 {
-		return 0, fmt.Errorf("MetricFamily has no metrics: %s", in)
-	}
 	name := in.GetName()
 	if name == "" {
 		return 0, fmt.Errorf("MetricFamily has no name: %s", in)
