@@ -417,7 +417,7 @@ func (p *TextParser) startLabelValue() stateFn {
 		return p.startLabelName
 
 	case '}':
-		if p.currentMF == nil {
+		if p.currentMF == nil || p.currentMetric == nil {
 			p.parseError("invalid metric name")
 			return nil
 		}
