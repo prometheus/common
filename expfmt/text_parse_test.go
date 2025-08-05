@@ -934,6 +934,16 @@ line"="bla"} 3.14
 `,
 			err: `text format parsing error in line 2: label name "new" contains unescaped new-line`,
 		},
+		// 40: Metric's name missing.
+		{
+			in: `
+# HELP backupmonitor_size The size of the given backup.
+# TYPE backupmonitor_size counter
+{host="local", dir="alpha"} 1834194837
+{host="remote", dir="beta"} 133638016
+`,
+			err: `text format parsing error in line 4: invalid metric name`,
+		},
 	}
 	for i, scenario := range scenarios {
 		_, err := parser.TextToMetricFamilies(strings.NewReader(scenario.in))
