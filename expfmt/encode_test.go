@@ -424,31 +424,6 @@ func TestDottedEncode(t *testing.T) {
 			expectLabelName:  "dotted_dot_label_dot_name",
 		},
 		{
-			format:           FmtProtoCompact,
-			expectMetricName: "foo_metric",
-			expectLabelName:  "dotted_label_name",
-		},
-		{
-			format:           FmtProtoCompact.WithEscapingScheme(model.NoEscaping),
-			expectMetricName: "foo.metric",
-			expectLabelName:  "dotted.label.name",
-		},
-		{
-			format:           FmtProtoCompact.WithEscapingScheme(model.ValueEncodingEscaping),
-			expectMetricName: "U__foo_2e_metric",
-			expectLabelName:  "U__dotted_2e_label_2e_name",
-		},
-		{
-			format:           FmtProtoText,
-			expectMetricName: "foo_metric",
-			expectLabelName:  "dotted_label_name",
-		},
-		{
-			format:           FmtProtoText.WithEscapingScheme(model.NoEscaping),
-			expectMetricName: "foo.metric",
-			expectLabelName:  "dotted.label.name",
-		},
-		{
 			format:           FmtText,
 			expectMetricName: "foo_metric",
 			expectLabelName:  "dotted_label_name",
@@ -458,8 +433,13 @@ func TestDottedEncode(t *testing.T) {
 			expectMetricName: "foo.metric",
 			expectLabelName:  "dotted.label.name",
 		},
-		// common library does not support open metrics parsing so we do not test
-		// that here.
+		{
+			format:           FmtText.WithEscapingScheme(model.DotsEscaping),
+			expectMetricName: "foo_dot_metric",
+			expectLabelName:  "dotted_dot_label_dot_name",
+		},
+		// common library does not support proto text or open metrics parsing so we
+		// do not test those here.
 	}
 
 	for i, scenario := range scenarios {

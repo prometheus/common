@@ -23,7 +23,6 @@ import (
 
 	dto "github.com/prometheus/client_model/go"
 	"google.golang.org/protobuf/encoding/protodelim"
-	"google.golang.org/protobuf/encoding/prototext"
 
 	"github.com/prometheus/common/model"
 )
@@ -76,11 +75,8 @@ func ResponseFormat(h http.Header) Format {
 // This decoder does not fully support OpenMetrics although it may often succeed
 // due to the similarities between the formats. This decoder may not support the
 // latest features of Prometheus text format and is not intended for
-// high-performance applications. The parsers in Prometheus
-// (https://github.com/prometheus/prometheus/blob/main/model/textparse/promparse.go
-// and
-// https://github.com/prometheus/prometheus/blob/main/model/textparse/openmetricsparse.go)
-// are more regularly maintained.
+// high-performance applications. See:
+// https://github.com/prometheus/common/issues/812
 func NewDecoder(r io.Reader, format Format) Decoder {
 	scheme := model.LegacyValidation
 	if format.ToEscapingScheme() == model.NoEscaping {
@@ -90,7 +86,7 @@ func NewDecoder(r io.Reader, format Format) Decoder {
 	case TypeProtoDelim:
 		return &protoDecoder{r: bufio.NewReader(r), s: scheme}
 	case TypeProtoText, TypeProtoCompact:
-		return &prototextDecoder{r: r, s: scheme}
+		return &errDecoder{err: fmt.Errorf("format %s not supported for decoding", format)}
 	}
 	return &textDecoder{r: r, s: scheme}
 }
@@ -131,43 +127,13 @@ func (d *protoDecoder) Decode(v *dto.MetricFamily) error {
 	return nil
 }
 
-// prototextDecoder implements the Decoder interface for protocol buffers that
-// are encoded in text format.
-type prototextDecoder struct {
-	r io.Reader
-	s model.ValidationScheme
+// errDecoder is an error-state decoder that always returns the same error.
+type errDecoder struct {
+	err error
 }
 
-// Decode implements the Decoder interface.
-func (d *prototextDecoder) Decode(v *dto.MetricFamily) error {
-	opts := prototext.UnmarshalOptions{}
-	b, err := io.ReadAll(d.r)
-	if err != nil {
-		return err
-	}
-	if err := opts.Unmarshal(b, v); err != nil {
-		return err
-	}
-	if !d.s.IsValidMetricName(v.GetName()) {
-		return fmt.Errorf("invalid metric name %q", v.GetName())
-	}
-	for _, m := range v.GetMetric() {
-		if m == nil {
-			continue
-		}
-		for _, l := range m.GetLabel() {
-			if l == nil {
-				continue
-			}
-			if !model.LabelValue(l.GetValue()).IsValid() {
-				return fmt.Errorf("invalid label value %q", l.GetValue())
-			}
-			if !d.s.IsValidLabelName(l.GetName()) {
-				return fmt.Errorf("invalid label name %q", l.GetName())
-			}
-		}
-	}
-	return nil
+func (d *errDecoder) Decode(v *dto.MetricFamily) error {
+	return d.err
 }
 
 // textDecoder implements the Decoder interface for the text protocol.
