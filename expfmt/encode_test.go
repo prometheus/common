@@ -99,7 +99,7 @@ func TestNegotiate(t *testing.T) {
 	}
 }
 
-func TestNegotiateOpenMetrics(t *testing.T) {
+func TestNegotiateIncludingOpenMetrics(t *testing.T) {
 	acceptValuePrefix := "application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily"
 	tests := []struct {
 		name              string
