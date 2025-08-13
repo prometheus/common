@@ -61,7 +61,7 @@ func (ec encoderCloser) Close() error {
 // appropriate accepted type is found, FmtText is returned (which is the
 // Prometheus text format). This function will never negotiate FmtOpenMetrics,
 // as the support is still experimental. To include the option to negotiate
-// FmtOpenMetrics, use NegotiateOpenMetrics.
+// FmtOpenMetrics, use NegotiateIncludingOpenMetrics.
 func Negotiate(h http.Header) Format {
 	escapingScheme := Format(fmt.Sprintf("; escaping=%s", Format(model.NameEscapingScheme.String())))
 	for _, ac := range goautoneg.ParseAccept(h.Get(hdrAccept)) {
