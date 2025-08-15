@@ -78,6 +78,9 @@ type TextParser struct {
 	// These indicate if the metric name from the current line being parsed is inside
 	// braces and if that metric name was found respectively.
 	currentMetricIsInsideBraces, currentMetricInsideBracesIsPresent bool
+	// Include all MetricFamilies when parsing an input, even the ones for which
+	// the metric is registered but it doesn't have any timeseries.
+	includeEmptyMetricFamilies bool
 }
 
 // TextToMetricFamilies reads 'in' as the simple and flat text-based exchange
@@ -109,9 +112,11 @@ func (p *TextParser) TextToMetricFamilies(in io.Reader) (map[string]*dto.MetricF
 		// Magic happens here...
 	}
 	// Get rid of empty metric families.
-	for k, mf := range p.metricFamiliesByName {
-		if len(mf.GetMetric()) == 0 {
-			delete(p.metricFamiliesByName, k)
+	if !p.includeEmptyMetricFamilies {
+		for k, mf := range p.metricFamiliesByName {
+			if len(mf.GetMetric()) == 0 {
+				delete(p.metricFamiliesByName, k)
+			}
 		}
 	}
 	// If p.err is io.EOF now, we have run into a premature end of the input
@@ -122,6 +127,10 @@ func (p *TextParser) TextToMetricFamilies(in io.Reader) (map[string]*dto.MetricF
 		p.parseError("unexpected end of input stream")
 	}
 	return p.metricFamiliesByName, p.err
+}
+
+func (p *TextParser) IncludeEmptyMetricFamilies(b bool) {
+	p.includeEmptyMetricFamilies = b
 }
 
 func (p *TextParser) reset(in io.Reader) {
