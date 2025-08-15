@@ -474,13 +474,87 @@ func testDiscriminatorHTTPHeader(t testing.TB) {
 	}
 }
 
+func testDiscriminatorHTTPHeaderOpenMetrics(t testing.TB) {
+	var scenarios = []struct {
+		input  map[string]string
+		output Format
+	}{
+		// OpenMetrics
+		{
+			input:  map[string]string{"Content-Type": `application/openmetrics-text`},
+			output: FmtOpenMetrics_0_0_1,
+		},
+		{
+			input:  map[string]string{"Content-Type": `application/openmetrics-text;version=0.0.1`},
+			output: FmtOpenMetrics_0_0_1,
+		},
+		{
+			input:  map[string]string{"Content-Type": `application/openmetrics-text;version=1.0.0`},
+			output: FmtOpenMetrics_1_0_0,
+		},
+		// Other
+		{
+			input:  map[string]string{"Content-Type": `application/vnd.google.protobuf; proto="io.prometheus.client.MetricFamily"; encoding="delimited"`},
+			output: FmtProtoDelim,
+		},
+		{
+			input:  map[string]string{"Content-Type": `application/vnd.google.protobuf; proto="illegal"; encoding="delimited"`},
+			output: FmtUnknown,
+		},
+		{
+			input:  map[string]string{"Content-Type": `application/vnd.google.protobuf; proto="io.prometheus.client.MetricFamily"; encoding="illegal"`},
+			output: FmtUnknown,
+		},
+		{
+			input:  map[string]string{"Content-Type": `text/plain; version=0.0.4`},
+			output: FmtText,
+		},
+		{
+			input:  map[string]string{"Content-Type": `text/plain`},
+			output: FmtText,
+		},
+		{
+			input:  map[string]string{"Content-Type": `text/plain; version=0.0.3`},
+			output: FmtUnknown,
+		},
+	}
+
+	for i, scenario := range scenarios {
+		var header http.Header
+
+		if len(scenario.input) > 0 {
+			header = http.Header{}
+		}
+
+		for key, value := range scenario.input {
+			header.Add(key, value)
+		}
+
+		actual := ResponseFormatIncludingOpenMetrics(header)
+
+		if scenario.output != actual {
+			t.Errorf("%d. expected %s, got %s", i, scenario.output, actual)
+		}
+	}
+}
+
 func TestDiscriminatorHTTPHeader(t *testing.T) {
 	testDiscriminatorHTTPHeader(t)
+}
+
+func TestDiscriminatorHTTPHeaderOpenMetrics(t *testing.T) {
+	testDiscriminatorHTTPHeaderOpenMetrics(t)
 }
 
 func BenchmarkDiscriminatorHTTPHeader(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		testDiscriminatorHTTPHeader(b)
+	}
+}
+
+func BenchmarkDiscriminatorHTTPHeaderOpenMetrics(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		testDiscriminatorHTTPHeaderOpenMetrics(b)
 	}
 }
 
