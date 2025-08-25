@@ -151,7 +151,7 @@ type textDecoder struct {
 func (d *textDecoder) Decode(v *dto.MetricFamily) error {
 	if d.err == nil {
 		// Read all metrics in one shot.
-		p := TextParser{scheme: d.s}
+		p := NewTextParser(d.s)
 		d.fams, d.err = p.TextToMetricFamilies(d.r)
 		// If we don't get an error, store io.EOF for the end.
 		if d.err == nil {

@@ -25,6 +25,23 @@ import (
 	"github.com/prometheus/common/model"
 )
 
+func TestNewTextParser(t *testing.T) {
+	p := NewTextParser(model.UTF8Validation)
+	if p.scheme != model.UTF8Validation {
+		t.Errorf("expected NewTextParser to return a TextParser with scheme %s - got %s", model.UTF8Validation, p.scheme)
+	}
+
+	p = NewTextParser(model.LegacyValidation)
+	if p.scheme != model.LegacyValidation {
+		t.Errorf("expected NewTextParser to return a TextParser with scheme %s - got %s", model.LegacyValidation, p.scheme)
+	}
+
+	p = NewTextParser(model.UnsetValidation)
+	if p.scheme != model.UnsetValidation {
+		t.Errorf("expected NewTextParser to return a TextParser with scheme %s - got %s", model.UnsetValidation, p.scheme)
+	}
+}
+
 func testTextParse(t testing.TB) {
 	scenarios := []struct {
 		in  string
@@ -1001,7 +1018,7 @@ func BenchmarkParseError(b *testing.B) {
 
 func TestTextParserStartOfLine(t *testing.T) {
 	t.Run("EOF", func(t *testing.T) {
-		p := TextParser{}
+		p := NewTextParser(model.UTF8Validation)
 		in := strings.NewReader("")
 		p.reset(in)
 		fn := p.startOfLine()
@@ -1014,7 +1031,7 @@ func TestTextParserStartOfLine(t *testing.T) {
 	})
 
 	t.Run("OtherError", func(t *testing.T) {
-		p := TextParser{}
+		p := NewTextParser(model.UTF8Validation)
 		in := &errReader{err: errors.New("unexpected error")}
 		p.reset(in)
 		fn := p.startOfLine()
