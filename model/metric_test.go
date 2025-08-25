@@ -287,7 +287,7 @@ func TestValidationScheme_Set(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			require.Equal(t, tc.want, ValidationScheme(got))
+			require.Equal(t, tc.want, got)
 		})
 	}
 }
