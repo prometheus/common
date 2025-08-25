@@ -83,6 +83,11 @@ type TextParser struct {
 	scheme model.ValidationScheme
 }
 
+// NewTextParser returns a new TextParser with the provided nameValidationScheme.
+func NewTextParser(nameValidationScheme model.ValidationScheme) TextParser {
+	return TextParser{scheme: nameValidationScheme}
+}
+
 // TextToMetricFamilies reads 'in' as the simple and flat text-based exchange
 // format and creates MetricFamily proto messages. It returns the MetricFamily
 // proto messages in a map where the metric names are the keys, along with any
