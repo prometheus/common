@@ -18,13 +18,12 @@ import (
 	"net/http"
 	"testing"
 
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/prometheus/common/model"
-
-	dto "github.com/prometheus/client_model/go"
 )
 
 func TestNegotiate(t *testing.T) {
