@@ -16,9 +16,9 @@ package expfmt
 import (
 	"testing"
 
-	"github.com/prometheus/common/model"
-
 	"github.com/stretchr/testify/require"
+
+	"github.com/prometheus/common/model"
 )
 
 // Test Format to Escapting Scheme conversion
