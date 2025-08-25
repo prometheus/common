@@ -107,7 +107,7 @@ func NewTextParser(nameValidationScheme model.ValidationScheme) TextParser {
 // Summaries and histograms are rather special beasts. You would probably not
 // use them in the simple text format anyway. This method can deal with
 // summaries and histograms if they are presented in exactly the way the
-// text.Create function creates them.
+// text. Create function creates them.
 //
 // This method must not be called concurrently. If you want to parse different
 // input concurrently, instantiate a separate Parser for each goroutine.
@@ -151,6 +151,7 @@ func (p *TextParser) reset(in io.Reader) {
 	p.currentQuantile = math.NaN()
 	p.currentBucket = math.NaN()
 	p.currentMF = nil
+	p.currentMetric = nil
 }
 
 // startOfLine represents the state where the next byte read from p.buf is the
@@ -445,7 +446,7 @@ func (p *TextParser) startLabelValue() stateFn {
 		return p.startLabelName
 
 	case '}':
-		if p.currentMF == nil {
+		if p.currentMF == nil || p.currentMetric == nil {
 			p.parseError("invalid metric name")
 			return nil
 		}
