@@ -241,7 +241,7 @@ func TestValidationScheme_UnmarshalJSON(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			require.Equal(t, tc.want, ValidationScheme(got))
+			require.Equal(t, tc.want, got)
 
 			output, err := json.Marshal(got)
 			require.NoError(t, err)
