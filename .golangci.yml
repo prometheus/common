@@ -19,7 +19,7 @@ linters:
     - revive
     - sloglint
     - testifylint
-    #- unconvert
+    - unconvert
     - unused
     - usestdlibvars
     - whitespace

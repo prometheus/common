@@ -354,7 +354,7 @@ func TestValidationScheme_IsMetricNameValid(t *testing.T) {
 			if LegacyValidation.IsValidMetricName(s.mn) != s.legacyValid {
 				t.Errorf("Expected %v for %q using LegacyValidation.IsValidMetricName", s.legacyValid, s.mn)
 			}
-			if MetricNameRE.MatchString(string(s.mn)) != s.legacyValid {
+			if MetricNameRE.MatchString(s.mn) != s.legacyValid {
 				t.Errorf("Expected %v for %q using regexp matching", s.legacyValid, s.mn)
 			}
 			if UTF8Validation.IsValidMetricName(s.mn) != s.utf8Valid {
