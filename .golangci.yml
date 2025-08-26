@@ -7,7 +7,7 @@ linters:
     - exptostd
     #- fatcontext
     #- gocritic
-    #- godot
+    - godot
     - govet
     - loggercheck
     - misspell

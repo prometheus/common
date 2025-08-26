@@ -1748,7 +1748,7 @@ func TestUnmarshalEmptyURL(t *testing.T) {
 	}
 }
 
-// checks if u equals to &url.URL{}
+// checks if u equals to &url.URL{}.
 func isEmptyNonNilURL(u *url.URL) bool {
 	return u != nil && *u == url.URL{}
 }

@@ -245,7 +245,7 @@ type OAuth2 struct {
 	ProxyConfig     `yaml:",inline"`
 }
 
-// UnmarshalYAML implements the yaml.Unmarshaler interface
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (o *OAuth2) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type plain OAuth2
 	if err := unmarshal((*plain)(o)); err != nil {
@@ -423,7 +423,7 @@ func (c *HTTPClientConfig) Validate() error {
 	return nil
 }
 
-// UnmarshalYAML implements the yaml.Unmarshaler interface
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (c *HTTPClientConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type plain HTTPClientConfig
 	*c = DefaultHTTPClientConfig

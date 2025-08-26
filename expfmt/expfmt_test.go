@@ -21,9 +21,7 @@ import (
 	"github.com/prometheus/common/model"
 )
 
-// Test Format to Escapting Scheme conversion
-// Path: expfmt/expfmt_test.go
-// Compare this snippet from expfmt/expfmt.go:
+// Test Format to Escapting Scheme conversion.
 func TestToFormatType(t *testing.T) {
 	tests := []struct {
 		format   Format
