@@ -468,7 +468,8 @@ func (p *TextParser) readingValue() stateFn {
 	// When we are here, we have read all the labels, so for the
 	// special case of a summary/histogram, we can finally find out
 	// if the metric already exists.
-	if p.currentMF.GetType() == dto.MetricType_SUMMARY {
+	switch p.currentMF.GetType() {
+	case dto.MetricType_SUMMARY:
 		signature := model.LabelsToSignature(p.currentLabels)
 		if summary := p.summaries[signature]; summary != nil {
 			p.currentMetric = summary
@@ -476,7 +477,7 @@ func (p *TextParser) readingValue() stateFn {
 			p.summaries[signature] = p.currentMetric
 			p.currentMF.Metric = append(p.currentMF.Metric, p.currentMetric)
 		}
-	} else if p.currentMF.GetType() == dto.MetricType_HISTOGRAM {
+	case dto.MetricType_HISTOGRAM:
 		signature := model.LabelsToSignature(p.currentLabels)
 		if histogram := p.histograms[signature]; histogram != nil {
 			p.currentMetric = histogram
@@ -484,7 +485,7 @@ func (p *TextParser) readingValue() stateFn {
 			p.histograms[signature] = p.currentMetric
 			p.currentMF.Metric = append(p.currentMF.Metric, p.currentMetric)
 		}
-	} else {
+	default:
 		p.currentMF.Metric = append(p.currentMF.Metric, p.currentMetric)
 	}
 	if p.readTokenUntilWhitespace(); p.err != nil {

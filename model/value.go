@@ -191,7 +191,8 @@ func (ss SampleStream) String() string {
 }
 
 func (ss SampleStream) MarshalJSON() ([]byte, error) {
-	if len(ss.Histograms) > 0 && len(ss.Values) > 0 {
+	switch {
+	case len(ss.Histograms) > 0 && len(ss.Values) > 0:
 		v := struct {
 			Metric     Metric                `json:"metric"`
 			Values     []SamplePair          `json:"values"`
@@ -202,7 +203,7 @@ func (ss SampleStream) MarshalJSON() ([]byte, error) {
 			Histograms: ss.Histograms,
 		}
 		return json.Marshal(&v)
-	} else if len(ss.Histograms) > 0 {
+	case len(ss.Histograms) > 0:
 		v := struct {
 			Metric     Metric                `json:"metric"`
 			Histograms []SampleHistogramPair `json:"histograms"`
@@ -211,7 +212,7 @@ func (ss SampleStream) MarshalJSON() ([]byte, error) {
 			Histograms: ss.Histograms,
 		}
 		return json.Marshal(&v)
-	} else {
+	default:
 		v := struct {
 			Metric Metric       `json:"metric"`
 			Values []SamplePair `json:"values"`

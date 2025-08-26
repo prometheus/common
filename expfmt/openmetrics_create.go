@@ -248,7 +248,7 @@ func MetricFamilyToOpenMetrics(out io.Writer, in *dto.MetricFamily, options ...E
 
 	// Finally the samples, one line for each.
 	if metricType == dto.MetricType_COUNTER && strings.HasSuffix(name, "_total") {
-		compliantName = compliantName + "_total"
+		compliantName += "_total"
 	}
 	for _, metric := range in.Metric {
 		switch metricType {
@@ -640,11 +640,11 @@ func writeExemplar(w enhancedWriter, e *dto.Exemplar) (int, error) {
 		if err != nil {
 			return written, err
 		}
-		err = (*e).Timestamp.CheckValid()
+		err = e.Timestamp.CheckValid()
 		if err != nil {
 			return written, err
 		}
-		ts := (*e).Timestamp.AsTime()
+		ts := e.Timestamp.AsTime()
 		// TODO(beorn7): Format this directly from components of ts to
 		// avoid overflow/underflow and precision issues of the float
 		// conversion.

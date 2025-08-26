@@ -435,13 +435,14 @@ func EscapeName(name string, scheme EscapingScheme) string {
 	case DotsEscaping:
 		// Do not early return for legacy valid names, we still escape underscores.
 		for i, b := range name {
-			if b == '_' {
+			switch {
+			case b == '_':
 				escaped.WriteString("__")
-			} else if b == '.' {
+			case b == '.':
 				escaped.WriteString("_dot_")
-			} else if isValidLegacyRune(b, i) {
+			case isValidLegacyRune(b, i):
 				escaped.WriteRune(b)
-			} else {
+			default:
 				escaped.WriteString("__")
 			}
 		}
@@ -452,13 +453,14 @@ func EscapeName(name string, scheme EscapingScheme) string {
 		}
 		escaped.WriteString("U__")
 		for i, b := range name {
-			if b == '_' {
+			switch {
+			case b == '_':
 				escaped.WriteString("__")
-			} else if isValidLegacyRune(b, i) {
+			case isValidLegacyRune(b, i):
 				escaped.WriteRune(b)
-			} else if !utf8.ValidRune(b) {
+			case !utf8.ValidRune(b):
 				escaped.WriteString("_FFFD_")
-			} else {
+			default:
 				escaped.WriteRune('_')
 				escaped.WriteString(strconv.FormatInt(int64(b), 16))
 				escaped.WriteRune('_')
@@ -534,11 +536,12 @@ func UnescapeName(name string, scheme EscapingScheme) string {
 				}
 				r := lower(escapedName[i])
 				utf8Val *= 16
-				if r >= '0' && r <= '9' {
+				switch {
+				case r >= '0' && r <= '9':
 					utf8Val += uint(r) - '0'
-				} else if r >= 'a' && r <= 'f' {
+				case r >= 'a' && r <= 'f':
 					utf8Val += uint(r) - 'a' + 10
-				} else {
+				default:
 					return name
 				}
 				i++
