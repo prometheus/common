@@ -22,10 +22,9 @@ import (
 	"os"
 	"testing"
 
-	"google.golang.org/protobuf/encoding/protodelim"
-
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protodelim"
 
 	"github.com/prometheus/common/model"
 )
