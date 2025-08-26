@@ -21,7 +21,7 @@ linters:
     - testifylint
     #- unconvert
     - unused
-    #- usestdlibvars
+    - usestdlibvars
     - whitespace
   exclusions:
     generated: lax
