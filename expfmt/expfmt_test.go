@@ -21,7 +21,7 @@ import (
 	"github.com/prometheus/common/model"
 )
 
-// Test Format to Escapting Scheme conversion.
+// Test Format to Escaping Scheme conversion.
 func TestToFormatType(t *testing.T) {
 	tests := []struct {
 		format   Format
