@@ -71,7 +71,7 @@ func TestContextWithValue(t *testing.T) {
 
 	ctx := r.Context()
 	for p, v := range params {
-		ctx = WithParam(ctx, p, v)
+		ctx = WithParam(ctx, p, v) //nolint:fatcontext
 	}
 	r = r.WithContext(ctx)
 	router.ServeHTTP(nil, r)
