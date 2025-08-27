@@ -143,7 +143,7 @@ func (t *Time) UnmarshalJSON(b []byte) error {
 		if prec < 0 {
 			p[1] = p[1][:dotPrecision]
 		} else if prec > 0 {
-			p[1] = p[1] + strings.Repeat("0", prec)
+			p[1] += strings.Repeat("0", prec)
 		}
 
 		va, err := strconv.ParseInt(p[1], 10, 32)

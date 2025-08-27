@@ -6,7 +6,7 @@ linters:
     - errorlint
     - exptostd
     - fatcontext
-    #- gocritic
+    - gocritic
     - godot
     - govet
     - loggercheck

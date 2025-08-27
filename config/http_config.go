@@ -1362,9 +1362,9 @@ func (t *tlsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 
 	t.mtx.RLock()
-	equal := bytes.Equal(caHash[:], t.hashCAData) &&
-		bytes.Equal(certHash[:], t.hashCertData) &&
-		bytes.Equal(keyHash[:], t.hashKeyData)
+	equal := bytes.Equal(caHash, t.hashCAData) &&
+		bytes.Equal(certHash, t.hashCertData) &&
+		bytes.Equal(keyHash, t.hashKeyData)
 	rt := t.rt
 	t.mtx.RUnlock()
 	if equal {
@@ -1387,9 +1387,9 @@ func (t *tlsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	t.mtx.Lock()
 	t.rt = rt
-	t.hashCAData = caHash[:]
-	t.hashCertData = certHash[:]
-	t.hashKeyData = keyHash[:]
+	t.hashCAData = caHash
+	t.hashCertData = certHash
+	t.hashKeyData = keyHash
 	t.mtx.Unlock()
 
 	return rt.RoundTrip(req)

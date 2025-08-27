@@ -369,13 +369,14 @@ func TestNewClientFromConfig(t *testing.T) {
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				username, password, ok := r.BasicAuth()
-				if !ok {
+				switch {
+				case !ok:
 					fmt.Fprintf(w, "The Authorization header wasn't set")
-				} else if ExpectedUsername != username {
+				case ExpectedUsername != username:
 					fmt.Fprintf(w, "The expected username (%s) differs from the obtained username (%s).", ExpectedUsername, username)
-				} else if ExpectedPassword != password {
+				case ExpectedPassword != password:
 					fmt.Fprintf(w, "The expected password (%s) differs from the obtained password (%s).", ExpectedPassword, password)
-				} else {
+				default:
 					fmt.Fprint(w, ExpectedMessage)
 				}
 			},
