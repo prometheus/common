@@ -350,9 +350,9 @@ func (m Matrix) Len() int           { return len(m) }
 func (m Matrix) Less(i, j int) bool { return m[i].Metric.Before(m[j].Metric) }
 func (m Matrix) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
 
-func (mat Matrix) String() string {
-	matCp := make(Matrix, len(mat))
-	copy(matCp, mat)
+func (m Matrix) String() string {
+	matCp := make(Matrix, len(m))
+	copy(matCp, m)
 	sort.Sort(matCp)
 
 	strs := make([]string, len(matCp))

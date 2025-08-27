@@ -188,8 +188,8 @@ func (f Format) FormatType() FormatType {
 // Format contains a escaping=allow-utf-8 term, it will select NoEscaping. If a valid
 // "escaping" term exists, that will be used. Otherwise, the global default will
 // be returned.
-func (format Format) ToEscapingScheme() model.EscapingScheme {
-	for _, p := range strings.Split(string(format), ";") {
+func (f Format) ToEscapingScheme() model.EscapingScheme {
+	for _, p := range strings.Split(string(f), ";") {
 		toks := strings.Split(p, "=")
 		if len(toks) != 2 {
 			continue

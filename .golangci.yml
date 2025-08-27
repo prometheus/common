@@ -142,7 +142,7 @@ linters:
           # TODO(beorn7): Currently, we have a lot of missing package doc comments. Maybe we should have them.
           disabled: true
         - name: range
-        #- name: receiver-naming
+        - name: receiver-naming
         - name: redefines-builtin-id
         - name: superfluous-else
           arguments:
