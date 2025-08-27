@@ -148,7 +148,7 @@ linters:
           arguments:
             - "preserveScope"
         - name: time-naming
-        #- name: unexported-return
+        - name: unexported-return
         - name: unreachable-code
         - name: unused-parameter
           severity: warning

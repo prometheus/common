@@ -542,8 +542,14 @@ func (s *secretManagerOption) applyToTLSConfigOptions(opts *tlsConfigOptions) {
 	opts.secretManager = s.secretManager
 }
 
+// SecretManagerOption is an option for providing a SecretManager.
+type SecretManagerOption interface {
+	TLSConfigOption
+	HTTPClientOption
+}
+
 // WithSecretManager allows setting the secret manager.
-func WithSecretManager(manager SecretManager) *secretManagerOption {
+func WithSecretManager(manager SecretManager) SecretManagerOption {
 	return &secretManagerOption{
 		secretManager: manager,
 	}
