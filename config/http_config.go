@@ -742,7 +742,7 @@ func NewFileSecret(file string) *FileSecret {
 	return &FileSecret{file: file}
 }
 
-func (s *FileSecret) Fetch(ctx context.Context) (string, error) {
+func (s *FileSecret) Fetch(context.Context) (string, error) {
 	fileBytes, err := os.ReadFile(s.file)
 	if err != nil {
 		return "", fmt.Errorf("unable to read file %s: %w", s.file, err)
