@@ -258,7 +258,7 @@ func (s Scalar) String() string {
 // MarshalJSON implements json.Marshaler.
 func (s Scalar) MarshalJSON() ([]byte, error) {
 	v := strconv.FormatFloat(float64(s.Value), 'f', -1, 64)
-	return json.Marshal([...]interface{}{s.Timestamp, string(v)})
+	return json.Marshal([...]interface{}{s.Timestamp, v})
 }
 
 // UnmarshalJSON implements json.Unmarshaler.

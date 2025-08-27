@@ -138,7 +138,7 @@ func (f *Format) Set(s string) error {
 	return nil
 }
 
-// Config is a struct containing configurable settings for the logger
+// Config is a struct containing configurable settings for the logger.
 type Config struct {
 	Level  *Level
 	Format *Format

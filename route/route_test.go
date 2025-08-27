@@ -24,7 +24,7 @@ import (
 func TestRedirect(t *testing.T) {
 	router := New().WithPrefix("/test/prefix")
 	w := httptest.NewRecorder()
-	r, err := http.NewRequest("GET", "http://localhost:9090/foo", nil)
+	r, err := http.NewRequest(http.MethodGet, "http://localhost:9090/foo", nil)
 	require.NoErrorf(t, err, "Error building test request: %s", err)
 
 	router.Redirect(w, r, "/some/endpoint", http.StatusFound)
@@ -43,7 +43,7 @@ func TestContext(t *testing.T) {
 		require.Equalf(t, want, got, "Unexpected context value: want %q, got %q", want, got)
 	})
 
-	r, err := http.NewRequest("GET", "http://localhost:9090/test/bar/", nil)
+	r, err := http.NewRequest(http.MethodGet, "http://localhost:9090/test/bar/", nil)
 	require.NoErrorf(t, err, "Error building test request: %s", err)
 	router.ServeHTTP(nil, r)
 }
@@ -62,7 +62,7 @@ func TestContextWithValue(t *testing.T) {
 		require.Equalf(t, want, got, "Unexpected context value: want %q, got %q", want, got)
 	})
 
-	r, err := http.NewRequest("GET", "http://localhost:9090/test/bar/", nil)
+	r, err := http.NewRequest(http.MethodGet, "http://localhost:9090/test/bar/", nil)
 	require.NoErrorf(t, err, "Error building test request: %s", err)
 	params := map[string]string{
 		"lorem": "ipsum",
@@ -85,7 +85,7 @@ func TestContextWithoutValue(t *testing.T) {
 		require.Equalf(t, want, got, "Unexpected context value: want %q, got %q", want, got)
 	})
 
-	r, err := http.NewRequest("GET", "http://localhost:9090/test", nil)
+	r, err := http.NewRequest(http.MethodGet, "http://localhost:9090/test", nil)
 	require.NoErrorf(t, err, "Error building test request: %s", err)
 	router.ServeHTTP(nil, r)
 }
@@ -111,7 +111,7 @@ func TestInstrumentation(t *testing.T) {
 	for _, c := range cases {
 		c.router.Get("/foo", func(w http.ResponseWriter, r *http.Request) {})
 
-		r, err := http.NewRequest("GET", "http://localhost:9090/foo", nil)
+		r, err := http.NewRequest(http.MethodGet, "http://localhost:9090/foo", nil)
 		require.NoErrorf(t, err, "Error building test request: %s", err)
 		c.router.ServeHTTP(nil, r)
 		require.Equalf(t, c.want, got, "Unexpected value: want %q, got %q", c.want, got)
@@ -151,7 +151,7 @@ func TestInstrumentations(t *testing.T) {
 	for _, c := range cases {
 		c.router.Get("/foo", func(w http.ResponseWriter, r *http.Request) {})
 
-		r, err := http.NewRequest("GET", "http://localhost:9090/foo", nil)
+		r, err := http.NewRequest(http.MethodGet, "http://localhost:9090/foo", nil)
 		require.NoErrorf(t, err, "Error building test request: %s", err)
 		c.router.ServeHTTP(nil, r)
 		require.Lenf(t, got, len(c.want), "Unexpected value: want %q, got %q", c.want, got)
