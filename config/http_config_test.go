@@ -706,7 +706,7 @@ func TestBearerAuthRoundTripper(t *testing.T) {
 
 	// Normal flow.
 	bearerAuthRoundTripper := NewAuthorizationCredentialsRoundTripper("Bearer", NewInlineSecret(BearerToken), fakeRoundTripper)
-	request, _ := http.NewRequest("GET", "/hitchhiker", nil)
+	request, _ := http.NewRequest(http.MethodGet, "/hitchhiker", nil)
 	request.Header.Set("User-Agent", "Douglas Adams mind")
 	_, err := bearerAuthRoundTripper.RoundTrip(request)
 	if err != nil {
@@ -715,7 +715,7 @@ func TestBearerAuthRoundTripper(t *testing.T) {
 
 	// Should honor already Authorization header set.
 	bearerAuthRoundTripperShouldNotModifyExistingAuthorization := NewAuthorizationCredentialsRoundTripper("Bearer", NewInlineSecret(newBearerToken), fakeRoundTripper)
-	request, _ = http.NewRequest("GET", "/hitchhiker", nil)
+	request, _ = http.NewRequest(http.MethodGet, "/hitchhiker", nil)
 	request.Header.Set("Authorization", ExpectedBearer)
 	_, err = bearerAuthRoundTripperShouldNotModifyExistingAuthorization.RoundTrip(request)
 	if err != nil {
@@ -734,7 +734,7 @@ func TestBearerAuthFileRoundTripper(t *testing.T) {
 
 	// Normal flow.
 	bearerAuthRoundTripper := NewAuthorizationCredentialsRoundTripper("Bearer", &FileSecret{file: BearerTokenFile}, fakeRoundTripper)
-	request, _ := http.NewRequest("GET", "/hitchhiker", nil)
+	request, _ := http.NewRequest(http.MethodGet, "/hitchhiker", nil)
 	request.Header.Set("User-Agent", "Douglas Adams mind")
 	_, err := bearerAuthRoundTripper.RoundTrip(request)
 	if err != nil {
@@ -743,7 +743,7 @@ func TestBearerAuthFileRoundTripper(t *testing.T) {
 
 	// Should honor already Authorization header set.
 	bearerAuthRoundTripperShouldNotModifyExistingAuthorization := NewAuthorizationCredentialsRoundTripper("Bearer", &FileSecret{file: MissingBearerTokenFile}, fakeRoundTripper)
-	request, _ = http.NewRequest("GET", "/hitchhiker", nil)
+	request, _ = http.NewRequest(http.MethodGet, "/hitchhiker", nil)
 	request.Header.Set("Authorization", ExpectedBearer)
 	_, err = bearerAuthRoundTripperShouldNotModifyExistingAuthorization.RoundTrip(request)
 	if err != nil {
@@ -1749,7 +1749,7 @@ func TestUnmarshalEmptyURL(t *testing.T) {
 	}
 }
 
-// checks if u equals to &url.URL{}
+// checks if u equals to &url.URL{}.
 func isEmptyNonNilURL(u *url.URL) bool {
 	return u != nil && *u == url.URL{}
 }
@@ -2105,7 +2105,7 @@ no_proxy: promcon.io,cncf.io`, proxyServer.URL),
 				os.Setenv("NO_PROXY", tc.noProxyEnv)
 			}
 
-			req := httptest.NewRequest("GET", tc.targetURL, nil)
+			req := httptest.NewRequest(http.MethodGet, tc.targetURL, nil)
 
 			proxyFunc := proxyConfig.Proxy()
 			resultURL, err := proxyFunc(req)

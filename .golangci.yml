@@ -7,7 +7,7 @@ linters:
     - exptostd
     #- fatcontext
     - gocritic
-    #- godot
+    - godot
     - govet
     - loggercheck
     - misspell
@@ -19,9 +19,9 @@ linters:
     - revive
     - sloglint
     - testifylint
-    #- unconvert
+    - unconvert
     - unused
-    #- usestdlibvars
+    - usestdlibvars
     - whitespace
   exclusions:
     generated: lax

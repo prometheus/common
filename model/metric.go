@@ -238,7 +238,7 @@ const (
 	// Accept header, the default NameEscapingScheme will be used.
 	EscapingKey = "escaping"
 
-	// Possible values for Escaping Key:
+	// Possible values for Escaping Key.
 	AllowUTF8         = "allow-utf-8" // No escaping required.
 	EscapeUnderscores = "underscores"
 	EscapeDots        = "dots"
@@ -472,7 +472,7 @@ func EscapeName(name string, scheme EscapingScheme) string {
 	}
 }
 
-// lower function taken from strconv.atoi
+// lower function taken from strconv.atoi.
 func lower(c byte) byte {
 	return c | ('x' - 'X')
 }
