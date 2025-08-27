@@ -181,7 +181,7 @@ func TestNewClientFromConfig(t *testing.T) {
 					InsecureSkipVerify: true,
 				},
 			},
-			handler: func(w http.ResponseWriter, r *http.Request) {
+			handler: func(w http.ResponseWriter, _ *http.Request) {
 				fmt.Fprint(w, ExpectedMessage)
 			},
 		},
@@ -195,7 +195,7 @@ func TestNewClientFromConfig(t *testing.T) {
 					InsecureSkipVerify: false,
 				},
 			},
-			handler: func(w http.ResponseWriter, r *http.Request) {
+			handler: func(w http.ResponseWriter, _ *http.Request) {
 				fmt.Fprint(w, ExpectedMessage)
 			},
 		},
@@ -933,7 +933,7 @@ type secretManager struct {
 	data map[string]string
 }
 
-func (m *secretManager) Fetch(ctx context.Context, secretRef string) (string, error) {
+func (m *secretManager) Fetch(_ context.Context, secretRef string) (string, error) {
 	secretData, ok := m.data[secretRef]
 	if !ok {
 		return "", fmt.Errorf("unknown secret %s", secretRef)
@@ -1044,7 +1044,7 @@ func TestTLSRoundTripper(t *testing.T) {
 
 	ca, cert, key := filepath.Join(tmpDir, "ca"), filepath.Join(tmpDir, "cert"), filepath.Join(tmpDir, "key")
 
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, ExpectedMessage)
 	}
 	testServer, err := newTestServer(handler)
@@ -1162,7 +1162,7 @@ func TestTLSRoundTripper(t *testing.T) {
 }
 
 func TestTLSRoundTripper_Inline(t *testing.T) {
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, ExpectedMessage)
 	}
 	testServer, err := newTestServer(handler)
@@ -1284,7 +1284,7 @@ func TestTLSRoundTripperRaces(t *testing.T) {
 
 	ca, cert, key := filepath.Join(tmpDir, "ca"), filepath.Join(tmpDir, "cert"), filepath.Join(tmpDir, "key")
 
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, ExpectedMessage)
 	}
 	testServer, err := newTestServer(handler)
@@ -1403,7 +1403,7 @@ type roundTrip struct {
 	theError    error
 }
 
-func (rt *roundTrip) RoundTrip(r *http.Request) (*http.Response, error) {
+func (rt *roundTrip) RoundTrip(*http.Request) (*http.Response, error) {
 	return rt.theResponse, rt.theError
 }
 
@@ -1876,7 +1876,7 @@ func TestModifyTLSCertificates(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 	ca, cert, key := filepath.Join(tmpDir, "ca"), filepath.Join(tmpDir, "cert"), filepath.Join(tmpDir, "key")
 
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, ExpectedMessage)
 	}
 	testServer, err := newTestServer(handler)
