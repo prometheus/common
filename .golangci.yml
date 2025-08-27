@@ -121,10 +121,10 @@ linters:
             # Allow functions with test or bench signatures.
             - allowTypesBefore: '*testing.T,testing.TB'
         - name: context-keys-type
-        #- name: dot-imports
-        #- name: early-return
-        #  arguments:
-        #    - "preserveScope"
+        - name: dot-imports
+        - name: early-return
+          arguments:
+            - "preserveScope"
         # A lot of false positives: incorrectly identifies channel draining as "empty code block".
         # See https://github.com/mgechev/revive/issues/386
         - name: empty-block
@@ -133,7 +133,7 @@ linters:
         - name: error-return
         - name: error-strings
         - name: errorf
-        #- name: exported
+        - name: exported
         #- name: increment-decrement
         #- name: indent-error-flow
         #  arguments:
