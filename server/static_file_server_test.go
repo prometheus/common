@@ -23,7 +23,7 @@ import (
 
 type dummyFileSystem struct{}
 
-func (fs dummyFileSystem) Open(path string) (http.File, error) {
+func (dummyFileSystem) Open(path string) (http.File, error) {
 	return http.Dir(".").Open(".")
 }
 

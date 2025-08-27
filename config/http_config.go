@@ -732,11 +732,11 @@ func (s *InlineSecret) Fetch(context.Context) (string, error) {
 	return s.text, nil
 }
 
-func (s *InlineSecret) Description() string {
+func (*InlineSecret) Description() string {
 	return "inline"
 }
 
-func (s *InlineSecret) Immutable() bool {
+func (*InlineSecret) Immutable() bool {
 	return true
 }
 
@@ -760,7 +760,7 @@ func (s *FileSecret) Description() string {
 	return "file " + s.file
 }
 
-func (s *FileSecret) Immutable() bool {
+func (*FileSecret) Immutable() bool {
 	return false
 }
 
@@ -778,7 +778,7 @@ func (s *refSecret) Description() string {
 	return "ref " + s.ref
 }
 
-func (s *refSecret) Immutable() bool {
+func (*refSecret) Immutable() bool {
 	return false
 }
 

@@ -153,7 +153,7 @@ linters:
         - name: unused-parameter
           severity: warning
           disabled: true
-        #- name: unused-receiver
+        - name: unused-receiver
         #- name: var-declaration
         #- name: var-naming
     testifylint:
