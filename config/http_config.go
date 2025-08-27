@@ -346,7 +346,7 @@ func nonZeroCount[T comparable](values ...T) int {
 	var zero T
 	for _, value := range values {
 		if value != zero {
-			count += 1
+			count++
 		}
 	}
 	return count

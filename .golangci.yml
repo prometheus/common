@@ -134,10 +134,10 @@ linters:
         - name: error-strings
         - name: errorf
         - name: exported
-        #- name: increment-decrement
-        #- name: indent-error-flow
-        #  arguments:
-        #    - "preserveScope"
+        - name: increment-decrement
+        - name: indent-error-flow
+          arguments:
+            - "preserveScope"
         - name: package-comments
           # TODO(beorn7): Currently, we have a lot of missing package doc comments. Maybe we should have them.
           disabled: true
