@@ -31,11 +31,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
 	"gopkg.in/yaml.v2"
 )
 
@@ -181,7 +181,7 @@ func TestNewClientFromConfig(t *testing.T) {
 					InsecureSkipVerify: true,
 				},
 			},
-			handler: func(w http.ResponseWriter, r *http.Request) {
+			handler: func(w http.ResponseWriter, _ *http.Request) {
 				fmt.Fprint(w, ExpectedMessage)
 			},
 		},
@@ -195,7 +195,7 @@ func TestNewClientFromConfig(t *testing.T) {
 					InsecureSkipVerify: false,
 				},
 			},
-			handler: func(w http.ResponseWriter, r *http.Request) {
+			handler: func(w http.ResponseWriter, _ *http.Request) {
 				fmt.Fprint(w, ExpectedMessage)
 			},
 		},
@@ -933,7 +933,7 @@ type secretManager struct {
 	data map[string]string
 }
 
-func (m *secretManager) Fetch(ctx context.Context, secretRef string) (string, error) {
+func (m *secretManager) Fetch(_ context.Context, secretRef string) (string, error) {
 	secretData, ok := m.data[secretRef]
 	if !ok {
 		return "", fmt.Errorf("unknown secret %s", secretRef)
@@ -1044,7 +1044,7 @@ func TestTLSRoundTripper(t *testing.T) {
 
 	ca, cert, key := filepath.Join(tmpDir, "ca"), filepath.Join(tmpDir, "cert"), filepath.Join(tmpDir, "key")
 
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, ExpectedMessage)
 	}
 	testServer, err := newTestServer(handler)
@@ -1162,7 +1162,7 @@ func TestTLSRoundTripper(t *testing.T) {
 }
 
 func TestTLSRoundTripper_Inline(t *testing.T) {
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, ExpectedMessage)
 	}
 	testServer, err := newTestServer(handler)
@@ -1284,7 +1284,7 @@ func TestTLSRoundTripperRaces(t *testing.T) {
 
 	ca, cert, key := filepath.Join(tmpDir, "ca"), filepath.Join(tmpDir, "cert"), filepath.Join(tmpDir, "key")
 
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, ExpectedMessage)
 	}
 	testServer, err := newTestServer(handler)
@@ -1309,7 +1309,8 @@ func TestTLSRoundTripperRaces(t *testing.T) {
 
 	var wg sync.WaitGroup
 	ch := make(chan struct{})
-	var total, ok int64
+	total := atomic.NewInt64(0)
+	ok := atomic.NewInt64(0)
 	// Spawn 10 Go routines polling the server concurrently.
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
@@ -1320,11 +1321,11 @@ func TestTLSRoundTripperRaces(t *testing.T) {
 				case <-ch:
 					return
 				default:
-					atomic.AddInt64(&total, 1)
+					total.Add(1)
 					r, err := c.Get(testServer.URL)
 					if err == nil {
 						r.Body.Close()
-						atomic.AddInt64(&ok, 1)
+						ok.Add(1)
 					}
 				}
 			}
@@ -1402,7 +1403,7 @@ type roundTrip struct {
 	theError    error
 }
 
-func (rt *roundTrip) RoundTrip(r *http.Request) (*http.Response, error) {
+func (rt *roundTrip) RoundTrip(*http.Request) (*http.Response, error) {
 	return rt.theResponse, rt.theError
 }
 
@@ -1875,7 +1876,7 @@ func TestModifyTLSCertificates(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 	ca, cert, key := filepath.Join(tmpDir, "ca"), filepath.Join(tmpDir, "cert"), filepath.Join(tmpDir, "key")
 
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, ExpectedMessage)
 	}
 	testServer, err := newTestServer(handler)

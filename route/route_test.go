@@ -37,7 +37,7 @@ func TestRedirect(t *testing.T) {
 
 func TestContext(t *testing.T) {
 	router := New()
-	router.Get("/test/:foo/", func(w http.ResponseWriter, r *http.Request) {
+	router.Get("/test/:foo/", func(_ http.ResponseWriter, r *http.Request) {
 		want := "bar"
 		got := Param(r.Context(), "foo")
 		require.Equalf(t, want, got, "Unexpected context value: want %q, got %q", want, got)
@@ -50,7 +50,7 @@ func TestContext(t *testing.T) {
 
 func TestContextWithValue(t *testing.T) {
 	router := New()
-	router.Get("/test/:foo/", func(w http.ResponseWriter, r *http.Request) {
+	router.Get("/test/:foo/", func(_ http.ResponseWriter, r *http.Request) {
 		want := "bar"
 		got := Param(r.Context(), "foo")
 		require.Equalf(t, want, got, "Unexpected context value: want %q, got %q", want, got)
@@ -79,7 +79,7 @@ func TestContextWithValue(t *testing.T) {
 
 func TestContextWithoutValue(t *testing.T) {
 	router := New()
-	router.Get("/test", func(w http.ResponseWriter, r *http.Request) {
+	router.Get("/test", func(_ http.ResponseWriter, r *http.Request) {
 		want := ""
 		got := Param(r.Context(), "foo")
 		require.Equalf(t, want, got, "Unexpected context value: want %q, got %q", want, got)
@@ -109,7 +109,7 @@ func TestInstrumentation(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c.router.Get("/foo", func(w http.ResponseWriter, r *http.Request) {})
+		c.router.Get("/foo", func(_ http.ResponseWriter, _ *http.Request) {})
 
 		r, err := http.NewRequest(http.MethodGet, "http://localhost:9090/foo", nil)
 		require.NoErrorf(t, err, "Error building test request: %s", err)
@@ -149,7 +149,7 @@ func TestInstrumentations(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c.router.Get("/foo", func(w http.ResponseWriter, r *http.Request) {})
+		c.router.Get("/foo", func(_ http.ResponseWriter, _ *http.Request) {})
 
 		r, err := http.NewRequest(http.MethodGet, "http://localhost:9090/foo", nil)
 		require.NoErrorf(t, err, "Error building test request: %s", err)
