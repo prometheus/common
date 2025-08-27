@@ -18,11 +18,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/grafana/regexp"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
 )

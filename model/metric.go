@@ -17,12 +17,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"unicode/utf8"
 
+	"github.com/grafana/regexp"
 	dto "github.com/prometheus/client_model/go"
 	"google.golang.org/protobuf/proto"
 	"gopkg.in/yaml.v2"
