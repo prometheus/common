@@ -154,7 +154,7 @@ linters:
           severity: warning
           disabled: true
         - name: unused-receiver
-        #- name: var-declaration
+        - name: var-declaration
         #- name: var-naming
     testifylint:
       enable-all: true
