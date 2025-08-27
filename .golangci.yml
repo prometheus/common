@@ -5,7 +5,7 @@ linters:
     - depguard
     - errorlint
     - exptostd
-    #- fatcontext
+    - fatcontext
     #- gocritic
     - godot
     - govet
