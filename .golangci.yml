@@ -66,8 +66,8 @@ linters:
       rules:
         main:
           deny:
-            #- pkg: "sync/atomic"
-              #desc: "Use go.uber.org/atomic instead of sync/atomic"
+            - pkg: "sync/atomic"
+              desc: "Use go.uber.org/atomic instead of sync/atomic"
             - pkg: "github.com/go-kit/kit/log"
               desc: "Use github.com/go-kit/log instead of github.com/go-kit/kit/log"
             - pkg: "io/ioutil"
