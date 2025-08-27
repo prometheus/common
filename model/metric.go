@@ -205,7 +205,7 @@ func (s ValidationScheme) IsValidLabelName(labelName string) bool {
 }
 
 // Type implements the pflag.Value interface.
-func (s ValidationScheme) Type() string {
+func (ValidationScheme) Type() string {
 	return "validationScheme"
 }
 

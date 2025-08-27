@@ -121,10 +121,10 @@ linters:
             # Allow functions with test or bench signatures.
             - allowTypesBefore: '*testing.T,testing.TB'
         - name: context-keys-type
-        #- name: dot-imports
-        #- name: early-return
-        #  arguments:
-        #    - "preserveScope"
+        - name: dot-imports
+        - name: early-return
+          arguments:
+            - "preserveScope"
         # A lot of false positives: incorrectly identifies channel draining as "empty code block".
         # See https://github.com/mgechev/revive/issues/386
         - name: empty-block
@@ -133,27 +133,27 @@ linters:
         - name: error-return
         - name: error-strings
         - name: errorf
-        #- name: exported
-        #- name: increment-decrement
-        #- name: indent-error-flow
-        #  arguments:
-        #    - "preserveScope"
+        - name: exported
+        - name: increment-decrement
+        - name: indent-error-flow
+          arguments:
+            - "preserveScope"
         - name: package-comments
           # TODO(beorn7): Currently, we have a lot of missing package doc comments. Maybe we should have them.
           disabled: true
         - name: range
-        #- name: receiver-naming
+        - name: receiver-naming
         - name: redefines-builtin-id
         - name: superfluous-else
           arguments:
             - "preserveScope"
         - name: time-naming
-        #- name: unexported-return
+        - name: unexported-return
         - name: unreachable-code
         - name: unused-parameter
-        #- name: unused-receiver
-        #- name: var-declaration
-        #- name: var-naming
+        - name: unused-receiver
+        - name: var-declaration
+        - name: var-naming
     testifylint:
       enable-all: true
       disable:

@@ -381,13 +381,12 @@ func (p *TextParser) startLabelName() stateFn {
 	labels := make(map[string]struct{})
 	for _, l := range p.currentLabelPairs {
 		lName := l.GetName()
-		if _, exists := labels[lName]; !exists {
-			labels[lName] = struct{}{}
-		} else {
+		if _, exists := labels[lName]; exists {
 			p.parseError(fmt.Sprintf("duplicate label names for metric %q", p.currentMF.GetName()))
 			p.currentLabelPairs = nil
 			return nil
 		}
+		labels[lName] = struct{}{}
 	}
 	return p.startLabelValue
 }
