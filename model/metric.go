@@ -429,6 +429,7 @@ func EscapeName(name string, scheme EscapingScheme) string {
 		if IsValidLegacyMetricName(name) {
 			return name
 		}
+		escaped.Grow(len(name))
 		for i, b := range name {
 			if isValidLegacyRune(b, i) {
 				escaped.WriteRune(b)
