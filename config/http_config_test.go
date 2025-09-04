@@ -31,11 +31,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 	"go.yaml.in/yaml/v2"
 )
 
@@ -1309,8 +1309,7 @@ func TestTLSRoundTripperRaces(t *testing.T) {
 
 	var wg sync.WaitGroup
 	ch := make(chan struct{})
-	total := atomic.NewInt64(0)
-	ok := atomic.NewInt64(0)
+	var total, ok int64
 	// Spawn 10 Go routines polling the server concurrently.
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
@@ -1321,11 +1320,11 @@ func TestTLSRoundTripperRaces(t *testing.T) {
 				case <-ch:
 					return
 				default:
-					total.Add(1)
+					atomic.AddInt64(&total, 1)
 					r, err := c.Get(testServer.URL)
 					if err == nil {
 						r.Body.Close()
-						ok.Add(1)
+						atomic.AddInt64(&ok, 1)
 					}
 				}
 			}
