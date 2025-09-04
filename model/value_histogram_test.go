@@ -16,9 +16,9 @@ package model
 import (
 	"encoding/json"
 	"reflect"
+	"regexp"
 	"testing"
 
-	"github.com/grafana/regexp"
 	"github.com/stretchr/testify/require"
 )
 
