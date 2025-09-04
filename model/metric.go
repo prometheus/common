@@ -24,8 +24,8 @@ import (
 	"unicode/utf8"
 
 	dto "github.com/prometheus/client_model/go"
+	"go.yaml.in/yaml/v2"
 	"google.golang.org/protobuf/proto"
-	"gopkg.in/yaml.v2"
 )
 
 var (
