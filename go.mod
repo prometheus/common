@@ -14,10 +14,10 @@ require (
 	github.com/prometheus/client_model v0.6.2
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/atomic v1.11.0
+	go.yaml.in/yaml/v2 v2.4.2
 	golang.org/x/net v0.43.0
 	golang.org/x/oauth2 v0.30.0
 	google.golang.org/protobuf v1.36.8
-	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (

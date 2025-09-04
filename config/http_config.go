@@ -32,11 +32,11 @@ import (
 	"time"
 
 	conntrack "github.com/mwitkow/go-conntrack"
+	"go.yaml.in/yaml/v2"
 	"golang.org/x/net/http/httpproxy"
 	"golang.org/x/net/http2"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
-	"gopkg.in/yaml.v2"
 )
 
 var (
