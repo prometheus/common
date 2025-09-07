@@ -15,10 +15,12 @@ package config
 
 import (
 	"context"
+	"crypto"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -36,6 +38,9 @@ import (
 	"testing"
 	"time"
 
+	spiffebundle "github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
+	"github.com/spiffe/go-spiffe/v2/spiffeid"
+	spiffesvid "github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/stretchr/testify/require"
 	"go.yaml.in/yaml/v2"
 )
@@ -53,6 +58,12 @@ const (
 	MissingCA             = "missing/ca.crt"
 	MissingCert           = "missing/cert.crt"
 	MissingKey            = "missing/secret.key"
+
+	SpiffeWorkload1Cert = "testdata/spiffe.workload1.cert.pem"
+	SpiffeWorkload1Key  = "testdata/spiffe.workload1.key.pem"
+	SpiffeWorkload2Cert = "testdata/spiffe.workload2.cert.pem"
+	SpiffeWorkload2Key  = "testdata/spiffe.workload2.key.pem"
+	SpiffeBundle        = "testdata/spiffe.bundle.pem"
 
 	ExpectedMessage                   = "I'm here to serve you!!!"
 	ExpectedError                     = "expected error"
@@ -153,6 +164,37 @@ func newTestServer(handler func(w http.ResponseWriter, r *http.Request)) (*httpt
 	serverCertificate, err := tls.LoadX509KeyPair(ServerCertificatePath, ServerKeyPath)
 	if err != nil {
 		return nil, fmt.Errorf("Can't load X509 key pair %s - %s", ServerCertificatePath, ServerKeyPath)
+	}
+
+	rootCAs := x509.NewCertPool()
+	rootCAs.AppendCertsFromPEM(tlsCAChain)
+
+	testServer.TLS = &tls.Config{
+		Certificates: make([]tls.Certificate, 1),
+		RootCAs:      rootCAs,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientCAs:    rootCAs,
+	}
+	testServer.TLS.Certificates[0] = serverCertificate
+
+	testServer.StartTLS()
+
+	return testServer, nil
+}
+
+func newSpiffeTestServer() (*httptest.Server, error) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, ExpectedMessage)
+	}
+	testServer := httptest.NewUnstartedServer(http.HandlerFunc(handler))
+
+	tlsCAChain, err := os.ReadFile(SpiffeBundle)
+	if err != nil {
+		return nil, fmt.Errorf("Can't read %s", SpiffeBundle)
+	}
+	serverCertificate, err := tls.LoadX509KeyPair(SpiffeWorkload1Cert, SpiffeWorkload1Key)
+	if err != nil {
+		return nil, fmt.Errorf("Can't load X509 key pair %s - %s", SpiffeWorkload1Cert, SpiffeWorkload1Key)
 	}
 
 	rootCAs := x509.NewCertPool()
@@ -1265,6 +1307,131 @@ func TestTLSRoundTripper_Inline(t *testing.T) {
 			require.NoErrorf(t, err, "Error creating HTTP request: %v", err)
 			r, err := c.Do(req)
 			require.NoErrorf(t, err, "Can't connect to the test server")
+
+			b, err := io.ReadAll(r.Body)
+			r.Body.Close()
+			if err != nil {
+				t.Errorf("Can't read the server response body")
+			}
+
+			got := strings.TrimSpace(string(b))
+			if ExpectedMessage != got {
+				t.Errorf("The expected message %q differs from the obtained message %q", ExpectedMessage, got)
+			}
+		})
+	}
+}
+
+type testSpiffeSource struct{}
+
+func (*testSpiffeSource) GetX509SVID() (*spiffesvid.SVID, error) {
+	cert, err := tls.LoadX509KeyPair(SpiffeWorkload2Cert, SpiffeWorkload2Key)
+	if err != nil {
+		return nil, fmt.Errorf("Can't load X509 key pair %s - %s", SpiffeWorkload2Cert, SpiffeWorkload2Key)
+	}
+	if signer, ok := cert.PrivateKey.(crypto.Signer); ok {
+		return &spiffesvid.SVID{
+			ID:           spiffeid.RequireFromString("spiffe://example.org/workload2"),
+			Certificates: []*x509.Certificate{cert.Leaf},
+			PrivateKey:   signer,
+		}, nil
+	}
+	return nil, errors.New("private key is not crypto.Signer")
+}
+
+func (*testSpiffeSource) GetX509BundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*spiffebundle.Bundle, error) {
+	if trustDomain.Name() == "example.org" {
+		bundlePem, err := os.ReadFile(SpiffeBundle)
+		if err != nil {
+			return nil, fmt.Errorf("Can't read %s", SpiffeBundle)
+		}
+		var bundle []*x509.Certificate
+		for len(bundlePem) > 0 {
+			b, more := pem.Decode(bundlePem)
+			c, err := x509.ParseCertificate(b.Bytes)
+			if err != nil {
+				return nil, fmt.Errorf("Can't parse %s as a certificate", SpiffeBundle)
+			}
+			bundlePem = more
+			bundle = append(bundle, c)
+		}
+		return spiffebundle.FromX509Authorities(trustDomain, bundle), nil
+	}
+	return nil, fmt.Errorf("No bundle for trust domain %v", trustDomain)
+}
+
+func spiffeMaker() (SpiffeSvidAndBundleSource, error) {
+	return &testSpiffeSource{}, nil
+}
+
+func TestTLSRoundTripper_SPIFFE(t *testing.T) {
+	testServer, err := newSpiffeTestServer()
+	require.NoError(t, err)
+	defer testServer.Close()
+
+	testCases := []struct {
+		disabled  bool
+		useSpiffe bool
+		confID    string
+		ctxID     string
+
+		errMsg string
+	}{
+		{
+			disabled: true,
+			confID:   "spiffe://trust.domain/foo",
+			errMsg:   "SPIFFE requested but not configured",
+		},
+		{
+			confID: "spiffe://example.org/workload1",
+		},
+		{
+			confID: "spiffe://example.org/wrong",
+			errMsg: "unexpected ID",
+		},
+		{
+			confID: "unparsable",
+			errMsg: "unparsable",
+		},
+		{
+			useSpiffe: true,
+			ctxID:     "spiffe://example.org/workload1",
+		},
+		{
+			confID: "spiffe://overridden/ignored",
+			ctxID:  "spiffe://example.org/workload1",
+		},
+	}
+
+	for i, tc := range testCases {
+		tc := tc
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			cfg := HTTPClientConfig{
+				TLSConfig: TLSConfig{
+					UseSpiffe: tc.useSpiffe,
+					SpiffeID:  tc.confID,
+				},
+			}
+
+			var opts []HTTPClientOption
+			if !tc.disabled {
+				opts = append(opts, WithSpiffeSourceFactory(spiffeMaker))
+			}
+			c, err := NewClientFromConfig(cfg, "test", opts...)
+			require.NoErrorf(t, err, "Error creating HTTP client: %v", err)
+			req, err := http.NewRequest(http.MethodGet, testServer.URL, nil)
+			require.NoErrorf(t, err, "Error creating HTTP request: %v", err)
+			ctx := context.Background()
+			if tc.ctxID != "" {
+				ctx = context.WithValue(ctx, SpiffeIDContextValue, tc.ctxID)
+			}
+			r, err := c.Do(req.WithContext(ctx))
+			if tc.errMsg != "" {
+				require.ErrorContainsf(t, err, tc.errMsg, "Expected error message to contain %q, got %q", tc.errMsg, err)
+				return
+			} else if err != nil {
+				t.Fatalf("Error executing HTTP request: %v", err)
+			}
 
 			b, err := io.ReadAll(r.Body)
 			r.Body.Close()

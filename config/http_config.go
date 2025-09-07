@@ -34,6 +34,11 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/mwitkow/go-conntrack"
+	spiffebundle "github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
+	"github.com/spiffe/go-spiffe/v2/spiffeid"
+	"github.com/spiffe/go-spiffe/v2/spiffetls"
+	spiffetlsconfig "github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
+	spiffesvid "github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"go.yaml.in/yaml/v2"
 	"golang.org/x/net/http/httpproxy"
 	"golang.org/x/net/http2"
@@ -495,6 +500,11 @@ type DialContextFunc func(context.Context, string, string) (net.Conn, error)
 // NewTLSConfigFunc returns tls.Config.
 type NewTLSConfigFunc func(context.Context, *TLSConfig, ...TLSConfigOption) (*tls.Config, error)
 
+type SpiffeSvidAndBundleSource interface {
+	spiffesvid.Source
+	spiffebundle.Source
+}
+
 type httpClientOptions struct {
 	dialContextFunc   DialContextFunc
 	newTLSConfigFunc  NewTLSConfigFunc
@@ -504,6 +514,7 @@ type httpClientOptions struct {
 	userAgent         string
 	host              string
 	secretManager     SecretManager
+	spiffeSourceFn    func() (SpiffeSvidAndBundleSource, error)
 }
 
 // HTTPClientOption defines an option that can be applied to the HTTP client.
@@ -569,6 +580,20 @@ func WithHost(host string) HTTPClientOption {
 	})
 }
 
+// WithSpiffeSourceFactory allows SPIFFE to be used with this HTTP client.
+// The provided function should return the same X509Source on every call
+// since all clients can share the same source. The source may either
+// already exist (in which case the function can just return a fixed value)
+// or be created on demand (in which case no X509Source will be created unless
+// SPIFFE is configured and used). The returned X509Source will not be closed
+// during the lifetime of the HTTPClient. The default is that there is no
+// factory function and SPIFFE is not available.
+func WithSpiffeSourceFactory(fn func() (SpiffeSvidAndBundleSource, error)) HTTPClientOption {
+	return httpClientOptionFunc(func(opts *httpClientOptions) {
+		opts.spiffeSourceFn = fn
+	})
+}
+
 type secretManagerOption struct {
 	secretManager SecretManager
 }
@@ -623,6 +648,28 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, optFuncs ...HT
 	return NewRoundTripperFromConfigWithContext(context.Background(), cfg, name, optFuncs...)
 }
 
+func makeSpiffeDialer(configuredSpiffeID string, getSource func() (SpiffeSvidAndBundleSource, error)) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		ids := configuredSpiffeID
+		if idc := ctx.Value(SpiffeIDContextValue); idc != nil {
+			ids = idc.(string)
+		}
+		peer, err := spiffeid.FromString(ids)
+		if err != nil {
+			return nil, fmt.Errorf("unparsable SPIFFE ID %q: %w", ids, err)
+		}
+		if getSource == nil {
+			return nil, errors.New("SPIFFE requested but not configured")
+		}
+		source, err := getSource()
+		if err != nil {
+			return nil, err
+		}
+		mode := spiffetls.MTLSClientWithRawConfig(spiffetlsconfig.AuthorizeID(peer), source, source)
+		return spiffetls.DialWithMode(ctx, network, addr, mode)
+	}
+}
+
 // NewRoundTripperFromConfigWithContext returns a new HTTP RoundTripper configured for the
 // given config.HTTPClientConfig and config.HTTPClientOption.
 // The name is used as go-conntrack metric label.
@@ -646,6 +693,11 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 	}
 
 	newRT := func(tlsConfig *tls.Config) (http.RoundTripper, error) {
+		var dialTLS func(ctx context.Context, network, addr string) (net.Conn, error)
+		if tlsConfig == nil {
+			// Use SPIFFE
+			dialTLS = makeSpiffeDialer(cfg.TLSConfig.SpiffeID, opts.spiffeSourceFn)
+		}
 		// The only timeout we care about is the configured scrape timeout.
 		// It is applied on request. So we leave out any timings here.
 		var rt http.RoundTripper = &http.Transport{
@@ -660,6 +712,7 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 			TLSHandshakeTimeout:   10 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
 			DialContext:           dialContext,
+			DialTLSContext:        dialTLS,
 		}
 		if opts.http2Enabled && cfg.EnableHTTP2 {
 			http2t, err := http2.ConfigureTransports(rt.(*http.Transport))
@@ -734,6 +787,10 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 
 		// Return a new configured RoundTripper.
 		return rt, nil
+	}
+
+	if cfg.TLSConfig.SpiffeID != "" || cfg.TLSConfig.UseSpiffe {
+		return newRT(nil)
 	}
 
 	tlsConfig, err := opts.newTLSConfigFunc(ctx, &cfg.TLSConfig, WithSecretManager(opts.secretManager))
@@ -1226,6 +1283,13 @@ type TLSConfig struct {
 	MinVersion TLSVersion `yaml:"min_version,omitempty" json:"min_version,omitempty"`
 	// Maximum TLS version.
 	MaxVersion TLSVersion `yaml:"max_version,omitempty" json:"max_version,omitempty"`
+	// Use SPIFFE to configure TLS. The special label `__spiffe_id__` on the
+	// scrape target configures the SPIFFE ID that must be presented.
+	UseSpiffe bool `yaml:"use_spiffe,omitempty" json:"use_spiffe,omitempty"`
+	// Use SPIFFE to configure TLS. The special label `__spiffe_id__` on the
+	// scrape target (first) or the value of this parameter (otherwise)
+	// configures the SPIFFE ID that must be presented.
+	SpiffeID string `yaml:"spiffe_id,omitempty" json:"spiffe_id,omitempty"`
 }
 
 // SetDirectory joins any relative file paths with dir.
@@ -1265,6 +1329,10 @@ func (c *TLSConfig) Validate() error {
 		return errors.New("exactly one of key or key_file must be configured when a client certificate is configured")
 	} else if c.usingClientKey() && !c.usingClientCert() {
 		return errors.New("exactly one of cert or cert_file must be configured when a client key is configured")
+	}
+
+	if (len(c.CA) > 0 || len(c.CAFile) > 0 || len(c.CARef) > 0 || len(c.Cert) > 0 || len(c.CertFile) > 0 || len(c.CertRef) > 0 || len(c.Key) > 0 || len(c.KeyFile) > 0 || len(c.KeyRef) > 0 || len(c.ServerName) > 0 || c.InsecureSkipVerify) && (len(c.SpiffeID) > 0 || c.UseSpiffe) {
+		return errors.New("either SPIFFE settings or other TLSConfig settings may be set but not both")
 	}
 
 	return nil
@@ -1625,3 +1693,7 @@ func (c *ProxyConfig) Proxy() (fn func(*http.Request) (*url.URL, error)) {
 func (c *ProxyConfig) GetProxyConnectHeader() http.Header {
 	return c.ProxyConnectHeader.HTTPHeader()
 }
+
+type spiffeIDContextValue bool
+
+const SpiffeIDContextValue = spiffeIDContextValue(false)
