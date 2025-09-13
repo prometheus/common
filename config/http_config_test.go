@@ -36,7 +36,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v2"
+	"go.yaml.in/yaml/v2"
 )
 
 const (
@@ -181,7 +181,7 @@ func TestNewClientFromConfig(t *testing.T) {
 					InsecureSkipVerify: true,
 				},
 			},
-			handler: func(w http.ResponseWriter, r *http.Request) {
+			handler: func(w http.ResponseWriter, _ *http.Request) {
 				fmt.Fprint(w, ExpectedMessage)
 			},
 		},
@@ -195,7 +195,7 @@ func TestNewClientFromConfig(t *testing.T) {
 					InsecureSkipVerify: false,
 				},
 			},
-			handler: func(w http.ResponseWriter, r *http.Request) {
+			handler: func(w http.ResponseWriter, _ *http.Request) {
 				fmt.Fprint(w, ExpectedMessage)
 			},
 		},
@@ -369,13 +369,14 @@ func TestNewClientFromConfig(t *testing.T) {
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				username, password, ok := r.BasicAuth()
-				if !ok {
+				switch {
+				case !ok:
 					fmt.Fprintf(w, "The Authorization header wasn't set")
-				} else if ExpectedUsername != username {
+				case ExpectedUsername != username:
 					fmt.Fprintf(w, "The expected username (%s) differs from the obtained username (%s).", ExpectedUsername, username)
-				} else if ExpectedPassword != password {
+				case ExpectedPassword != password:
 					fmt.Fprintf(w, "The expected password (%s) differs from the obtained password (%s).", ExpectedPassword, password)
-				} else {
+				default:
 					fmt.Fprint(w, ExpectedMessage)
 				}
 			},
@@ -705,7 +706,7 @@ func TestBearerAuthRoundTripper(t *testing.T) {
 
 	// Normal flow.
 	bearerAuthRoundTripper := NewAuthorizationCredentialsRoundTripper("Bearer", NewInlineSecret(BearerToken), fakeRoundTripper)
-	request, _ := http.NewRequest("GET", "/hitchhiker", nil)
+	request, _ := http.NewRequest(http.MethodGet, "/hitchhiker", nil)
 	request.Header.Set("User-Agent", "Douglas Adams mind")
 	_, err := bearerAuthRoundTripper.RoundTrip(request)
 	if err != nil {
@@ -714,7 +715,7 @@ func TestBearerAuthRoundTripper(t *testing.T) {
 
 	// Should honor already Authorization header set.
 	bearerAuthRoundTripperShouldNotModifyExistingAuthorization := NewAuthorizationCredentialsRoundTripper("Bearer", NewInlineSecret(newBearerToken), fakeRoundTripper)
-	request, _ = http.NewRequest("GET", "/hitchhiker", nil)
+	request, _ = http.NewRequest(http.MethodGet, "/hitchhiker", nil)
 	request.Header.Set("Authorization", ExpectedBearer)
 	_, err = bearerAuthRoundTripperShouldNotModifyExistingAuthorization.RoundTrip(request)
 	if err != nil {
@@ -733,7 +734,7 @@ func TestBearerAuthFileRoundTripper(t *testing.T) {
 
 	// Normal flow.
 	bearerAuthRoundTripper := NewAuthorizationCredentialsRoundTripper("Bearer", &FileSecret{file: BearerTokenFile}, fakeRoundTripper)
-	request, _ := http.NewRequest("GET", "/hitchhiker", nil)
+	request, _ := http.NewRequest(http.MethodGet, "/hitchhiker", nil)
 	request.Header.Set("User-Agent", "Douglas Adams mind")
 	_, err := bearerAuthRoundTripper.RoundTrip(request)
 	if err != nil {
@@ -742,7 +743,7 @@ func TestBearerAuthFileRoundTripper(t *testing.T) {
 
 	// Should honor already Authorization header set.
 	bearerAuthRoundTripperShouldNotModifyExistingAuthorization := NewAuthorizationCredentialsRoundTripper("Bearer", &FileSecret{file: MissingBearerTokenFile}, fakeRoundTripper)
-	request, _ = http.NewRequest("GET", "/hitchhiker", nil)
+	request, _ = http.NewRequest(http.MethodGet, "/hitchhiker", nil)
 	request.Header.Set("Authorization", ExpectedBearer)
 	_, err = bearerAuthRoundTripperShouldNotModifyExistingAuthorization.RoundTrip(request)
 	if err != nil {
@@ -932,7 +933,7 @@ type secretManager struct {
 	data map[string]string
 }
 
-func (m *secretManager) Fetch(ctx context.Context, secretRef string) (string, error) {
+func (m *secretManager) Fetch(_ context.Context, secretRef string) (string, error) {
 	secretData, ok := m.data[secretRef]
 	if !ok {
 		return "", fmt.Errorf("unknown secret %s", secretRef)
@@ -1043,7 +1044,7 @@ func TestTLSRoundTripper(t *testing.T) {
 
 	ca, cert, key := filepath.Join(tmpDir, "ca"), filepath.Join(tmpDir, "cert"), filepath.Join(tmpDir, "key")
 
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, ExpectedMessage)
 	}
 	testServer, err := newTestServer(handler)
@@ -1161,7 +1162,7 @@ func TestTLSRoundTripper(t *testing.T) {
 }
 
 func TestTLSRoundTripper_Inline(t *testing.T) {
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, ExpectedMessage)
 	}
 	testServer, err := newTestServer(handler)
@@ -1283,7 +1284,7 @@ func TestTLSRoundTripperRaces(t *testing.T) {
 
 	ca, cert, key := filepath.Join(tmpDir, "ca"), filepath.Join(tmpDir, "cert"), filepath.Join(tmpDir, "key")
 
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, ExpectedMessage)
 	}
 	testServer, err := newTestServer(handler)
@@ -1401,7 +1402,7 @@ type roundTrip struct {
 	theError    error
 }
 
-func (rt *roundTrip) RoundTrip(r *http.Request) (*http.Response, error) {
+func (rt *roundTrip) RoundTrip(*http.Request) (*http.Response, error) {
 	return rt.theResponse, rt.theError
 }
 
@@ -1748,7 +1749,7 @@ func TestUnmarshalEmptyURL(t *testing.T) {
 	}
 }
 
-// checks if u equals to &url.URL{}
+// checks if u equals to &url.URL{}.
 func isEmptyNonNilURL(u *url.URL) bool {
 	return u != nil && *u == url.URL{}
 }
@@ -1874,7 +1875,7 @@ func TestModifyTLSCertificates(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 	ca, cert, key := filepath.Join(tmpDir, "ca"), filepath.Join(tmpDir, "cert"), filepath.Join(tmpDir, "key")
 
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, ExpectedMessage)
 	}
 	testServer, err := newTestServer(handler)
@@ -2104,7 +2105,7 @@ no_proxy: promcon.io,cncf.io`, proxyServer.URL),
 				os.Setenv("NO_PROXY", tc.noProxyEnv)
 			}
 
-			req := httptest.NewRequest("GET", tc.targetURL, nil)
+			req := httptest.NewRequest(http.MethodGet, tc.targetURL, nil)
 
 			proxyFunc := proxyConfig.Proxy()
 			resultURL, err := proxyFunc(req)

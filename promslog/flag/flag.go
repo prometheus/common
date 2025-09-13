@@ -40,7 +40,7 @@ const FormatFlagName = "log.format"
 var FormatFlagHelp = "Output format of log messages. One of: [" + strings.Join(promslog.FormatFlagOptions, ", ") + "]"
 
 // AddFlags adds the flags used by this package to the Kingpin application.
-// To use the default Kingpin application, call AddFlags(kingpin.CommandLine)
+// To use the default Kingpin application, call AddFlags(kingpin.CommandLine).
 func AddFlags(a *kingpin.Application, config *promslog.Config) {
 	config.Level = promslog.NewLevel()
 	a.Flag(LevelFlagName, LevelFlagHelp).
