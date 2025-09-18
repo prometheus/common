@@ -14,6 +14,7 @@
 package model
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -23,8 +24,8 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
+	"go.yaml.in/yaml/v2"
 	"google.golang.org/protobuf/proto"
-	"gopkg.in/yaml.v2"
 )
 
 func testMetric(t testing.TB) {
@@ -203,6 +204,94 @@ func TestValidationScheme_UnmarshalYAML(t *testing.T) {
 	}
 }
 
+func TestValidationScheme_UnmarshalJSON(t *testing.T) {
+	testCases := []struct {
+		name    string
+		input   string
+		want    ValidationScheme
+		wantErr bool
+	}{
+		{
+			name:    "invalid",
+			input:   `invalid`,
+			wantErr: true,
+		},
+		{
+			name:  "empty",
+			input: `""`,
+			want:  UnsetValidation,
+		},
+		{
+			name:  "legacy validation",
+			input: `"legacy"`,
+			want:  LegacyValidation,
+		},
+		{
+			name:  "utf8 validation",
+			input: `"utf8"`,
+			want:  UTF8Validation,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var got ValidationScheme
+			err := json.Unmarshal([]byte(tc.input), &got)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.want, got)
+
+			output, err := json.Marshal(got)
+			require.NoError(t, err)
+			require.Equal(t, tc.input, string(output))
+		})
+	}
+}
+
+func TestValidationScheme_Set(t *testing.T) {
+	testCases := []struct {
+		name    string
+		input   string
+		want    ValidationScheme
+		wantErr bool
+	}{
+		{
+			name:    "invalid",
+			input:   `invalid`,
+			wantErr: true,
+		},
+		{
+			name:  "empty",
+			input: ``,
+			want:  UnsetValidation,
+		},
+		{
+			name:  "legacy validation",
+			input: `legacy`,
+			want:  LegacyValidation,
+		},
+		{
+			name:  "utf8 validation",
+			input: `utf8`,
+			want:  UTF8Validation,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var got ValidationScheme
+			err := got.Set(tc.input)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestValidationScheme_IsMetricNameValid(t *testing.T) {
 	scenarios := []struct {
 		mn          string
@@ -259,13 +348,18 @@ func TestValidationScheme_IsMetricNameValid(t *testing.T) {
 			legacyValid: false,
 			utf8Valid:   false,
 		},
+		{
+			mn:          "dot.in.name",
+			legacyValid: false,
+			utf8Valid:   true,
+		},
 	}
 	for _, s := range scenarios {
 		t.Run(fmt.Sprintf("%s,%t,%t", s.mn, s.legacyValid, s.utf8Valid), func(t *testing.T) {
 			if LegacyValidation.IsValidMetricName(s.mn) != s.legacyValid {
 				t.Errorf("Expected %v for %q using LegacyValidation.IsValidMetricName", s.legacyValid, s.mn)
 			}
-			if MetricNameRE.MatchString(string(s.mn)) != s.legacyValid {
+			if MetricNameRE.MatchString(s.mn) != s.legacyValid {
 				t.Errorf("Expected %v for %q using regexp matching", s.legacyValid, s.mn)
 			}
 			if UTF8Validation.IsValidMetricName(s.mn) != s.utf8Valid {

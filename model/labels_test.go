@@ -143,6 +143,11 @@ func TestValidationScheme_IsLabelNameValid(t *testing.T) {
 			utf8Valid:   false,
 		},
 		{
+			ln:          "dot.in.name",
+			legacyValid: false,
+			utf8Valid:   true,
+		},
+		{
 			ln:          "",
 			legacyValid: false,
 			utf8Valid:   false,
