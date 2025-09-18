@@ -59,6 +59,10 @@ const (
 	// timeout used to scrape a target.
 	ScrapeTimeoutLabel = "__scrape_timeout__"
 
+	// SPIFFE ID that must be presented by the scrape target if scraping over
+	// https and SPIFFE is enabled.
+	SpiffeIDLabel = "__spiffe_id__"
+
 	// ReservedLabelPrefix is a prefix which is not legal in user-supplied
 	// label names.
 	ReservedLabelPrefix = "__"
