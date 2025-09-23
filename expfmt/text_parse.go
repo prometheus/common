@@ -48,8 +48,10 @@ func (e ParseError) Error() string {
 	return fmt.Sprintf("text format parsing error in line %d: %s", e.Line, e.Msg)
 }
 
-// TextParser is used to parse the simple and flat text-based exchange format. Its
-// zero value is ready to use.
+// TextParser is used to parse the simple and flat text-based exchange format.
+//
+// TextParser instances must be created with NewTextParser, the zero value of
+// TextParser is invalid.
 type TextParser struct {
 	metricFamiliesByName map[string]*dto.MetricFamily
 	buf                  *bufio.Reader // Where the parsed input is read through.
