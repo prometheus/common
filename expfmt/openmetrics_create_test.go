@@ -745,6 +745,50 @@ some_measure_seconds_total{labelname="val1",basename="basevalue"} 42.0
 some_measure_seconds_total{labelname="val2",basename="basevalue"} 0.23 1.23456789e+06
 `,
 		},
+		// 11: Gauge histogram.
+		{
+			in: &dto.MetricFamily{
+				Name: proto.String("name"),
+				Help: proto.String("doc string"),
+				Type: dto.MetricType_GAUGE_HISTOGRAM.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Histogram: &dto.Histogram{
+							SampleCount: proto.Uint64(2693),
+							SampleSum:   proto.Float64(1756047.3),
+							Bucket: []*dto.Bucket{
+								{
+									UpperBound:      proto.Float64(100),
+									CumulativeCount: proto.Uint64(123),
+								},
+								{
+									UpperBound:      proto.Float64(120),
+									CumulativeCount: proto.Uint64(412),
+								},
+								{
+									UpperBound:      proto.Float64(144),
+									CumulativeCount: proto.Uint64(592),
+								},
+								{
+									UpperBound:      proto.Float64(172.8),
+									CumulativeCount: proto.Uint64(1524),
+								},
+							},
+						},
+					},
+				},
+			},
+			out: `# HELP name doc string
+# TYPE name gaugehistogram
+name_bucket{le="100.0"} 123
+name_bucket{le="120.0"} 412
+name_bucket{le="144.0"} 592
+name_bucket{le="172.8"} 1524
+name_bucket{le="+Inf"} 2693
+name_sum 1.7560473e+06
+name_count 2693
+`,
+		},
 	}
 
 	for i, scenario := range scenarios {
@@ -902,6 +946,47 @@ func TestOpenMetricsCreateError(t *testing.T) {
 				},
 			},
 			err: "expected counter in metric",
+		},
+		// 2: Float histogram.
+		{
+			in: &dto.MetricFamily{
+				Name: proto.String("name"),
+				Help: proto.String("doc string"),
+				Type: dto.MetricType_GAUGE_HISTOGRAM.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Histogram: &dto.Histogram{
+							// Note that it is enough to fill the float fields even
+							// if the values are integers.
+							SampleCountFloat: proto.Float64(2693),
+							SampleSum:        proto.Float64(1756047.3),
+							Bucket: []*dto.Bucket{
+								{
+									UpperBound:           proto.Float64(100),
+									CumulativeCountFloat: proto.Float64(123),
+								},
+								{
+									UpperBound:           proto.Float64(120),
+									CumulativeCountFloat: proto.Float64(412),
+								},
+								{
+									UpperBound:           proto.Float64(144),
+									CumulativeCountFloat: proto.Float64(592),
+								},
+								{
+									UpperBound:           proto.Float64(172.8),
+									CumulativeCountFloat: proto.Float64(1524),
+								},
+								{
+									UpperBound:           proto.Float64(math.Inf(+1)),
+									CumulativeCountFloat: proto.Float64(2693),
+								},
+							},
+						},
+					},
+				},
+			},
+			err: "OpenMetrics v1.0 does not support float histogram name histogram",
 		},
 	}
 
