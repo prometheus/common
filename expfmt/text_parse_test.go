@@ -656,6 +656,307 @@ request_duration_microseconds_count 2693
 				},
 			},
 		},
+		// 12: A full float histogram.
+		{
+			in: `
+# HELP request_duration_microseconds The response latency.
+# TYPE request_duration_microseconds histogram
+request_duration_microseconds_bucket{le="100"} 123.5
+request_duration_microseconds_bucket{le="120"} 412.6
+request_duration_microseconds_bucket{le="144"} 592.7
+request_duration_microseconds_bucket{le="172.8"} 1524.8
+request_duration_microseconds_bucket{le="+Inf"} 2693.9
+request_duration_microseconds_sum 1.7560473e+06
+request_duration_microseconds_count 2693.9
+`,
+			out: []*dto.MetricFamily{
+				{
+					Name: proto.String("request_duration_microseconds"),
+					Help: proto.String("The response latency."),
+					Type: dto.MetricType_HISTOGRAM.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Histogram: &dto.Histogram{
+								SampleCountFloat: proto.Float64(2693.9),
+								SampleSum:        proto.Float64(1756047.3),
+								Bucket: []*dto.Bucket{
+									{
+										UpperBound:           proto.Float64(100),
+										CumulativeCountFloat: proto.Float64(123.5),
+									},
+									{
+										UpperBound:           proto.Float64(120),
+										CumulativeCountFloat: proto.Float64(412.6),
+									},
+									{
+										UpperBound:           proto.Float64(144),
+										CumulativeCountFloat: proto.Float64(592.7),
+									},
+									{
+										UpperBound:           proto.Float64(172.8),
+										CumulativeCountFloat: proto.Float64(1524.8),
+									},
+									{
+										UpperBound:           proto.Float64(math.Inf(+1)),
+										CumulativeCountFloat: proto.Float64(2693.9),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		// 13: A float histogram where only the count is really a float.
+		{
+			in: `
+# HELP request_duration_microseconds The response latency.
+# TYPE request_duration_microseconds histogram
+request_duration_microseconds_bucket{le="100"} 123
+request_duration_microseconds_bucket{le="120"} 412
+request_duration_microseconds_bucket{le="144"} 592
+request_duration_microseconds_bucket{le="172.8"} 1524
+request_duration_microseconds_sum 1.7560473e+06
+request_duration_microseconds_count 2693.9
+`,
+			out: []*dto.MetricFamily{
+				{
+					Name: proto.String("request_duration_microseconds"),
+					Help: proto.String("The response latency."),
+					Type: dto.MetricType_HISTOGRAM.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Histogram: &dto.Histogram{
+								SampleCountFloat: proto.Float64(2693.9),
+								SampleSum:        proto.Float64(1756047.3),
+								Bucket: []*dto.Bucket{
+									{
+										UpperBound:           proto.Float64(100),
+										CumulativeCountFloat: proto.Float64(123),
+									},
+									{
+										UpperBound:           proto.Float64(120),
+										CumulativeCountFloat: proto.Float64(412),
+									},
+									{
+										UpperBound:           proto.Float64(144),
+										CumulativeCountFloat: proto.Float64(592),
+									},
+									{
+										UpperBound:           proto.Float64(172.8),
+										CumulativeCountFloat: proto.Float64(1524),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		// 14: A float histogram where only one of the buckets is really a float.
+		{
+			in: `
+# HELP request_duration_microseconds The response latency.
+# TYPE request_duration_microseconds histogram
+request_duration_microseconds_bucket{le="100"} 123
+request_duration_microseconds_bucket{le="120"} 412
+request_duration_microseconds_bucket{le="144"} 592
+request_duration_microseconds_bucket{le="172.8"} 1524.8
+request_duration_microseconds_bucket{le="+Inf"} 2693
+request_duration_microseconds_sum 1.7560473e+06
+request_duration_microseconds_count 2693
+`,
+			out: []*dto.MetricFamily{
+				{
+					Name: proto.String("request_duration_microseconds"),
+					Help: proto.String("The response latency."),
+					Type: dto.MetricType_HISTOGRAM.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Histogram: &dto.Histogram{
+								SampleCountFloat: proto.Float64(2693),
+								SampleSum:        proto.Float64(1756047.3),
+								Bucket: []*dto.Bucket{
+									{
+										UpperBound:           proto.Float64(100),
+										CumulativeCountFloat: proto.Float64(123),
+									},
+									{
+										UpperBound:           proto.Float64(120),
+										CumulativeCountFloat: proto.Float64(412),
+									},
+									{
+										UpperBound:           proto.Float64(144),
+										CumulativeCountFloat: proto.Float64(592),
+									},
+									{
+										UpperBound:           proto.Float64(172.8),
+										CumulativeCountFloat: proto.Float64(1524.8),
+									},
+									{
+										UpperBound:           proto.Float64(math.Inf(+1)),
+										CumulativeCountFloat: proto.Float64(2693),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		// 15: A gauge histogram.
+		{
+			in: `
+# HELP request_duration_microseconds The response latency.
+# TYPE request_duration_microseconds gaugehistogram
+request_duration_microseconds_bucket{le="100"} 123
+request_duration_microseconds_bucket{le="120"} 412
+request_duration_microseconds_bucket{le="144"} 592
+request_duration_microseconds_bucket{le="172.8"} 1524
+request_duration_microseconds_bucket{le="+Inf"} 2693
+request_duration_microseconds_sum 1.7560473e+06
+request_duration_microseconds_count 2693
+`,
+			out: []*dto.MetricFamily{
+				{
+					Name: proto.String("request_duration_microseconds"),
+					Help: proto.String("The response latency."),
+					Type: dto.MetricType_GAUGE_HISTOGRAM.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Histogram: &dto.Histogram{
+								SampleCount: proto.Uint64(2693),
+								SampleSum:   proto.Float64(1756047.3),
+								Bucket: []*dto.Bucket{
+									{
+										UpperBound:      proto.Float64(100),
+										CumulativeCount: proto.Uint64(123),
+									},
+									{
+										UpperBound:      proto.Float64(120),
+										CumulativeCount: proto.Uint64(412),
+									},
+									{
+										UpperBound:      proto.Float64(144),
+										CumulativeCount: proto.Uint64(592),
+									},
+									{
+										UpperBound:      proto.Float64(172.8),
+										CumulativeCount: proto.Uint64(1524),
+									},
+									{
+										UpperBound:      proto.Float64(math.Inf(+1)),
+										CumulativeCount: proto.Uint64(2693),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		// 16: A gauge histogram with alternative spelling.
+		{
+			in: `
+# HELP request_duration_microseconds The response latency.
+# TYPE request_duration_microseconds gauge_histogram
+request_duration_microseconds_bucket{le="100"} 123
+request_duration_microseconds_bucket{le="120"} 412
+request_duration_microseconds_bucket{le="144"} 592
+request_duration_microseconds_bucket{le="172.8"} 1524
+request_duration_microseconds_bucket{le="+Inf"} 2693
+request_duration_microseconds_sum 1.7560473e+06
+request_duration_microseconds_count 2693
+`,
+			out: []*dto.MetricFamily{
+				{
+					Name: proto.String("request_duration_microseconds"),
+					Help: proto.String("The response latency."),
+					Type: dto.MetricType_GAUGE_HISTOGRAM.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Histogram: &dto.Histogram{
+								SampleCount: proto.Uint64(2693),
+								SampleSum:   proto.Float64(1756047.3),
+								Bucket: []*dto.Bucket{
+									{
+										UpperBound:      proto.Float64(100),
+										CumulativeCount: proto.Uint64(123),
+									},
+									{
+										UpperBound:      proto.Float64(120),
+										CumulativeCount: proto.Uint64(412),
+									},
+									{
+										UpperBound:      proto.Float64(144),
+										CumulativeCount: proto.Uint64(592),
+									},
+									{
+										UpperBound:      proto.Float64(172.8),
+										CumulativeCount: proto.Uint64(1524),
+									},
+									{
+										UpperBound:      proto.Float64(math.Inf(+1)),
+										CumulativeCount: proto.Uint64(2693),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		// 17: A float gauge histogram where only one of the buckets is really a float and with alternative spelling.
+		{
+			in: `
+# HELP request_duration_microseconds The response latency.
+# TYPE request_duration_microseconds gauge_histogram
+request_duration_microseconds_bucket{le="100"} 123
+request_duration_microseconds_bucket{le="120"} 412
+request_duration_microseconds_bucket{le="144"} 592
+request_duration_microseconds_bucket{le="172.8"} 1524.8
+request_duration_microseconds_bucket{le="+Inf"} 2693
+request_duration_microseconds_sum 1.7560473e+06
+request_duration_microseconds_count 2693
+`,
+			out: []*dto.MetricFamily{
+				{
+					Name: proto.String("request_duration_microseconds"),
+					Help: proto.String("The response latency."),
+					Type: dto.MetricType_GAUGE_HISTOGRAM.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Histogram: &dto.Histogram{
+								SampleCountFloat: proto.Float64(2693),
+								SampleSum:        proto.Float64(1756047.3),
+								Bucket: []*dto.Bucket{
+									{
+										UpperBound:           proto.Float64(100),
+										CumulativeCountFloat: proto.Float64(123),
+									},
+									{
+										UpperBound:           proto.Float64(120),
+										CumulativeCountFloat: proto.Float64(412),
+									},
+									{
+										UpperBound:           proto.Float64(144),
+										CumulativeCountFloat: proto.Float64(592),
+									},
+									{
+										UpperBound:           proto.Float64(172.8),
+										CumulativeCountFloat: proto.Float64(1524.8),
+									},
+									{
+										UpperBound:           proto.Float64(math.Inf(+1)),
+										CumulativeCountFloat: proto.Float64(2693),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for i, scenario := range scenarios {
@@ -801,31 +1102,31 @@ metric 4.12
 `,
 			errUTF8: `text format parsing error in line 3: second TYPE line for metric name "metric", or TYPE reported after samples`,
 		},
-		// 14:
+		// 15:
 		{
 			in: `
 # TYPE metric bla
 `,
 			errUTF8: "text format parsing error in line 2: unknown metric type",
 		},
-		// 15:
+		// 16:
 		{
 			in: `
 # TYPE met-ric
 `,
 			errUTF8: "text format parsing error in line 2: invalid metric name in comment",
 		},
-		// 16:
+		// 17:
 		{
 			in:      `@invalidmetric{label="bla"} 3.14 2`,
 			errUTF8: "text format parsing error in line 1: invalid metric name",
 		},
-		// 17:
+		// 18:
 		{
 			in:      `{label="bla"} 3.14 2`,
 			errUTF8: "text format parsing error in line 1: invalid metric name",
 		},
-		// 18:
+		// 19:
 		{
 			in: `
 # TYPE metric histogram
@@ -833,59 +1134,54 @@ metric_bucket{le="bla"} 3.14
 `,
 			errUTF8: "text format parsing error in line 3: expected float as value for 'le' label",
 		},
-		// 19: Invalid UTF-8 in label value.
+		// 20: Invalid UTF-8 in label value.
 		{
 			in:      "metric{l=\"\xbd\"} 3.14\n",
 			errUTF8: "text format parsing error in line 1: invalid label value \"\\xbd\"",
 		},
-		// 20: Go 1.13 sometimes allows underscores in numbers.
+		// 21: Go 1.13 sometimes allows underscores in numbers.
 		{
 			in:      "foo 1_2\n",
 			errUTF8: "text format parsing error in line 1: expected float as value",
 		},
-		// 21: Go 1.13 supports hex floating point.
+		// 22: Go 1.13 supports hex floating point.
 		{
 			in:      "foo 0x1p-3\n",
 			errUTF8: "text format parsing error in line 1: expected float as value",
 		},
-		// 22: Check for various other literals variants, just in case.
+		// 23: Check for various other literals variants, just in case.
 		{
 			in:      "foo 0x1P-3\n",
 			errUTF8: "text format parsing error in line 1: expected float as value",
 		},
-		// 23:
+		// 24:
 		{
 			in:      "foo 0B1\n",
 			errUTF8: "text format parsing error in line 1: expected float as value",
 		},
-		// 24:
+		// 25:
 		{
 			in:      "foo 0O1\n",
 			errUTF8: "text format parsing error in line 1: expected float as value",
 		},
-		// 25:
+		// 26:
 		{
 			in:      "foo 0X1\n",
 			errUTF8: "text format parsing error in line 1: expected float as value",
 		},
-		// 26:
-		{
-			in:      "foo 0x1\n",
-			errUTF8: "text format parsing error in line 1: expected float as value",
-		},
 		// 27:
 		{
-			in:      "foo 0b1\n",
+			in:      "foo 0x1\n",
 			errUTF8: "text format parsing error in line 1: expected float as value",
 		},
 		// 28:
 		{
-			in:      "foo 0o1\n",
+			in:      "foo 0b1\n",
 			errUTF8: "text format parsing error in line 1: expected float as value",
 		},
 		// 29:
 		{
-			in:      "foo 0x1\n",
+			in:      "foo 0o1\n",
 			errUTF8: "text format parsing error in line 1: expected float as value",
 		},
 		// 30:
@@ -893,7 +1189,12 @@ metric_bucket{le="bla"} 3.14
 			in:      "foo 0x1\n",
 			errUTF8: "text format parsing error in line 1: expected float as value",
 		},
-		// 31: Check histogram label.
+		// 31:
+		{
+			in:      "foo 0x1\n",
+			errUTF8: "text format parsing error in line 1: expected float as value",
+		},
+		// 32: Check histogram label.
 		{
 			in: `
 # TYPE metric histogram
@@ -901,7 +1202,7 @@ metric_bucket{le="0x1p-3"} 3.14
 `,
 			errUTF8: "text format parsing error in line 3: expected float as value for 'le' label",
 		},
-		// 32: Check quantile label.
+		// 33: Check quantile label.
 		{
 			in: `
 # TYPE metric summary
@@ -909,28 +1210,28 @@ metric{quantile="0x1p-3"} 3.14
 `,
 			errUTF8: "text format parsing error in line 3: expected float as value for 'quantile' label",
 		},
-		// 33: Check duplicate label.
+		// 34: Check duplicate label.
 		{
 			in:      `metric{label="bla",label="bla"} 3.14`,
 			errUTF8: "text format parsing error in line 1: duplicate label names for metric",
 		},
-		// 34: Multiple quoted metric names.
+		// 35: Multiple quoted metric names.
 		{
 			in:        `{"one.name","another.name"} 3.14`,
 			errUTF8:   "text format parsing error in line 1: multiple metric names",
 			errLegacy: `text format parsing error in line 1: invalid metric name "one.name"`,
 		},
-		// 35: Invalid escape sequence in quoted metric name.
+		// 36: Invalid escape sequence in quoted metric name.
 		{
 			in:      `{"a\xc5z",label="bla"} 3.14`,
 			errUTF8: "text format parsing error in line 1: invalid escape sequence",
 		},
-		// 36: Unexpected end of quoted metric name.
+		// 37: Unexpected end of quoted metric name.
 		{
 			in:      `{"metric.name".label="bla"} 3.14`,
 			errUTF8: "text format parsing error in line 1: unexpected end of metric name",
 		},
-		// 37: Invalid escape sequence in quoted metric name.
+		// 38: Invalid escape sequence in quoted metric name.
 		{
 			in: `
 # TYPE "metric.name\t" counter
@@ -938,7 +1239,7 @@ metric{quantile="0x1p-3"} 3.14
 `,
 			errUTF8: "text format parsing error in line 2: invalid escape sequence",
 		},
-		// 38: Newline in quoted metric name.
+		// 39: Newline in quoted metric name.
 		{
 			in: `
 # TYPE "metric
@@ -948,7 +1249,7 @@ name",label="bla"} 3.14
 `,
 			errUTF8: `text format parsing error in line 2: metric name "metric" contains unescaped new-line`,
 		},
-		// 39: Newline in quoted label name.
+		// 40: Newline in quoted label name.
 		{
 			in: `
 {"metric.name","new
@@ -957,18 +1258,79 @@ line"="bla"} 3.14
 			errUTF8:   `text format parsing error in line 2: label name "new" contains unescaped new-line`,
 			errLegacy: `text format parsing error in line 2: invalid metric name "metric.name"`,
 		},
-		// 40: dotted name fails legacy validation.
+		// 41: Dotted metric name fails legacy validation.
 		{
 			in: `{"metric.name",foo="bla"} 3.14
 `,
 			errUTF8:   ``,
 			errLegacy: `text format parsing error in line 1: invalid metric name "metric.name"`,
 		},
+		// 42: Dotted label name fails legacy validation.
 		{
 			in: `metric_name{"foo"="bar", "dotted.label"="bla"} 3.14
 `,
 			errUTF8:   ``,
 			errLegacy: `text format parsing error in line 1: invalid label name "dotted.label"`,
+		},
+		// 43: Histogram with negative count.
+		{
+			in: `
+# HELP request_duration_microseconds The response latency.
+# TYPE request_duration_microseconds histogram
+request_duration_microseconds_bucket{le="100"} 123
+request_duration_microseconds_bucket{le="120"} 412
+request_duration_microseconds_bucket{le="144"} 592
+request_duration_microseconds_bucket{le="172.8"} 1524
+request_duration_microseconds_bucket{le="+Inf"} 2693
+request_duration_microseconds_sum 1.7560473e+06
+request_duration_microseconds_count -2693
+`,
+			errUTF8: `text format parsing error in line 10: negative count for histogram "request_duration_microseconds"`,
+		},
+		// 44: Histogram with negative bucket.
+		{
+			in: `
+# HELP request_duration_microseconds The response latency.
+# TYPE request_duration_microseconds histogram
+request_duration_microseconds_bucket{le="100"} 123
+request_duration_microseconds_bucket{le="120"} -412
+request_duration_microseconds_bucket{le="144"} 592
+request_duration_microseconds_bucket{le="172.8"} 1524
+request_duration_microseconds_bucket{le="+Inf"} 2693
+request_duration_microseconds_sum 1.7560473e+06
+request_duration_microseconds_count 2693
+`,
+			errUTF8: `text format parsing error in line 5: negative bucket population for histogram "request_duration_microseconds"`,
+		},
+		// 45: Histogram with negative float count.
+		{
+			in: `
+# HELP request_duration_microseconds The response latency.
+# TYPE request_duration_microseconds histogram
+request_duration_microseconds_bucket{le="100"} 123
+request_duration_microseconds_bucket{le="120"} 412
+request_duration_microseconds_bucket{le="144"} 592
+request_duration_microseconds_bucket{le="172.8"} 1524
+request_duration_microseconds_bucket{le="+Inf"} 2693
+request_duration_microseconds_sum 1.7560473e+06
+request_duration_microseconds_count -2693.123
+`,
+			errUTF8: `text format parsing error in line 10: negative count for histogram "request_duration_microseconds"`,
+		},
+		// 46: Histogram with negative float bucket.
+		{
+			in: `
+# HELP request_duration_microseconds The response latency.
+# TYPE request_duration_microseconds histogram
+request_duration_microseconds_bucket{le="100"} 123
+request_duration_microseconds_bucket{le="120"} -412.456
+request_duration_microseconds_bucket{le="144"} 592
+request_duration_microseconds_bucket{le="172.8"} 1524
+request_duration_microseconds_bucket{le="+Inf"} 2693
+request_duration_microseconds_sum 1.7560473e+06
+request_duration_microseconds_count 2693
+`,
+			errUTF8: `text format parsing error in line 5: negative bucket population for histogram "request_duration_microseconds"`,
 		},
 	}
 	for i, scenario := range scenarios {
