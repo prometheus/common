@@ -4,7 +4,20 @@
 
 ### What's Changed
 
-* [ENHANCEMENT] Create CHANGELOG.md for easier communication of library changes, especially possible breaking changes. https://github.com/prometheus/common/pull/833
+## v0.67.0 / 2025-10-07
+
+## What's Changed
+* Create CHANGELOG.md for easier communication of library changes, especially possible breaking changes. by @ywwg in https://github.com/prometheus/common/pull/833
+* model: New test for validation with dots by @m1k1o in https://github.com/prometheus/common/pull/759
+* expfmt: document NewTextParser as required by @burgerdev in https://github.com/prometheus/common/pull/842
+* expfmt: Add support for float histograms and gauge histograms by @beorn7 in https://github.com/prometheus/common/pull/843
+* Updated minimum Go version to 1.24.0, updated Go dependecies by @SuperQ in https://github.com/prometheus/common/pull/849
+
+## New Contributors
+* @m1k1o made their first contribution in https://github.com/prometheus/common/pull/759
+* @burgerdev made their first contribution in https://github.com/prometheus/common/pull/842
+
+**Full Changelog**: https://github.com/prometheus/common/compare/v0.66.1...v0.67.0
 
 ## v0.66.1 / 2025-09-05
 
