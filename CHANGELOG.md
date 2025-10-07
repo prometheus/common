@@ -4,6 +4,13 @@
 
 ### What's Changed
 
+## v0.67.1 / 2025-10-07
+
+## What's Changed
+* Remove VERSION file to avoid Go conflict error in https://github.com/prometheus/common/pull/853
+
+**Full Changelog**: https://github.com/prometheus/common/compare/v0.67.0...v0.67.1
+
 ## v0.67.0 / 2025-10-07
 
 ## What's Changed
