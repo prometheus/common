@@ -93,14 +93,14 @@ workflows:
           matrix:
             parameters:
               go_version:
-                - "1.23"
                 - "1.24"
+                - "1.25"
       - test-assets:
           name: assets-go-<< matrix.go_version >>
           matrix:
             parameters:
               go_version:
-                - "1.24"
+                - "1.25"
       - style:
           name: style
-          go_version: "1.24"
+          go_version: "1.25"
