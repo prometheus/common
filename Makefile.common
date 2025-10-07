@@ -231,7 +231,7 @@ common-docker-publish: $(PUBLISH_DOCKER_ARCHS)
 $(PUBLISH_DOCKER_ARCHS): common-docker-publish-%:
 	docker push "$(DOCKER_REPO)/$(DOCKER_IMAGE_NAME)-linux-$*:$(SANITIZED_DOCKER_IMAGE_TAG)"
 
-DOCKER_MAJOR_VERSION_TAG = $(firstword $(subst ., ,$(shell cat VERSION)))
+DOCKER_MAJOR_VERSION_TAG = $(firstword $(subst ., ,$(shell cat VERSION.txt)))
 .PHONY: common-docker-tag-latest $(TAG_DOCKER_ARCHS)
 common-docker-tag-latest: $(TAG_DOCKER_ARCHS)
 $(TAG_DOCKER_ARCHS): common-docker-tag-latest-%:
