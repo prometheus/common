@@ -1383,6 +1383,9 @@ func (t *tlsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	// using GetClientCertificate.
 	tlsConfig := t.tlsConfig.Clone()
 	if !updateRootCA(tlsConfig, caData) {
+		if t.settings.CA == nil {
+			return nil, errors.New("unable to use specified CA cert: none configured")
+		}
 		return nil, fmt.Errorf("unable to use specified CA cert %s", t.settings.CA.Description())
 	}
 	rt, err = t.newRT(tlsConfig)

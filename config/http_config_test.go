@@ -1969,6 +1969,48 @@ func TestModifyTLSCertificates(t *testing.T) {
 	}
 }
 
+func TestTLSRoundTripper_NoCAConfigured(t *testing.T) {
+	bs := getCertificateBlobs(t)
+
+	tmpDir, err := os.MkdirTemp("", "tlspanic")
+	require.NoErrorf(t, err, "Failed to create tmp dir")
+	defer os.RemoveAll(tmpDir)
+	cert, key := filepath.Join(tmpDir, "cert"), filepath.Join(tmpDir, "key")
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, ExpectedMessage)
+	}
+	testServer, err := newTestServer(handler)
+	require.NoError(t, err)
+	defer testServer.Close()
+
+	cfg := HTTPClientConfig{
+		TLSConfig: TLSConfig{
+			CertFile:           cert,
+			KeyFile:            key,
+			InsecureSkipVerify: true,
+		},
+	}
+
+	writeCertificate(bs, ClientCertificatePath, cert)
+	writeCertificate(bs, ClientKeyNoPassPath, key)
+	c, err := NewClientFromConfig(cfg, "test")
+	require.NoErrorf(t, err, "Error creating HTTP Client: %v", err)
+
+	req, err := http.NewRequest(http.MethodGet, testServer.URL, nil)
+	require.NoErrorf(t, err, "Error creating HTTP request: %v", err)
+
+	r, err := c.Do(req)
+	require.NoErrorf(t, err, "Can't connect to the test server")
+	r.Body.Close()
+
+	err = os.WriteFile(cert, []byte("-----BEGIN GARBAGE-----\nabc\n-----END GARBAGE-----\n"), 0o664)
+	require.NoError(t, err)
+
+	_, err = c.Do(req)
+	require.ErrorContainsf(t, err, "unable to use specified CA cert: none configured", "Expected error to mention missing CA cert")
+}
+
 // loadHTTPConfigJSON parses the JSON input s into a HTTPClientConfig.
 func loadHTTPConfigJSON(buf []byte) (*HTTPClientConfig, error) {
 	cfg := &HTTPClientConfig{}
