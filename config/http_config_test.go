@@ -1977,7 +1977,7 @@ func TestTLSRoundTripper_NoCAConfigured(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 	cert, key := filepath.Join(tmpDir, "cert"), filepath.Join(tmpDir, "key")
 
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, ExpectedMessage)
 	}
 	testServer, err := newTestServer(handler)

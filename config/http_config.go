@@ -1508,19 +1508,19 @@ func (c *ProxyConfig) Proxy() (fn func(*http.Request) (*url.URL, error)) {
 		fn = c.proxyFunc
 	}()
 	if c.proxyFunc != nil {
-		return
+		return fn
 	}
 	if c.ProxyFromEnvironment {
 		proxyFn := httpproxy.FromEnvironment().ProxyFunc()
 		c.proxyFunc = func(req *http.Request) (*url.URL, error) {
 			return proxyFn(req.URL)
 		}
-		return
+		return fn
 	}
 	if c.ProxyURL.URL != nil && c.ProxyURL.String() != "" {
 		if c.NoProxy == "" {
 			c.proxyFunc = http.ProxyURL(c.ProxyURL.URL)
-			return
+			return fn
 		}
 		proxy := &httpproxy.Config{
 			HTTPProxy:  c.ProxyURL.String(),
@@ -1532,7 +1532,7 @@ func (c *ProxyConfig) Proxy() (fn func(*http.Request) (*url.URL, error)) {
 			return proxyFn(req.URL)
 		}
 	}
-	return
+	return fn
 }
 
 // ProxyConnectHeader() return the Proxy Connext Headers.
