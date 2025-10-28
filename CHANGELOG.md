@@ -4,6 +4,17 @@
 
 ### What's Changed
 
+## v0.67.2 / 2025-10-28
+
+## What's Changed
+* config: Fix panic in `tlsRoundTripper` when CA file is absent by @ndk in https://github.com/prometheus/common/pull/792
+* Cleanup linting issues by @SuperQ in https://github.com/prometheus/common/pull/860
+
+## New Contributors
+* @ndk made their first contribution in https://github.com/prometheus/common/pull/792
+
+**Full Changelog**: https://github.com/prometheus/common/compare/v0.67.1...v0.67.2
+
 ## v0.67.1 / 2025-10-07
 
 ## What's Changed
