@@ -1744,15 +1744,12 @@ claims:
   sub: common
   integer: 1
 token_url: %s
-endpoint_params:
- hi: hello
 `, ClientKeyNoPassPath, ts.tokenURL())
 	expectedConfig := OAuth2{
 		GrantType:                grantTypeJWTBearer,
 		ClientID:                 "1",
 		ClientCertificateKeyFile: ClientKeyNoPassPath,
 		Scopes:                   []string{"A", "B"},
-		EndpointParams:           map[string]string{"hi": "hello"},
 		TokenURL:                 ts.tokenURL(),
 		Claims: map[string]interface{}{
 			"iss":     "https://example.com",

@@ -27,17 +27,18 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/mwitkow/go-conntrack"
 	"go.yaml.in/yaml/v2"
 	"golang.org/x/net/http/httpproxy"
 	"golang.org/x/net/http2"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
-	"golang.org/x/oauth2/jwt"
 )
 
 const (
@@ -253,6 +254,19 @@ type OAuth2 struct {
 	// "client_credentials" or "urn:ietf:params:oauth:grant-type:jwt-bearer" (RFC 7523).
 	// Default value is "client_credentials"
 	GrantType string `yaml:"grant_type" json:"grant_type"`
+	// SignatureAltgorithm is the RSA algorithm used to sign JWT token. Only used if
+	// GrantType is set to "urn:ietf:params:oauth:grant-type:jwt-bearer".
+	// Default value is RS256 and valid values RS256, RS384, RS512
+	SignatureAltgorithm string `yaml:"signature_algorithm,omitempty" json:"signature_algorithm,omitempty"`
+	// Iss is the OAuth client identifier used when communicating with
+	// the configured OAuth provider. Default value is client_id. Only used if
+	// GrantType is set to "urn:ietf:params:oauth:grant-type:jwt-bearer".
+	Iss string `yaml:"iss,omitempty" json:"iss,omitempty"`
+	// Audience optionally specifies the intended audience of the
+	// request.  If empty, the value of TokenURL is used as the
+	// intended audience. Only used if
+	// GrantType is set to "urn:ietf:params:oauth:grant-type:jwt-bearer".
+	Audience string `yaml:"audience,omitempty" json:"audience,omitempty"`
 	// Claims is a map of claims to be added to the JWT token. Only used if
 	// GrantType is set to "urn:ietf:params:oauth:grant-type:jwt-bearer".
 	Claims         map[string]interface{} `yaml:"claims,omitempty" json:"claims,omitempty"`
@@ -430,9 +444,13 @@ func (c *HTTPClientConfig) Validate() error {
 			if nonZeroCount(len(c.OAuth2.ClientCertificateKey) > 0, len(c.OAuth2.ClientCertificateKeyFile) > 0, len(c.OAuth2.ClientCertificateKeyRef) > 0) > 1 {
 				return errors.New("at most one of oauth2 client_certificate_key, client_certificate_key_file & client_certificate_key_ref must be configured using grant-type=urn:ietf:params:oauth:grant-type:jwt-bearer")
 			}
-		}
-		if nonZeroCount(len(c.OAuth2.ClientSecret) > 0, len(c.OAuth2.ClientSecretFile) > 0, len(c.OAuth2.ClientSecretRef) > 0) > 1 {
-			return errors.New("at most one of oauth2 client_secret, client_secret_file & client_secret_ref must be configured using grant-type=client_credentials")
+			if c.OAuth2.SignatureAltgorithm != "" && !slices.Contains(validSignatureAlgorithm, c.OAuth2.SignatureAltgorithm) {
+				return errors.New("valid signature algorithms are RS256, RS384 and RS512")
+			}
+		} else {
+			if nonZeroCount(len(c.OAuth2.ClientSecret) > 0, len(c.OAuth2.ClientSecretFile) > 0, len(c.OAuth2.ClientSecretRef) > 0) > 1 {
+				return errors.New("at most one of oauth2 client_secret, client_secret_file & client_secret_ref must be configured using grant-type=client_credentials")
+			}
 		}
 	}
 	if err := c.ProxyConfig.Validate(); err != nil {
@@ -995,12 +1013,26 @@ func (rt *oauth2RoundTripper) newOauth2TokenSource(req *http.Request, clientCred
 		// RFC 7523 3.2 - Client Authentication Processing is not implement upstream yet,
 		// see https://github.com/golang/oauth2/pull/745
 
-		config = &jwt.Config{
-			PrivateKey:    []byte(clientCredential),
-			PrivateKeyID:  rt.config.ClientCertificateKeyID,
-			Scopes:        rt.config.Scopes,
-			TokenURL:      rt.config.TokenURL,
-			PrivateClaims: rt.config.Claims,
+		sig := jwt.SigningMethodRS256
+		if rt.config.SignatureAltgorithm == jwt.SigningMethodRS384.Name {
+			sig = jwt.SigningMethodRS384
+		} else if rt.config.SignatureAltgorithm == jwt.SigningMethodRS512.Name {
+			sig = jwt.SigningMethodRS512
+		}
+		iss := rt.config.Iss
+		if iss == "" {
+			iss = rt.config.ClientID
+		}
+		config = &JwtGrantTypeConfig{
+			PrivateKey:       []byte(clientCredential),
+			PrivateKeyID:     rt.config.ClientCertificateKeyID,
+			Scopes:           rt.config.Scopes,
+			TokenURL:         rt.config.TokenURL,
+			SigningAlgorithm: sig,
+			Iss:              iss,
+			Subject:          rt.config.ClientID,
+			Audience:         rt.config.Audience,
+			PrivateClaims:    rt.config.Claims,
 		}
 	} else {
 		config = &clientcredentials.Config{
