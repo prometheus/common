@@ -17,6 +17,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -111,6 +112,10 @@ var invalidHTTPClientConfigs = []struct {
 	{
 		httpClientConfigFile: "testdata/http.conf.oauth2-secret-and-file-set.bad.yml",
 		errMsg:               "at most one of oauth2 client_secret, client_secret_file & client_secret_ref must be configured",
+	},
+	{
+		httpClientConfigFile: "testdata/http.conf.oauth2-certificate-and-file-set.bad.yml",
+		errMsg:               "at most one of oauth2 client_certificate_key, client_certificate_key_file & client_certificate_key_ref must be configured using grant-type=urn:ietf:params:oauth:grant-type:jwt-beare",
 	},
 	{
 		httpClientConfigFile: "testdata/http.conf.oauth2-no-client-id.bad.yaml",
@@ -1439,11 +1444,17 @@ type testOAuthServer struct {
 }
 
 // newTestOAuthServer returns a new test server with the expected base64 encoded client ID and secret.
-func newTestOAuthServer(t testing.TB, expectedAuth *string) testOAuthServer {
+func newTestOAuthServer(t testing.TB, expectedAuth func(testing.TB, string)) testOAuthServer {
 	var previousAuth string
 	tokenTS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auth := r.Header.Get("Authorization")
-		require.Equalf(t, *expectedAuth, auth, "bad auth, expected %s, got %s", *expectedAuth, auth)
+		if auth == "" {
+			require.NoErrorf(t, r.ParseForm(), "Failed to parse form")
+			auth = r.FormValue("assertion")
+		}
+
+		expectedAuth(t, auth)
+
 		require.NotEqualf(t, auth, previousAuth, "token endpoint called twice")
 		previousAuth = auth
 		res, _ := json.Marshal(oauth2TestServerResponse{
@@ -1478,8 +1489,10 @@ func (s *testOAuthServer) close() {
 }
 
 func TestOAuth2(t *testing.T) {
-	var expectedAuth string
-	ts := newTestOAuthServer(t, &expectedAuth)
+	expectedAuth := new(string)
+	ts := newTestOAuthServer(t, func(tb testing.TB, auth string) {
+		require.Equalf(t, *expectedAuth, auth, "bad auth, expected %s, got %s", *expectedAuth, auth)
+	})
 	defer ts.close()
 
 	yamlConfig := fmt.Sprintf(`
@@ -1513,7 +1526,7 @@ endpoint_params:
 	}
 
 	// Default secret.
-	expectedAuth = "Basic MToy"
+	*expectedAuth = "Basic MToy"
 	resp, err := client.Get(ts.url())
 	require.NoError(t, err)
 
@@ -1525,7 +1538,7 @@ endpoint_params:
 	require.NoError(t, err)
 
 	// Empty secret.
-	expectedAuth = "Basic MTo="
+	*expectedAuth = "Basic MTo="
 	expectedConfig.ClientSecret = ""
 	resp, err = client.Get(ts.url())
 	require.NoError(t, err)
@@ -1538,7 +1551,7 @@ endpoint_params:
 	require.NoError(t, err)
 
 	// Update secret.
-	expectedAuth = "Basic MToxMjM0NTY3"
+	*expectedAuth = "Basic MToxMjM0NTY3"
 	expectedConfig.ClientSecret = "1234567"
 	_, err = client.Get(ts.url())
 	require.NoError(t, err)
@@ -1607,8 +1620,10 @@ func TestHost(t *testing.T) {
 }
 
 func TestOAuth2WithFile(t *testing.T) {
-	var expectedAuth string
-	ts := newTestOAuthServer(t, &expectedAuth)
+	expectedAuth := new(string)
+	ts := newTestOAuthServer(t, func(tb testing.TB, auth string) {
+		require.Equalf(t, *expectedAuth, auth, "bad auth, expected %s, got %s", *expectedAuth, auth)
+	})
 	defer ts.close()
 
 	secretFile, err := os.CreateTemp("", "oauth2_secret")
@@ -1646,7 +1661,7 @@ endpoint_params:
 	}
 
 	// Empty secret file.
-	expectedAuth = "Basic MTo="
+	*expectedAuth = "Basic MTo="
 	resp, err := client.Get(ts.url())
 	require.NoError(t, err)
 
@@ -1658,7 +1673,7 @@ endpoint_params:
 	require.NoError(t, err)
 
 	// File populated.
-	expectedAuth = "Basic MToxMjM0NTY="
+	*expectedAuth = "Basic MToxMjM0NTY="
 	_, err = secretFile.Write([]byte("123456"))
 	require.NoError(t, err)
 	resp, err = client.Get(ts.url())
@@ -1672,7 +1687,7 @@ endpoint_params:
 	require.NoError(t, err)
 
 	// Update file.
-	expectedAuth = "Basic MToxMjM0NTY3"
+	*expectedAuth = "Basic MToxMjM0NTY3"
 	_, err = secretFile.Write([]byte("7"))
 	require.NoError(t, err)
 	_, err = client.Get(ts.url())
@@ -1684,6 +1699,86 @@ endpoint_params:
 
 	authorization = resp.Request.Header.Get("Authorization")
 	require.Equalf(t, "Bearer 12345", authorization, "Expected authorization header to be 'Bearer 12345', got '%s'", authorization)
+}
+
+func TestOAuth2WithJWTAuth(t *testing.T) {
+	ts := newTestOAuthServer(t, func(tb testing.TB, auth string) {
+		t.Helper()
+
+		jwtParts := strings.Split(auth, ".")
+		require.Lenf(t, jwtParts, 3, "Expected JWT to have 3 parts, got %d", len(jwtParts))
+
+		// Decode the JWT payload.
+		payload, err := base64.RawURLEncoding.DecodeString(jwtParts[1])
+		require.NoErrorf(t, err, "Failed to decode JWT payload: %v", err)
+
+		var jwt struct {
+			Aud     string `json:"aud"`
+			Scope   string `json:"scope"`
+			Sub     string `json:"sub"`
+			Iss     string `json:"iss"`
+			Integer int    `json:"integer"`
+		}
+
+		err = json.Unmarshal(payload, &jwt)
+		require.NoErrorf(t, err, "Failed to unmarshal JWT payload: %v", err)
+
+		require.Equalf(t, "common-test", jwt.Aud, "Expected aud to be 'common-test', got '%s'", jwt.Aud)
+		require.Equalf(t, "A B", jwt.Scope, "Expected scope to be 'A B', got '%s'", jwt.Scope)
+		require.Equalf(t, "common", jwt.Sub, "Expected sub to be 'common', got '%s'", jwt.Sub)
+		require.Equalf(t, "https://example.com", jwt.Iss, "Expected iss to be 'https://example.com', got '%s'", jwt.Iss)
+		require.Equalf(t, 1, jwt.Integer, "Expected integer to be 1, got '%d'", jwt.Integer)
+	})
+	defer ts.close()
+
+	yamlConfig := fmt.Sprintf(`
+grant_type: urn:ietf:params:oauth:grant-type:jwt-bearer
+client_id: 1
+client_certificate_key_file: %s
+scopes:
+ - A
+ - B
+claims:
+  iss: "https://example.com"
+  aud: common-test
+  sub: common
+  integer: 1
+token_url: %s
+endpoint_params:
+ hi: hello
+`, ClientKeyNoPassPath, ts.tokenURL())
+	expectedConfig := OAuth2{
+		GrantType:                grantTypeJWTBearer,
+		ClientID:                 "1",
+		ClientCertificateKeyFile: ClientKeyNoPassPath,
+		Scopes:                   []string{"A", "B"},
+		EndpointParams:           map[string]string{"hi": "hello"},
+		TokenURL:                 ts.tokenURL(),
+		Claims: map[string]interface{}{
+			"iss":     "https://example.com",
+			"aud":     "common-test",
+			"sub":     "common",
+			"integer": 1,
+		},
+	}
+
+	var unmarshalledConfig OAuth2
+	err := yaml.Unmarshal([]byte(yamlConfig), &unmarshalledConfig)
+	require.NoErrorf(t, err, "Expected no error unmarshalling yaml, got %v", err)
+	require.Truef(t, reflect.DeepEqual(unmarshalledConfig, expectedConfig), "Got unmarshalled config %v, expected %v", unmarshalledConfig, expectedConfig)
+
+	clientCertificateKey := NewFileSecret(expectedConfig.ClientCertificateKeyFile)
+	rt := NewOAuth2RoundTripper(clientCertificateKey, &expectedConfig, http.DefaultTransport, &defaultHTTPClientOptions)
+
+	client := http.Client{
+		Transport: rt,
+	}
+
+	resp, err := client.Get(ts.url())
+	require.NoError(t, err)
+
+	authorization := resp.Request.Header.Get("Authorization")
+	require.Equalf(t, "Bearer 12345", authorization, "Expected authorization header to be 'Bearer', got '%s'", authorization)
 }
 
 func TestMarshalURL(t *testing.T) {
