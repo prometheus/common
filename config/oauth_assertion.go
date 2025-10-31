@@ -118,6 +118,8 @@ func (js jwtSource) Token() (*oauth2.Token, error) {
 	if t := js.conf.Expires; t > 0 {
 		expiration = time.Now().Add(t)
 	}
+	scopes := strings.Join(js.conf.Scopes, " ")
+
 	claims := jwt.MapClaims{
 		"iss": js.conf.Iss,
 		"sub": js.conf.Subject,
@@ -127,8 +129,8 @@ func (js jwtSource) Token() (*oauth2.Token, error) {
 		"exp": jwt.NewNumericDate(expiration),
 	}
 
-	if len(js.conf.Scopes) > 0 {
-		claims["scope"] = strings.Join(js.conf.Scopes, " ")
+	if len(scopes) > 0 {
+		claims["scope"] = scopes
 	}
 
 	for k, v := range js.conf.PrivateClaims {
@@ -146,6 +148,9 @@ func (js jwtSource) Token() (*oauth2.Token, error) {
 	v := url.Values{}
 	v.Set("grant_type", defaultGrantType)
 	v.Set("assertion", payload)
+	if len(scopes) > 0 {
+		v.Set("scope", scopes)
+	}
 
 	for k, p := range js.conf.EndpointParams {
 		// Allow grant_type to be overridden to allow interoperability with
