@@ -447,10 +447,8 @@ func (c *HTTPClientConfig) Validate() error {
 			if c.OAuth2.SignatureAltgorithm != "" && !slices.Contains(validSignatureAlgorithm, c.OAuth2.SignatureAltgorithm) {
 				return errors.New("valid signature algorithms are RS256, RS384 and RS512")
 			}
-		} else {
-			if nonZeroCount(len(c.OAuth2.ClientSecret) > 0, len(c.OAuth2.ClientSecretFile) > 0, len(c.OAuth2.ClientSecretRef) > 0) > 1 {
-				return errors.New("at most one of oauth2 client_secret, client_secret_file & client_secret_ref must be configured using grant-type=client_credentials")
-			}
+		} else if nonZeroCount(len(c.OAuth2.ClientSecret) > 0, len(c.OAuth2.ClientSecretFile) > 0, len(c.OAuth2.ClientSecretRef) > 0) > 1 {
+			return errors.New("at most one of oauth2 client_secret, client_secret_file & client_secret_ref must be configured using grant-type=client_credentials")
 		}
 	}
 	if err := c.ProxyConfig.Validate(); err != nil {
@@ -1013,12 +1011,18 @@ func (rt *oauth2RoundTripper) newOauth2TokenSource(req *http.Request, clientCred
 		// RFC 7523 3.2 - Client Authentication Processing is not implement upstream yet,
 		// see https://github.com/golang/oauth2/pull/745
 
-		sig := jwt.SigningMethodRS256
-		if rt.config.SignatureAltgorithm == jwt.SigningMethodRS384.Name {
+		var sig *jwt.SigningMethodRSA
+		switch rt.config.SignatureAltgorithm {
+		case jwt.SigningMethodRS256.Name:
+			sig = jwt.SigningMethodRS256
+		case jwt.SigningMethodRS384.Name:
 			sig = jwt.SigningMethodRS384
-		} else if rt.config.SignatureAltgorithm == jwt.SigningMethodRS512.Name {
+		case jwt.SigningMethodRS512.Name:
 			sig = jwt.SigningMethodRS512
+		default:
+			sig = jwt.SigningMethodRS256
 		}
+
 		iss := rt.config.Iss
 		if iss == "" {
 			iss = rt.config.ClientID
@@ -1033,6 +1037,7 @@ func (rt *oauth2RoundTripper) newOauth2TokenSource(req *http.Request, clientCred
 			Subject:          rt.config.ClientID,
 			Audience:         rt.config.Audience,
 			PrivateClaims:    rt.config.Claims,
+			EndpointParams:   mapToValues(rt.config.EndpointParams),
 		}
 	} else {
 		config = &clientcredentials.Config{

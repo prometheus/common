@@ -1490,7 +1490,7 @@ func (s *testOAuthServer) close() {
 
 func TestOAuth2(t *testing.T) {
 	expectedAuth := new(string)
-	ts := newTestOAuthServer(t, func(tb testing.TB, auth string) {
+	ts := newTestOAuthServer(t, func(t testing.TB, auth string) {
 		require.Equalf(t, *expectedAuth, auth, "bad auth, expected %s, got %s", *expectedAuth, auth)
 	})
 	defer ts.close()
@@ -1621,7 +1621,7 @@ func TestHost(t *testing.T) {
 
 func TestOAuth2WithFile(t *testing.T) {
 	expectedAuth := new(string)
-	ts := newTestOAuthServer(t, func(tb testing.TB, auth string) {
+	ts := newTestOAuthServer(t, func(t testing.TB, auth string) {
 		require.Equalf(t, *expectedAuth, auth, "bad auth, expected %s, got %s", *expectedAuth, auth)
 	})
 	defer ts.close()
@@ -1702,7 +1702,7 @@ endpoint_params:
 }
 
 func TestOAuth2WithJWTAuth(t *testing.T) {
-	ts := newTestOAuthServer(t, func(tb testing.TB, auth string) {
+	ts := newTestOAuthServer(t, func(t testing.TB, auth string) {
 		t.Helper()
 
 		jwtParts := strings.Split(auth, ".")
@@ -1744,6 +1744,8 @@ claims:
   sub: common
   integer: 1
 token_url: %s
+endpoint_params:
+  hi: hello
 `, ClientKeyNoPassPath, ts.tokenURL())
 	expectedConfig := OAuth2{
 		GrantType:                grantTypeJWTBearer,
@@ -1751,6 +1753,7 @@ token_url: %s
 		ClientCertificateKeyFile: ClientKeyNoPassPath,
 		Scopes:                   []string{"A", "B"},
 		TokenURL:                 ts.tokenURL(),
+		EndpointParams:           map[string]string{"hi": "hello"},
 		Claims: map[string]interface{}{
 			"iss":     "https://example.com",
 			"aud":     "common-test",

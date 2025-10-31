@@ -66,6 +66,9 @@ type JwtGrantTypeConfig struct {
 	// TokenURL is the endpoint required to complete the 2-legged JWT flow.
 	TokenURL string
 
+	// EndpointParams specifies additional parameters for requests to the token endpoint.
+	EndpointParams url.Values
+
 	// Expires optionally specifies how long the token is valid for.
 	Expires time.Duration
 
@@ -143,14 +146,24 @@ func (js jwtSource) Token() (*oauth2.Token, error) {
 	v := url.Values{}
 	v.Set("grant_type", defaultGrantType)
 	v.Set("assertion", payload)
+
+	for k, p := range js.conf.EndpointParams {
+		// Allow grant_type to be overridden to allow interoperability with
+		// non-compliant implementations.
+		if _, ok := v[k]; ok && k != "grant_type" {
+			return nil, fmt.Errorf("oauth2: cannot overwrite parameter %q", k)
+		}
+		v[k] = p
+	}
+
 	resp, err := hc.PostForm(js.conf.TokenURL, v)
 	if err != nil {
-		return nil, fmt.Errorf("oauth2: cannot fetch token: %v", err)
+		return nil, fmt.Errorf("oauth2: cannot fetch token: %w", err)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
-		return nil, fmt.Errorf("oauth2: cannot fetch token: %v", err)
+		return nil, fmt.Errorf("oauth2: cannot fetch token: %w", err)
 	}
 	if c := resp.StatusCode; c < 200 || c > 299 {
 		return nil, &oauth2.RetrieveError{
@@ -163,16 +176,12 @@ func (js jwtSource) Token() (*oauth2.Token, error) {
 		oauth2.Token
 	}
 	if err := json.Unmarshal(body, &tokenRes); err != nil {
-		return nil, fmt.Errorf("oauth2: cannot fetch token: %v", err)
+		return nil, fmt.Errorf("oauth2: cannot fetch token: %w", err)
 	}
 	token := &oauth2.Token{
 		AccessToken: tokenRes.AccessToken,
 		TokenType:   tokenRes.TokenType,
 	}
-	raw := make(map[string]any)
-	json.Unmarshal(body, &raw) // no error checks for optional fields
-	token = token.WithExtra(raw)
-
 	if secs := tokenRes.ExpiresIn; secs > 0 {
 		token.Expiry = time.Now().Add(time.Duration(secs) * time.Second)
 	}
