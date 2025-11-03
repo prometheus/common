@@ -254,10 +254,10 @@ type OAuth2 struct {
 	// "client_credentials" or "urn:ietf:params:oauth:grant-type:jwt-bearer" (RFC 7523).
 	// Default value is "client_credentials"
 	GrantType string `yaml:"grant_type" json:"grant_type"`
-	// SignatureAltgorithm is the RSA algorithm used to sign JWT token. Only used if
+	// SignatureAlgorithm is the RSA algorithm used to sign JWT token. Only used if
 	// GrantType is set to "urn:ietf:params:oauth:grant-type:jwt-bearer".
 	// Default value is RS256 and valid values RS256, RS384, RS512
-	SignatureAltgorithm string `yaml:"signature_algorithm,omitempty" json:"signature_algorithm,omitempty"`
+	SignatureAlgorithm string `yaml:"signature_algorithm,omitempty" json:"signature_algorithm,omitempty"`
 	// Iss is the OAuth client identifier used when communicating with
 	// the configured OAuth provider. Default value is client_id. Only used if
 	// GrantType is set to "urn:ietf:params:oauth:grant-type:jwt-bearer".
@@ -444,7 +444,7 @@ func (c *HTTPClientConfig) Validate() error {
 			if nonZeroCount(len(c.OAuth2.ClientCertificateKey) > 0, len(c.OAuth2.ClientCertificateKeyFile) > 0, len(c.OAuth2.ClientCertificateKeyRef) > 0) > 1 {
 				return errors.New("at most one of oauth2 client_certificate_key, client_certificate_key_file & client_certificate_key_ref must be configured using grant-type=urn:ietf:params:oauth:grant-type:jwt-bearer")
 			}
-			if c.OAuth2.SignatureAltgorithm != "" && !slices.Contains(validSignatureAlgorithm, c.OAuth2.SignatureAltgorithm) {
+			if c.OAuth2.SignatureAlgorithm != "" && !slices.Contains(validSignatureAlgorithm, c.OAuth2.SignatureAlgorithm) {
 				return errors.New("valid signature algorithms are RS256, RS384 and RS512")
 			}
 		} else if nonZeroCount(len(c.OAuth2.ClientSecret) > 0, len(c.OAuth2.ClientSecretFile) > 0, len(c.OAuth2.ClientSecretRef) > 0) > 1 {
@@ -1012,7 +1012,7 @@ func (rt *oauth2RoundTripper) newOauth2TokenSource(req *http.Request, clientCred
 		// see https://github.com/golang/oauth2/pull/745
 
 		var sig *jwt.SigningMethodRSA
-		switch rt.config.SignatureAltgorithm {
+		switch rt.config.SignatureAlgorithm {
 		case jwt.SigningMethodRS256.Name:
 			sig = jwt.SigningMethodRS256
 		case jwt.SigningMethodRS384.Name:
