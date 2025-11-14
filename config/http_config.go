@@ -662,12 +662,6 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 			DialContext:           dialContext,
 		}
 		if opts.http2Enabled && cfg.EnableHTTP2 {
-			// HTTP/2 support is golang had many problematic cornercases where
-			// dead connections would be kept and used in connection pools.
-			// https://github.com/golang/go/issues/32388
-			// https://github.com/golang/go/issues/39337
-			// https://github.com/golang/go/issues/39750
-
 			http2t, err := http2.ConfigureTransports(rt.(*http.Transport))
 			if err != nil {
 				return nil, err
