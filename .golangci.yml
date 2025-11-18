@@ -163,5 +163,3 @@ formatters:
     goimports:
       local-prefixes:
         - github.com/prometheus/common
-  exclusions:
-    generated: lax
