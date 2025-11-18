@@ -19,8 +19,7 @@ Make sure the release is ready to go, with an updated changelog including notice
 
 Here are the basic steps:
 
-1. Update VERSION, applying the next logical version number, without any `v` prefix (e.g.  `0.53.0`).
-2. Update CHANGELOG.md, applying the new version number (this time including the `v` prefix, e.g. `v0.53.0`) and date to the changes listed under ``## main / unreleased`, and commit those changes to the main branch.
+1. Update CHANGELOG.md, applying the new version number (this time including the `v` prefix, e.g. `v0.53.0`) and date to the changes listed under ``## main / unreleased`, and commit those changes to the main branch.
 2. Use GitHub's release feature via [this link](https://github.com/prometheus/prometheus/releases/new) to apply a new tag. The tag name must be prefixed with a `v` e.g. `v0.53.0` and then use the "Generate release notes" button to generate the release notes automagically ✨. No need to create a discussion or mark it a pre-release, please do make sure it is marked as the latest release.
 
 ## Versioning strategy
