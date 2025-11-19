@@ -239,13 +239,13 @@ func (u URL) MarshalJSON() ([]byte, error) {
 // OAuth2 is the oauth2 client configuration.
 type OAuth2 struct {
 	ClientID         string `yaml:"client_id" json:"client_id"`
-	ClientSecret     Secret `yaml:"client_secret" json:"client_secret"`
+	ClientSecret     Secret `yaml:"client_secret,omitempty" json:"client_secret,omitempty"`
 	ClientSecretFile string `yaml:"client_secret_file" json:"client_secret_file"`
 	// ClientSecretRef is the name of the secret within the secret manager to use as the client
 	// secret.
 	ClientSecretRef          string `yaml:"client_secret_ref" json:"client_secret_ref"`
 	ClientCertificateKeyID   string `yaml:"client_certificate_key_id" json:"client_certificate_key_id"`
-	ClientCertificateKey     Secret `yaml:"client_certificate_key" json:"client_certificate_key"`
+	ClientCertificateKey     Secret `yaml:"client_certificate_key,omitempty" json:"client_certificate_key,omitempty"`
 	ClientCertificateKeyFile string `yaml:"client_certificate_key_file" json:"client_certificate_key_file"`
 	// ClientCertificateKeyRef is the name of the secret within the secret manager to use as the client
 	// secret.
