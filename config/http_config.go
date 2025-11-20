@@ -136,7 +136,7 @@ func (tv *TLSVersion) String() string {
 
 // BasicAuth contains basic HTTP authentication credentials.
 type BasicAuth struct {
-	Username     string `yaml:"username" json:"username"`
+	Username     string `yaml:"username,omitempty" json:"username,omitempty"`
 	UsernameFile string `yaml:"username_file,omitempty" json:"username_file,omitempty"`
 	// UsernameRef is the name of the secret within the secret manager to use as the username.
 	UsernameRef  string `yaml:"username_ref,omitempty" json:"username_ref,omitempty"`
@@ -238,22 +238,22 @@ func (u URL) MarshalJSON() ([]byte, error) {
 
 // OAuth2 is the oauth2 client configuration.
 type OAuth2 struct {
-	ClientID         string `yaml:"client_id" json:"client_id"`
+	ClientID         string `yaml:"client_id,omitempty" json:"client_id,omitempty"`
 	ClientSecret     Secret `yaml:"client_secret,omitempty" json:"client_secret,omitempty"`
-	ClientSecretFile string `yaml:"client_secret_file" json:"client_secret_file"`
+	ClientSecretFile string `yaml:"client_secret_file,omitempty" json:"client_secret_file,omitempty"`
 	// ClientSecretRef is the name of the secret within the secret manager to use as the client
 	// secret.
-	ClientSecretRef          string `yaml:"client_secret_ref" json:"client_secret_ref"`
-	ClientCertificateKeyID   string `yaml:"client_certificate_key_id" json:"client_certificate_key_id"`
+	ClientSecretRef          string `yaml:"client_secret_ref,omitempty" json:"client_secret_ref,omitempty"`
+	ClientCertificateKeyID   string `yaml:"client_certificate_key_id,omitempty" json:"client_certificate_key_id,omitempty"`
 	ClientCertificateKey     Secret `yaml:"client_certificate_key,omitempty" json:"client_certificate_key,omitempty"`
-	ClientCertificateKeyFile string `yaml:"client_certificate_key_file" json:"client_certificate_key_file"`
+	ClientCertificateKeyFile string `yaml:"client_certificate_key_file,omitempty" json:"client_certificate_key_file,omitempty"`
 	// ClientCertificateKeyRef is the name of the secret within the secret manager to use as the client
 	// secret.
-	ClientCertificateKeyRef string `yaml:"client_certificate_key_ref" json:"client_certificate_key_ref"`
+	ClientCertificateKeyRef string `yaml:"client_certificate_key_ref,omitempty" json:"client_certificate_key_ref,omitempty"`
 	// GrantType is the OAuth2 grant type to use. It can be one of
 	// "client_credentials" or "urn:ietf:params:oauth:grant-type:jwt-bearer" (RFC 7523).
 	// Default value is "client_credentials"
-	GrantType string `yaml:"grant_type" json:"grant_type"`
+	GrantType string `yaml:"grant_type,omitempty" json:"grant_type,omitempty"`
 	// SignatureAlgorithm is the RSA algorithm used to sign JWT token. Only used if
 	// GrantType is set to "urn:ietf:params:oauth:grant-type:jwt-bearer".
 	// Default value is RS256 and valid values RS256, RS384, RS512
@@ -271,7 +271,7 @@ type OAuth2 struct {
 	// GrantType is set to "urn:ietf:params:oauth:grant-type:jwt-bearer".
 	Claims         map[string]interface{} `yaml:"claims,omitempty" json:"claims,omitempty"`
 	Scopes         []string               `yaml:"scopes,omitempty" json:"scopes,omitempty"`
-	TokenURL       string                 `yaml:"token_url" json:"token_url"`
+	TokenURL       string                 `yaml:"token_url,omitempty" json:"token_url,omitempty"`
 	EndpointParams map[string]string      `yaml:"endpoint_params,omitempty" json:"endpoint_params,omitempty"`
 	TLSConfig      TLSConfig              `yaml:"tls_config,omitempty"`
 	ProxyConfig    `yaml:",inline"`
@@ -347,11 +347,11 @@ type HTTPClientConfig struct {
 	// FollowRedirects specifies whether the client should follow HTTP 3xx redirects.
 	// The omitempty flag is not set, because it would be hidden from the
 	// marshalled configuration when set to false.
-	FollowRedirects bool `yaml:"follow_redirects" json:"follow_redirects"`
+	FollowRedirects bool `yaml:"follow_redirects,omitempty" json:"follow_redirects,omitempty"`
 	// EnableHTTP2 specifies whether the client should configure HTTP2.
 	// The omitempty flag is not set, because it would be hidden from the
 	// marshalled configuration when set to false.
-	EnableHTTP2 bool `yaml:"enable_http2" json:"enable_http2"`
+	EnableHTTP2 bool `yaml:"enable_http2,omitempty" json:"enable_http2,omitempty"`
 	// Proxy configuration.
 	ProxyConfig `yaml:",inline"`
 	// HTTPHeaders specify headers to inject in the requests. Those headers
@@ -1221,7 +1221,7 @@ type TLSConfig struct {
 	// Used to verify the hostname for the targets.
 	ServerName string `yaml:"server_name,omitempty" json:"server_name,omitempty"`
 	// Disable target certificate validation.
-	InsecureSkipVerify bool `yaml:"insecure_skip_verify" json:"insecure_skip_verify"`
+	InsecureSkipVerify bool `yaml:"insecure_skip_verify,omitempty" json:"insecure_skip_verify,omitempty"`
 	// Minimum TLS version.
 	MinVersion TLSVersion `yaml:"min_version,omitempty" json:"min_version,omitempty"`
 	// Maximum TLS version.
