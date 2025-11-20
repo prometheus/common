@@ -347,11 +347,11 @@ type HTTPClientConfig struct {
 	// FollowRedirects specifies whether the client should follow HTTP 3xx redirects.
 	// The omitempty flag is not set, because it would be hidden from the
 	// marshalled configuration when set to false.
-	FollowRedirects bool `yaml:"follow_redirects,omitempty" json:"follow_redirects,omitempty"`
+	FollowRedirects bool `yaml:"follow_redirects" json:"follow_redirects"`
 	// EnableHTTP2 specifies whether the client should configure HTTP2.
 	// The omitempty flag is not set, because it would be hidden from the
 	// marshalled configuration when set to false.
-	EnableHTTP2 bool `yaml:"enable_http2,omitempty" json:"enable_http2,omitempty"`
+	EnableHTTP2 bool `yaml:"enable_http2" json:"enable_http2"`
 	// Proxy configuration.
 	ProxyConfig `yaml:",inline"`
 	// HTTPHeaders specify headers to inject in the requests. Those headers
