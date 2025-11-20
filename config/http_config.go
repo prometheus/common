@@ -1221,7 +1221,7 @@ type TLSConfig struct {
 	// Used to verify the hostname for the targets.
 	ServerName string `yaml:"server_name,omitempty" json:"server_name,omitempty"`
 	// Disable target certificate validation.
-	InsecureSkipVerify bool `yaml:"insecure_skip_verify,omitempty" json:"insecure_skip_verify,omitempty"`
+	InsecureSkipVerify bool `yaml:"insecure_skip_verify" json:"insecure_skip_verify"`
 	// Minimum TLS version.
 	MinVersion TLSVersion `yaml:"min_version,omitempty" json:"min_version,omitempty"`
 	// Maximum TLS version.
