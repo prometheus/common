@@ -10,6 +10,7 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f
+	github.com/prometheus/client_golang v1.20.4
 	github.com/prometheus/client_model v0.6.2
 	github.com/stretchr/testify v1.11.1
 	go.yaml.in/yaml/v2 v2.4.3
@@ -25,7 +26,6 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/prometheus/client_golang v1.20.4 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/xhit/go-str2duration/v2 v2.1.0 // indirect
