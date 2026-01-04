@@ -117,6 +117,10 @@ var invalidTLSConfigs = []struct {
 		filename: "tls_config.max_and_min_version.bad.yml",
 		errMsg:   "tls_config.max_version must be greater than or equal to tls_config.min_version if both are specified",
 	},
+	{
+		filename: "tls_config.spiffe_and_other.bad.json",
+		errMsg:   "either SPIFFE settings or other TLSConfig settings may be set but not both",
+	},
 }
 
 func TestInvalidTLSConfig(t *testing.T) {
