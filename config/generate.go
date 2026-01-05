@@ -14,7 +14,6 @@
 // limitations under the License.
 
 //go:build ignore
-// +build ignore
 
 // Program generating TLS certificates and keys for the tests.
 package main
