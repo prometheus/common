@@ -15,7 +15,7 @@ require (
 	go.yaml.in/yaml/v2 v2.4.3
 	golang.org/x/net v0.48.0
 	golang.org/x/oauth2 v0.34.0
-	google.golang.org/protobuf v1.36.10
+	google.golang.org/protobuf v1.36.11
 )
 
 require (
