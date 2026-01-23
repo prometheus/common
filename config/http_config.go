@@ -1177,6 +1177,10 @@ func NewTLSConfigWithContext(ctx context.Context, cfg *TLSConfig, optFuncs ...TL
 		tlsConfig.ServerName = cfg.ServerName
 	}
 
+	if len(cfg.NextProtos) > 0 {
+		tlsConfig.NextProtos = cfg.NextProtos
+	}
+
 	// If a client cert & key is provided then configure TLS config accordingly.
 	if cfg.usingClientCert() && cfg.usingClientKey() {
 		// Verify that client cert and key are valid.
@@ -1226,6 +1230,8 @@ type TLSConfig struct {
 	MinVersion TLSVersion `yaml:"min_version,omitempty" json:"min_version,omitempty"`
 	// Maximum TLS version.
 	MaxVersion TLSVersion `yaml:"max_version,omitempty" json:"max_version,omitempty"`
+	// Additional ALPN protocols to be presented when connecting to the server.
+	NextProtos []string `yaml:"next_protos,omitempty" json:"next_protos,omitempty"`
 }
 
 // SetDirectory joins any relative file paths with dir.
