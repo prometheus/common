@@ -30,7 +30,6 @@ import (
 
 type encoderOption struct {
 	withCreatedLines bool
-	withUnit         bool
 }
 
 type EncoderOption func(*encoderOption)
@@ -51,16 +50,7 @@ func WithCreatedLines() EncoderOption {
 	}
 }
 
-// WithUnit is an EncoderOption enabling a set unit to be written to the output
-// and to be added to the metric name, if it's not there already, as a suffix.
-// Without opting in this way, the unit will not be added to the metric name and,
-// on top of that, the unit will not be passed onto the output, even if it
-// were declared in the *dto.MetricFamily struct, i.e. even if in.Unit !=nil.
-func WithUnit() EncoderOption {
-	return func(t *encoderOption) {
-		t.withUnit = true
-	}
-}
+
 
 // MetricFamilyToOpenMetrics converts a MetricFamily proto message into the
 // OpenMetrics text format and writes the resulting lines to 'out'. It returns
@@ -151,9 +141,7 @@ func MetricFamilyToOpenMetrics(out io.Writer, in *dto.MetricFamily, options ...E
 	if metricType == dto.MetricType_COUNTER && strings.HasSuffix(compliantName, "_total") {
 		compliantName = name[:len(name)-6]
 	}
-	if toOM.withUnit && in.Unit != nil && !strings.HasSuffix(compliantName, "_"+*in.Unit) {
-		compliantName = compliantName + "_" + *in.Unit
-	}
+	
 
 	// Comments, first HELP, then TYPE.
 	if in.Help != nil {
@@ -217,7 +205,7 @@ func MetricFamilyToOpenMetrics(out io.Writer, in *dto.MetricFamily, options ...E
 	if err != nil {
 		return written, err
 	}
-	if toOM.withUnit && in.Unit != nil {
+	if in.Unit != nil {
 		n, err = w.WriteString("# UNIT ")
 		written += n
 		if err != nil {

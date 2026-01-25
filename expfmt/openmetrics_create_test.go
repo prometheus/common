@@ -399,7 +399,7 @@ summary_name_created{name_1="value 1",name_2="value 2"} 12345.6
 					},
 				},
 			},
-			options: []EncoderOption{WithCreatedLines(), WithUnit()},
+			options: []EncoderOption{WithCreatedLines()},
 			out: `# HELP request_duration_microseconds The response latency.
 # TYPE request_duration_microseconds histogram
 # UNIT request_duration_microseconds microseconds
@@ -449,6 +449,7 @@ request_duration_microseconds_created 12345.6
 			},
 			out: `# HELP request_duration_microseconds The response latency.
 # TYPE request_duration_microseconds histogram
+# UNIT request_duration_microseconds microseconds
 request_duration_microseconds_bucket{le="100.0"} 123
 request_duration_microseconds_bucket{le="120.0"} 412
 request_duration_microseconds_bucket{le="144.0"} 592
@@ -613,7 +614,6 @@ foos_total 42.0
 				Unit:   proto.String("seconds"),
 				Metric: []*dto.Metric{},
 			},
-			options: []EncoderOption{WithUnit()},
 			out: `# HELP name_seconds doc string
 # TYPE name_seconds counter
 # UNIT name_seconds seconds
@@ -659,6 +659,7 @@ foos_total 42.0
 			},
 			out: `# HELP request_duration_microseconds The response latency.
 # TYPE request_duration_microseconds histogram
+# UNIT request_duration_microseconds microseconds
 request_duration_microseconds_bucket{le="100.0"} 123
 request_duration_microseconds_bucket{le="120.0"} 412
 request_duration_microseconds_bucket{le="144.0"} 592
@@ -677,10 +678,9 @@ request_duration_microseconds_count 2693
 				Unit:   proto.String("seconds"),
 				Metric: []*dto.Metric{},
 			},
-			options: []EncoderOption{WithUnit()},
-			out: `# HELP name_seconds doc string
-# TYPE name_seconds counter
-# UNIT name_seconds seconds
+			out: `# HELP name doc string
+# TYPE name counter
+# UNIT name seconds
 `,
 		},
 		// 17: No metric, unit opted in, BUT unit == nil.
@@ -691,7 +691,6 @@ request_duration_microseconds_count 2693
 				Type:   dto.MetricType_COUNTER.Enum(),
 				Metric: []*dto.Metric{},
 			},
-			options: []EncoderOption{WithUnit()},
 			out: `# HELP name doc string
 # TYPE name counter
 `,
@@ -737,12 +736,11 @@ request_duration_microseconds_count 2693
 					},
 				},
 			},
-			options: []EncoderOption{WithUnit()},
-			out: `# HELP some_measure_seconds some testing measurement
-# TYPE some_measure_seconds counter
-# UNIT some_measure_seconds seconds
-some_measure_seconds_total{labelname="val1",basename="basevalue"} 42.0
-some_measure_seconds_total{labelname="val2",basename="basevalue"} 0.23 1.23456789e+06
+			out: `# HELP some_measure some testing measurement
+# TYPE some_measure counter
+# UNIT some_measure seconds
+some_measure_total{labelname="val1",basename="basevalue"} 42.0
+some_measure_total{labelname="val2",basename="basevalue"} 0.23 1.23456789e+06
 `,
 		},
 		// 11: Gauge histogram.
