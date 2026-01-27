@@ -50,8 +50,6 @@ func WithCreatedLines() EncoderOption {
 	}
 }
 
-
-
 // MetricFamilyToOpenMetrics converts a MetricFamily proto message into the
 // OpenMetrics text format and writes the resulting lines to 'out'. It returns
 // the number of bytes written and any error encountered. The output will have
@@ -88,15 +86,6 @@ func WithCreatedLines() EncoderOption {
 //     lines. A counter with a missing `_total` suffix is not an error. However,
 //     its type will be set to `unknown` in that case to avoid invalid OpenMetrics
 //     output.
-//
-//   - According to the OM specs, the `# UNIT` line is optional, but if populated,
-//     the unit has to be present in the metric name as its suffix:
-//     (see https://github.com/prometheus/OpenMetrics/blob/v1.0.0/specification/OpenMetrics.md#unit).
-//     However, in order to accommodate any potential scenario where such a change in the
-//     metric name is not desirable, the users are here given the choice of either explicitly
-//     opt in, in case they wish for the unit to be included in the output AND in the metric name
-//     as a suffix (see the description of the WithUnit function above),
-//     or not to opt in, in case they don't want for any of that to happen.
 //
 //   - No support for the following (optional) features: info type,
 //     stateset type, gaugehistogram type.
@@ -141,7 +130,6 @@ func MetricFamilyToOpenMetrics(out io.Writer, in *dto.MetricFamily, options ...E
 	if metricType == dto.MetricType_COUNTER && strings.HasSuffix(compliantName, "_total") {
 		compliantName = name[:len(name)-6]
 	}
-	
 
 	// Comments, first HELP, then TYPE.
 	if in.Help != nil {

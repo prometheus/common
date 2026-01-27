@@ -619,7 +619,7 @@ foos_total 42.0
 # UNIT name_seconds seconds
 `,
 		},
-		// 15: Histogram plus unit, but unit not opted in.
+		// 15: Histogram plus unit
 		{
 			in: &dto.MetricFamily{
 				Name: proto.String("request_duration_microseconds"),
@@ -669,33 +669,7 @@ request_duration_microseconds_sum 1.7560473e+06
 request_duration_microseconds_count 2693
 `,
 		},
-		// 16: No metric, unit opted in, no unit in name.
-		{
-			in: &dto.MetricFamily{
-				Name:   proto.String("name_total"),
-				Help:   proto.String("doc string"),
-				Type:   dto.MetricType_COUNTER.Enum(),
-				Unit:   proto.String("seconds"),
-				Metric: []*dto.Metric{},
-			},
-			out: `# HELP name doc string
-# TYPE name counter
-# UNIT name seconds
-`,
-		},
-		// 17: No metric, unit opted in, BUT unit == nil.
-		{
-			in: &dto.MetricFamily{
-				Name:   proto.String("name_total"),
-				Help:   proto.String("doc string"),
-				Type:   dto.MetricType_COUNTER.Enum(),
-				Metric: []*dto.Metric{},
-			},
-			out: `# HELP name doc string
-# TYPE name counter
-`,
-		},
-		// 18: Counter, timestamp given, unit opted in, _total suffix.
+		// 16: Counter, timestamp given, unit given, _total suffix.
 		{
 			in: &dto.MetricFamily{
 				Name: proto.String("some_measure_total"),
@@ -743,7 +717,7 @@ some_measure_total{labelname="val1",basename="basevalue"} 42.0
 some_measure_total{labelname="val2",basename="basevalue"} 0.23 1.23456789e+06
 `,
 		},
-		// 11: Gauge histogram.
+		// 17: Gauge histogram.
 		{
 			in: &dto.MetricFamily{
 				Name: proto.String("name"),
