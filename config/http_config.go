@@ -352,6 +352,9 @@ type HTTPClientConfig struct {
 	// The omitempty flag is not set, because it would be hidden from the
 	// marshalled configuration when set to false.
 	EnableHTTP2 bool `yaml:"enable_http2" json:"enable_http2"`
+	// HTTPHost optionally overrides the Host header to send.
+	// It can be overridden by opts.host.
+	HTTPHost string `yaml:"http_host,omitempty" json:"host,omitempty"`
 	// Proxy configuration.
 	ProxyConfig `yaml:",inline"`
 	// HTTPHeaders specify headers to inject in the requests. Those headers
@@ -730,6 +733,8 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 
 		if opts.host != "" {
 			rt = NewHostRoundTripper(opts.host, rt)
+		} else if cfg.HTTPHost != "" {
+			rt = NewHostRoundTripper(cfg.HTTPHost, rt)
 		}
 
 		// Return a new configured RoundTripper.
