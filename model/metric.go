@@ -355,6 +355,9 @@ func EscapeMetricFamily(v *dto.MetricFamily, scheme EscapingScheme) *dto.MetricF
 	} else {
 		out.Name = proto.String(EscapeName(v.GetName(), scheme))
 	}
+	if v.Metric != nil {
+		out.Metric = make([]*dto.Metric, 0, len(v.Metric))
+	}
 	for _, m := range v.Metric {
 		if !metricNeedsEscaping(m) {
 			out.Metric = append(out.Metric, m)
@@ -369,7 +372,9 @@ func EscapeMetricFamily(v *dto.MetricFamily, scheme EscapingScheme) *dto.MetricF
 			Histogram:   m.Histogram,
 			TimestampMs: m.TimestampMs,
 		}
-
+		if m.Label != nil {
+			escaped.Label = make([]*dto.LabelPair, 0, len(m.Label))
+		}
 		for _, l := range m.Label {
 			if l.GetName() == MetricNameLabel {
 				if l.Value == nil || IsValidLegacyMetricName(l.GetValue()) {
@@ -424,6 +429,7 @@ func EscapeName(name string, scheme EscapingScheme) string {
 		if IsValidLegacyMetricName(name) {
 			return name
 		}
+		escaped.Grow(len(name))
 		for i, b := range name {
 			if isValidLegacyRune(b, i) {
 				escaped.WriteRune(b)
