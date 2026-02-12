@@ -261,10 +261,10 @@ foo_metric 1.234
 foo_metric 1.234
 `,
 		},
-		// 7: Simple Counter FmtOpenMetrics_0_0_1
+		// 7: Simple Counter FmtOpenMetrics_1_0_0
 		{
 			metric: metric1,
-			format: FmtOpenMetrics_0_0_1,
+			format: FmtOpenMetrics_1_0_0,
 			expOut: `# TYPE foo_metric unknown
 # UNIT foo_metric seconds
 foo_metric 1.234
