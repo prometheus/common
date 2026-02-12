@@ -17,6 +17,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -36,7 +37,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v2"
+	"go.yaml.in/yaml/v2"
 )
 
 const (
@@ -113,6 +114,10 @@ var invalidHTTPClientConfigs = []struct {
 		errMsg:               "at most one of oauth2 client_secret, client_secret_file & client_secret_ref must be configured",
 	},
 	{
+		httpClientConfigFile: "testdata/http.conf.oauth2-certificate-and-file-set.bad.yml",
+		errMsg:               "at most one of oauth2 client_certificate_key, client_certificate_key_file & client_certificate_key_ref must be configured using grant-type=urn:ietf:params:oauth:grant-type:jwt-beare",
+	},
+	{
 		httpClientConfigFile: "testdata/http.conf.oauth2-no-client-id.bad.yaml",
 		errMsg:               "oauth2 client_id must be configured",
 	},
@@ -181,7 +186,7 @@ func TestNewClientFromConfig(t *testing.T) {
 					InsecureSkipVerify: true,
 				},
 			},
-			handler: func(w http.ResponseWriter, r *http.Request) {
+			handler: func(w http.ResponseWriter, _ *http.Request) {
 				fmt.Fprint(w, ExpectedMessage)
 			},
 		},
@@ -195,7 +200,7 @@ func TestNewClientFromConfig(t *testing.T) {
 					InsecureSkipVerify: false,
 				},
 			},
-			handler: func(w http.ResponseWriter, r *http.Request) {
+			handler: func(w http.ResponseWriter, _ *http.Request) {
 				fmt.Fprint(w, ExpectedMessage)
 			},
 		},
@@ -369,13 +374,14 @@ func TestNewClientFromConfig(t *testing.T) {
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				username, password, ok := r.BasicAuth()
-				if !ok {
+				switch {
+				case !ok:
 					fmt.Fprintf(w, "The Authorization header wasn't set")
-				} else if ExpectedUsername != username {
+				case ExpectedUsername != username:
 					fmt.Fprintf(w, "The expected username (%s) differs from the obtained username (%s).", ExpectedUsername, username)
-				} else if ExpectedPassword != password {
+				case ExpectedPassword != password:
 					fmt.Fprintf(w, "The expected password (%s) differs from the obtained password (%s).", ExpectedPassword, password)
-				} else {
+				default:
 					fmt.Fprint(w, ExpectedMessage)
 				}
 			},
@@ -705,7 +711,7 @@ func TestBearerAuthRoundTripper(t *testing.T) {
 
 	// Normal flow.
 	bearerAuthRoundTripper := NewAuthorizationCredentialsRoundTripper("Bearer", NewInlineSecret(BearerToken), fakeRoundTripper)
-	request, _ := http.NewRequest("GET", "/hitchhiker", nil)
+	request, _ := http.NewRequest(http.MethodGet, "/hitchhiker", nil)
 	request.Header.Set("User-Agent", "Douglas Adams mind")
 	_, err := bearerAuthRoundTripper.RoundTrip(request)
 	if err != nil {
@@ -714,7 +720,7 @@ func TestBearerAuthRoundTripper(t *testing.T) {
 
 	// Should honor already Authorization header set.
 	bearerAuthRoundTripperShouldNotModifyExistingAuthorization := NewAuthorizationCredentialsRoundTripper("Bearer", NewInlineSecret(newBearerToken), fakeRoundTripper)
-	request, _ = http.NewRequest("GET", "/hitchhiker", nil)
+	request, _ = http.NewRequest(http.MethodGet, "/hitchhiker", nil)
 	request.Header.Set("Authorization", ExpectedBearer)
 	_, err = bearerAuthRoundTripperShouldNotModifyExistingAuthorization.RoundTrip(request)
 	if err != nil {
@@ -733,7 +739,7 @@ func TestBearerAuthFileRoundTripper(t *testing.T) {
 
 	// Normal flow.
 	bearerAuthRoundTripper := NewAuthorizationCredentialsRoundTripper("Bearer", &FileSecret{file: BearerTokenFile}, fakeRoundTripper)
-	request, _ := http.NewRequest("GET", "/hitchhiker", nil)
+	request, _ := http.NewRequest(http.MethodGet, "/hitchhiker", nil)
 	request.Header.Set("User-Agent", "Douglas Adams mind")
 	_, err := bearerAuthRoundTripper.RoundTrip(request)
 	if err != nil {
@@ -742,7 +748,7 @@ func TestBearerAuthFileRoundTripper(t *testing.T) {
 
 	// Should honor already Authorization header set.
 	bearerAuthRoundTripperShouldNotModifyExistingAuthorization := NewAuthorizationCredentialsRoundTripper("Bearer", &FileSecret{file: MissingBearerTokenFile}, fakeRoundTripper)
-	request, _ = http.NewRequest("GET", "/hitchhiker", nil)
+	request, _ = http.NewRequest(http.MethodGet, "/hitchhiker", nil)
 	request.Header.Set("Authorization", ExpectedBearer)
 	_, err = bearerAuthRoundTripperShouldNotModifyExistingAuthorization.RoundTrip(request)
 	if err != nil {
@@ -932,7 +938,7 @@ type secretManager struct {
 	data map[string]string
 }
 
-func (m *secretManager) Fetch(ctx context.Context, secretRef string) (string, error) {
+func (m *secretManager) Fetch(_ context.Context, secretRef string) (string, error) {
 	secretData, ok := m.data[secretRef]
 	if !ok {
 		return "", fmt.Errorf("unknown secret %s", secretRef)
@@ -1043,7 +1049,7 @@ func TestTLSRoundTripper(t *testing.T) {
 
 	ca, cert, key := filepath.Join(tmpDir, "ca"), filepath.Join(tmpDir, "cert"), filepath.Join(tmpDir, "key")
 
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, ExpectedMessage)
 	}
 	testServer, err := newTestServer(handler)
@@ -1161,7 +1167,7 @@ func TestTLSRoundTripper(t *testing.T) {
 }
 
 func TestTLSRoundTripper_Inline(t *testing.T) {
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, ExpectedMessage)
 	}
 	testServer, err := newTestServer(handler)
@@ -1283,7 +1289,7 @@ func TestTLSRoundTripperRaces(t *testing.T) {
 
 	ca, cert, key := filepath.Join(tmpDir, "ca"), filepath.Join(tmpDir, "cert"), filepath.Join(tmpDir, "key")
 
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, ExpectedMessage)
 	}
 	testServer, err := newTestServer(handler)
@@ -1401,7 +1407,7 @@ type roundTrip struct {
 	theError    error
 }
 
-func (rt *roundTrip) RoundTrip(r *http.Request) (*http.Response, error) {
+func (rt *roundTrip) RoundTrip(*http.Request) (*http.Response, error) {
 	return rt.theResponse, rt.theError
 }
 
@@ -1438,11 +1444,17 @@ type testOAuthServer struct {
 }
 
 // newTestOAuthServer returns a new test server with the expected base64 encoded client ID and secret.
-func newTestOAuthServer(t testing.TB, expectedAuth *string) testOAuthServer {
+func newTestOAuthServer(t testing.TB, expectedAuth func(testing.TB, string)) testOAuthServer {
 	var previousAuth string
 	tokenTS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auth := r.Header.Get("Authorization")
-		require.Equalf(t, *expectedAuth, auth, "bad auth, expected %s, got %s", *expectedAuth, auth)
+		if auth == "" {
+			require.NoErrorf(t, r.ParseForm(), "Failed to parse form")
+			auth = r.FormValue("assertion")
+		}
+
+		expectedAuth(t, auth)
+
 		require.NotEqualf(t, auth, previousAuth, "token endpoint called twice")
 		previousAuth = auth
 		res, _ := json.Marshal(oauth2TestServerResponse{
@@ -1477,8 +1489,10 @@ func (s *testOAuthServer) close() {
 }
 
 func TestOAuth2(t *testing.T) {
-	var expectedAuth string
-	ts := newTestOAuthServer(t, &expectedAuth)
+	expectedAuth := new(string)
+	ts := newTestOAuthServer(t, func(t testing.TB, auth string) {
+		require.Equalf(t, *expectedAuth, auth, "bad auth, expected %s, got %s", *expectedAuth, auth)
+	})
 	defer ts.close()
 
 	yamlConfig := fmt.Sprintf(`
@@ -1512,7 +1526,7 @@ endpoint_params:
 	}
 
 	// Default secret.
-	expectedAuth = "Basic MToy"
+	*expectedAuth = "Basic MToy"
 	resp, err := client.Get(ts.url())
 	require.NoError(t, err)
 
@@ -1524,7 +1538,7 @@ endpoint_params:
 	require.NoError(t, err)
 
 	// Empty secret.
-	expectedAuth = "Basic MTo="
+	*expectedAuth = "Basic MTo="
 	expectedConfig.ClientSecret = ""
 	resp, err = client.Get(ts.url())
 	require.NoError(t, err)
@@ -1537,7 +1551,7 @@ endpoint_params:
 	require.NoError(t, err)
 
 	// Update secret.
-	expectedAuth = "Basic MToxMjM0NTY3"
+	*expectedAuth = "Basic MToxMjM0NTY3"
 	expectedConfig.ClientSecret = "1234567"
 	_, err = client.Get(ts.url())
 	require.NoError(t, err)
@@ -1606,8 +1620,10 @@ func TestHost(t *testing.T) {
 }
 
 func TestOAuth2WithFile(t *testing.T) {
-	var expectedAuth string
-	ts := newTestOAuthServer(t, &expectedAuth)
+	expectedAuth := new(string)
+	ts := newTestOAuthServer(t, func(t testing.TB, auth string) {
+		require.Equalf(t, *expectedAuth, auth, "bad auth, expected %s, got %s", *expectedAuth, auth)
+	})
 	defer ts.close()
 
 	secretFile, err := os.CreateTemp("", "oauth2_secret")
@@ -1645,7 +1661,7 @@ endpoint_params:
 	}
 
 	// Empty secret file.
-	expectedAuth = "Basic MTo="
+	*expectedAuth = "Basic MTo="
 	resp, err := client.Get(ts.url())
 	require.NoError(t, err)
 
@@ -1657,7 +1673,7 @@ endpoint_params:
 	require.NoError(t, err)
 
 	// File populated.
-	expectedAuth = "Basic MToxMjM0NTY="
+	*expectedAuth = "Basic MToxMjM0NTY="
 	_, err = secretFile.Write([]byte("123456"))
 	require.NoError(t, err)
 	resp, err = client.Get(ts.url())
@@ -1671,7 +1687,7 @@ endpoint_params:
 	require.NoError(t, err)
 
 	// Update file.
-	expectedAuth = "Basic MToxMjM0NTY3"
+	*expectedAuth = "Basic MToxMjM0NTY3"
 	_, err = secretFile.Write([]byte("7"))
 	require.NoError(t, err)
 	_, err = client.Get(ts.url())
@@ -1683,6 +1699,86 @@ endpoint_params:
 
 	authorization = resp.Request.Header.Get("Authorization")
 	require.Equalf(t, "Bearer 12345", authorization, "Expected authorization header to be 'Bearer 12345', got '%s'", authorization)
+}
+
+func TestOAuth2WithJWTAuth(t *testing.T) {
+	ts := newTestOAuthServer(t, func(t testing.TB, auth string) {
+		t.Helper()
+
+		jwtParts := strings.Split(auth, ".")
+		require.Lenf(t, jwtParts, 3, "Expected JWT to have 3 parts, got %d", len(jwtParts))
+
+		// Decode the JWT payload.
+		payload, err := base64.RawURLEncoding.DecodeString(jwtParts[1])
+		require.NoErrorf(t, err, "Failed to decode JWT payload: %v", err)
+
+		var jwt struct {
+			Aud     string `json:"aud"`
+			Scope   string `json:"scope"`
+			Sub     string `json:"sub"`
+			Iss     string `json:"iss"`
+			Integer int    `json:"integer"`
+		}
+
+		err = json.Unmarshal(payload, &jwt)
+		require.NoErrorf(t, err, "Failed to unmarshal JWT payload: %v", err)
+
+		require.Equalf(t, "common-test", jwt.Aud, "Expected aud to be 'common-test', got '%s'", jwt.Aud)
+		require.Equalf(t, "A B", jwt.Scope, "Expected scope to be 'A B', got '%s'", jwt.Scope)
+		require.Equalf(t, "common", jwt.Sub, "Expected sub to be 'common', got '%s'", jwt.Sub)
+		require.Equalf(t, "https://example.com", jwt.Iss, "Expected iss to be 'https://example.com', got '%s'", jwt.Iss)
+		require.Equalf(t, 1, jwt.Integer, "Expected integer to be 1, got '%d'", jwt.Integer)
+	})
+	defer ts.close()
+
+	yamlConfig := fmt.Sprintf(`
+grant_type: urn:ietf:params:oauth:grant-type:jwt-bearer
+client_id: 1
+client_certificate_key_file: %s
+scopes:
+ - A
+ - B
+claims:
+  iss: "https://example.com"
+  aud: common-test
+  sub: common
+  integer: 1
+token_url: %s
+endpoint_params:
+  hi: hello
+`, ClientKeyNoPassPath, ts.tokenURL())
+	expectedConfig := OAuth2{
+		GrantType:                grantTypeJWTBearer,
+		ClientID:                 "1",
+		ClientCertificateKeyFile: ClientKeyNoPassPath,
+		Scopes:                   []string{"A", "B"},
+		TokenURL:                 ts.tokenURL(),
+		EndpointParams:           map[string]string{"hi": "hello"},
+		Claims: map[string]interface{}{
+			"iss":     "https://example.com",
+			"aud":     "common-test",
+			"sub":     "common",
+			"integer": 1,
+		},
+	}
+
+	var unmarshalledConfig OAuth2
+	err := yaml.Unmarshal([]byte(yamlConfig), &unmarshalledConfig)
+	require.NoErrorf(t, err, "Expected no error unmarshalling yaml, got %v", err)
+	require.Truef(t, reflect.DeepEqual(unmarshalledConfig, expectedConfig), "Got unmarshalled config %v, expected %v", unmarshalledConfig, expectedConfig)
+
+	clientCertificateKey := NewFileSecret(expectedConfig.ClientCertificateKeyFile)
+	rt := NewOAuth2RoundTripper(clientCertificateKey, &expectedConfig, http.DefaultTransport, &defaultHTTPClientOptions)
+
+	client := http.Client{
+		Transport: rt,
+	}
+
+	resp, err := client.Get(ts.url())
+	require.NoError(t, err)
+
+	authorization := resp.Request.Header.Get("Authorization")
+	require.Equalf(t, "Bearer 12345", authorization, "Expected authorization header to be 'Bearer', got '%s'", authorization)
 }
 
 func TestMarshalURL(t *testing.T) {
@@ -1748,7 +1844,7 @@ func TestUnmarshalEmptyURL(t *testing.T) {
 	}
 }
 
-// checks if u equals to &url.URL{}
+// checks if u equals to &url.URL{}.
 func isEmptyNonNilURL(u *url.URL) bool {
 	return u != nil && *u == url.URL{}
 }
@@ -1874,7 +1970,7 @@ func TestModifyTLSCertificates(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 	ca, cert, key := filepath.Join(tmpDir, "ca"), filepath.Join(tmpDir, "cert"), filepath.Join(tmpDir, "key")
 
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, ExpectedMessage)
 	}
 	testServer, err := newTestServer(handler)
@@ -1966,6 +2062,48 @@ func TestModifyTLSCertificates(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestTLSRoundTripper_NoCAConfigured(t *testing.T) {
+	bs := getCertificateBlobs(t)
+
+	tmpDir, err := os.MkdirTemp("", "tlspanic")
+	require.NoErrorf(t, err, "Failed to create tmp dir")
+	defer os.RemoveAll(tmpDir)
+	cert, key := filepath.Join(tmpDir, "cert"), filepath.Join(tmpDir, "key")
+
+	handler := func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, ExpectedMessage)
+	}
+	testServer, err := newTestServer(handler)
+	require.NoError(t, err)
+	defer testServer.Close()
+
+	cfg := HTTPClientConfig{
+		TLSConfig: TLSConfig{
+			CertFile:           cert,
+			KeyFile:            key,
+			InsecureSkipVerify: true,
+		},
+	}
+
+	writeCertificate(bs, ClientCertificatePath, cert)
+	writeCertificate(bs, ClientKeyNoPassPath, key)
+	c, err := NewClientFromConfig(cfg, "test")
+	require.NoErrorf(t, err, "Error creating HTTP Client: %v", err)
+
+	req, err := http.NewRequest(http.MethodGet, testServer.URL, nil)
+	require.NoErrorf(t, err, "Error creating HTTP request: %v", err)
+
+	r, err := c.Do(req)
+	require.NoErrorf(t, err, "Can't connect to the test server")
+	r.Body.Close()
+
+	err = os.WriteFile(cert, []byte("-----BEGIN GARBAGE-----\nabc\n-----END GARBAGE-----\n"), 0o664)
+	require.NoError(t, err)
+
+	_, err = c.Do(req)
+	require.ErrorContainsf(t, err, "unable to use specified CA cert: none configured", "Expected error to mention missing CA cert")
 }
 
 // loadHTTPConfigJSON parses the JSON input s into a HTTPClientConfig.
@@ -2104,7 +2242,7 @@ no_proxy: promcon.io,cncf.io`, proxyServer.URL),
 				os.Setenv("NO_PROXY", tc.noProxyEnv)
 			}
 
-			req := httptest.NewRequest("GET", tc.targetURL, nil)
+			req := httptest.NewRequest(http.MethodGet, tc.targetURL, nil)
 
 			proxyFunc := proxyConfig.Proxy()
 			resultURL, err := proxyFunc(req)

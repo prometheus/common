@@ -19,10 +19,9 @@ import (
 	"strings"
 	"testing"
 
-	"google.golang.org/protobuf/proto"
-
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/prometheus/common/model"
 )
@@ -384,6 +383,186 @@ request_duration_microseconds_count 2693
 			out: `# HELP name doc string
 # TYPE name counter
 name -Inf
+`,
+		},
+		// 8: Float histogram with +Inf.
+		{
+			in: &dto.MetricFamily{
+				Name: proto.String("name"),
+				Help: proto.String("doc string"),
+				Type: dto.MetricType_HISTOGRAM.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Histogram: &dto.Histogram{
+							SampleCountFloat: proto.Float64(2693.123),
+							SampleSum:        proto.Float64(1756047.3),
+							Bucket: []*dto.Bucket{
+								{
+									UpperBound:           proto.Float64(100),
+									CumulativeCountFloat: proto.Float64(123.123),
+								},
+								{
+									UpperBound:           proto.Float64(120),
+									CumulativeCountFloat: proto.Float64(412),
+								},
+								{
+									UpperBound:           proto.Float64(144),
+									CumulativeCountFloat: proto.Float64(592),
+								},
+								{
+									UpperBound:           proto.Float64(172.8),
+									CumulativeCountFloat: proto.Float64(1524),
+								},
+								{
+									UpperBound:           proto.Float64(math.Inf(+1)),
+									CumulativeCountFloat: proto.Float64(2693.123),
+								},
+							},
+						},
+					},
+				},
+			},
+			out: `# HELP name doc string
+# TYPE name histogram
+name_bucket{le="100"} 123.123
+name_bucket{le="120"} 412
+name_bucket{le="144"} 592
+name_bucket{le="172.8"} 1524
+name_bucket{le="+Inf"} 2693.123
+name_sum 1.7560473e+06
+name_count 2693.123
+`,
+		},
+		// 9: Float histogram without +Inf.
+		{
+			in: &dto.MetricFamily{
+				Name: proto.String("name"),
+				Help: proto.String("doc string"),
+				Type: dto.MetricType_HISTOGRAM.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Histogram: &dto.Histogram{
+							SampleCountFloat: proto.Float64(2693.123),
+							SampleSum:        proto.Float64(1756047.3),
+							Bucket: []*dto.Bucket{
+								{
+									UpperBound:           proto.Float64(100),
+									CumulativeCountFloat: proto.Float64(123.123),
+								},
+								{
+									UpperBound:           proto.Float64(120),
+									CumulativeCountFloat: proto.Float64(412),
+								},
+								{
+									UpperBound:           proto.Float64(144),
+									CumulativeCountFloat: proto.Float64(592),
+								},
+								{
+									UpperBound:           proto.Float64(172.8),
+									CumulativeCountFloat: proto.Float64(1524),
+								},
+							},
+						},
+					},
+				},
+			},
+			out: `# HELP name doc string
+# TYPE name histogram
+name_bucket{le="100"} 123.123
+name_bucket{le="120"} 412
+name_bucket{le="144"} 592
+name_bucket{le="172.8"} 1524
+name_bucket{le="+Inf"} 2693.123
+name_sum 1.7560473e+06
+name_count 2693.123
+`,
+		},
+		// 10: Gauge histogram (rendered as regular histogram)
+		{
+			in: &dto.MetricFamily{
+				Name: proto.String("name"),
+				Help: proto.String("doc string"),
+				Type: dto.MetricType_GAUGE_HISTOGRAM.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Histogram: &dto.Histogram{
+							SampleCount: proto.Uint64(2693),
+							SampleSum:   proto.Float64(1756047.3),
+							Bucket: []*dto.Bucket{
+								{
+									UpperBound:      proto.Float64(100),
+									CumulativeCount: proto.Uint64(123),
+								},
+								{
+									UpperBound:      proto.Float64(120),
+									CumulativeCount: proto.Uint64(412),
+								},
+								{
+									UpperBound:      proto.Float64(144),
+									CumulativeCount: proto.Uint64(592),
+								},
+								{
+									UpperBound:      proto.Float64(172.8),
+									CumulativeCount: proto.Uint64(1524),
+								},
+							},
+						},
+					},
+				},
+			},
+			out: `# HELP name doc string
+# TYPE name histogram
+name_bucket{le="100"} 123
+name_bucket{le="120"} 412
+name_bucket{le="144"} 592
+name_bucket{le="172.8"} 1524
+name_bucket{le="+Inf"} 2693
+name_sum 1.7560473e+06
+name_count 2693
+`,
+		},
+		// 11: Gauge float histogram (rendered as regular histogram)
+		{
+			in: &dto.MetricFamily{
+				Name: proto.String("name"),
+				Help: proto.String("doc string"),
+				Type: dto.MetricType_GAUGE_HISTOGRAM.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Histogram: &dto.Histogram{
+							SampleCountFloat: proto.Float64(2693.123),
+							SampleSum:        proto.Float64(1756047.3),
+							Bucket: []*dto.Bucket{
+								{
+									UpperBound:           proto.Float64(100),
+									CumulativeCountFloat: proto.Float64(123.123),
+								},
+								{
+									UpperBound:           proto.Float64(120),
+									CumulativeCountFloat: proto.Float64(412),
+								},
+								{
+									UpperBound:           proto.Float64(144),
+									CumulativeCountFloat: proto.Float64(592),
+								},
+								{
+									UpperBound:           proto.Float64(172.8),
+									CumulativeCountFloat: proto.Float64(1524),
+								},
+							},
+						},
+					},
+				},
+			},
+			out: `# HELP name doc string
+# TYPE name histogram
+name_bucket{le="100"} 123.123
+name_bucket{le="120"} 412
+name_bucket{le="144"} 592
+name_bucket{le="172.8"} 1524
+name_bucket{le="+Inf"} 2693.123
+name_sum 1.7560473e+06
+name_count 2693.123
 `,
 		},
 	}

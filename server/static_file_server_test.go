@@ -23,7 +23,7 @@ import (
 
 type dummyFileSystem struct{}
 
-func (fs dummyFileSystem) Open(path string) (http.File, error) {
+func (dummyFileSystem) Open(string) (http.File, error) {
 	return http.Dir(".").Open(".")
 }
 
@@ -68,7 +68,7 @@ func TestServeHttp(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			rr := httptest.NewRecorder()
-			req, err := http.NewRequest("GET", "http://localhost/"+c.path, nil)
+			req, err := http.NewRequest(http.MethodGet, "http://localhost/"+c.path, nil)
 			require.NoError(t, err)
 
 			s := StaticFileServer(dummyFileSystem{})

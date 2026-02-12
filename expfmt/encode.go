@@ -18,14 +18,12 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/munnerz/goautoneg"
+	dto "github.com/prometheus/client_model/go"
 	"google.golang.org/protobuf/encoding/protodelim"
 	"google.golang.org/protobuf/encoding/prototext"
 
 	"github.com/prometheus/common/model"
-
-	"github.com/munnerz/goautoneg"
-
-	dto "github.com/prometheus/client_model/go"
 )
 
 // Encoder types encode metric families into an underlying wire protocol.
@@ -61,7 +59,7 @@ func (ec encoderCloser) Close() error {
 // appropriate accepted type is found, FmtText is returned (which is the
 // Prometheus text format). This function will never negotiate FmtOpenMetrics,
 // as the support is still experimental. To include the option to negotiate
-// FmtOpenMetrics, use NegotiateOpenMetrics.
+// FmtOpenMetrics, use NegotiateIncludingOpenMetrics.
 func Negotiate(h http.Header) Format {
 	escapingScheme := Format(fmt.Sprintf("; escaping=%s", Format(model.NameEscapingScheme.String())))
 	for _, ac := range goautoneg.ParseAccept(h.Get(hdrAccept)) {
