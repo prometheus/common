@@ -1340,7 +1340,7 @@ request_duration_microseconds_count 2693
 {host="local", dir="alpha"} 1834194837
 {host="remote", dir="beta"} 133638016
 `,
-			err: `text format parsing error in line 4: invalid metric name`,
+			errUTF8: `text format parsing error in line 4: invalid metric name`,
 		},
 	}
 	for i, scenario := range scenarios {
