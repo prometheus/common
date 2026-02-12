@@ -1332,6 +1332,16 @@ request_duration_microseconds_count 2693
 `,
 			errUTF8: `text format parsing error in line 5: negative bucket population for histogram "request_duration_microseconds"`,
 		},
+		// 40: Metric's name missing.
+		{
+			in: `
+# HELP backupmonitor_size The size of the given backup.
+# TYPE backupmonitor_size counter
+{host="local", dir="alpha"} 1834194837
+{host="remote", dir="beta"} 133638016
+`,
+			errUTF8: `text format parsing error in line 4: invalid metric name`,
+		},
 	}
 	for i, scenario := range scenarios {
 		parser.scheme = model.UTF8Validation
