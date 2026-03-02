@@ -28,6 +28,14 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+var _ interface {
+	yaml.Marshaler
+	yaml.Unmarshaler
+	json.Marshaler
+	json.Unmarshaler
+	fmt.Stringer
+} = new(ValidationScheme)
+
 func testMetric(t testing.TB) {
 	scenarios := []struct {
 		input           LabelSet
