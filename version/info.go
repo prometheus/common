@@ -126,6 +126,9 @@ func computeRevision() (string, string) {
 		tags     = "unknown"
 		modified bool
 	)
+	if race {
+		tags = "race"
+	}
 
 	buildInfo, ok := debug.ReadBuildInfo()
 	if !ok {
@@ -141,7 +144,11 @@ func computeRevision() (string, string) {
 			}
 		}
 		if v.Key == "-tags" {
-			tags = v.Value
+			if race {
+				tags = v.Value + ",race"
+			} else {
+				tags = v.Value
+			}
 		}
 	}
 	if modified {
