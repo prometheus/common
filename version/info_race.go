@@ -15,4 +15,4 @@
 
 package version
 
-var race = true
+const race = true
