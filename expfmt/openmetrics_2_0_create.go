@@ -27,6 +27,10 @@ import (
 // MetricFamilyToOpenMetrics20 converts a MetricFamily proto message into the
 // OpenMetrics text format version 2.0.0 and writes the resulting lines to 'out'.
 // It returns the number of bytes written and any error encountered.
+//
+// NOTE: This method implements OpenMetrics 2.0-rc.0 which is experimental.
+// Breaking changes might happen in the future. This implementation is still a
+// work-in-progress, and does not yet support all features of the format.
 func MetricFamilyToOpenMetrics20(out io.Writer, in *dto.MetricFamily, options ...EncoderOption) (written int, err error) {
 	_ = options
 	name := in.GetName()
@@ -107,6 +111,8 @@ func MetricFamilyToOpenMetrics20(out io.Writer, in *dto.MetricFamily, options ..
 	case dto.MetricType_GAUGE_HISTOGRAM:
 		n, err = w.WriteString(" gaugehistogram\n")
 	default:
+		// TODO: Support Info and StateSet once they are supported in the
+		// Prometheus protobuf format.
 		return written, fmt.Errorf("unknown metric type %s", metricType.String())
 	}
 	written += n
