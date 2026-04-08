@@ -1380,6 +1380,324 @@ func TestDefaultFollowRedirect(t *testing.T) {
 	}
 }
 
+func TestCrossHostRedirectDropsCredentials(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		config HTTPClientConfig
+	}{
+		{
+			name: "bearer token",
+			config: HTTPClientConfig{
+				FollowRedirects: true,
+				Authorization: &Authorization{
+					Type:        "Bearer",
+					Credentials: "secret-token",
+				},
+			},
+		},
+		{
+			name: "basic auth",
+			config: HTTPClientConfig{
+				FollowRedirects: true,
+				BasicAuth: &BasicAuth{
+					Username: "user",
+					Password: "pass",
+				},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// target listens on 127.0.0.1 but origin redirects using "localhost"
+			// as the hostname. "127.0.0.1" and "localhost" are different hostname
+			// strings, so Go's redirect rules strip credentials on the redirect.
+			target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Header.Get("Authorization") != "" {
+					http.Error(w, "credentials leaked to cross-host redirect target", http.StatusForbidden)
+					return
+				}
+				fmt.Fprint(w, ExpectedMessage)
+			}))
+			t.Cleanup(target.Close)
+
+			// Build a redirect URL that uses "localhost" instead of "127.0.0.1".
+			targetPort := target.Listener.Addr().(*net.TCPAddr).Port
+			targetLocalhostURL := fmt.Sprintf("http://localhost:%d", targetPort)
+
+			origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, targetLocalhostURL+r.URL.Path, http.StatusFound)
+			}))
+			t.Cleanup(origin.Close)
+
+			client, err := NewClientFromConfig(tc.config, "test")
+			require.NoError(t, err)
+
+			resp, err := client.Get(origin.URL)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			body, err := io.ReadAll(resp.Body)
+			require.NoError(t, err)
+			require.Equal(t, ExpectedMessage, strings.TrimSpace(string(body)))
+		})
+	}
+}
+
+func TestIsDomainOrSubdomain(t *testing.T) {
+	for _, tc := range []struct {
+		sub, parent string
+		want        bool
+	}{
+		{"example.com", "example.com", true},
+		{"sub.example.com", "example.com", true},
+		{"deep.sub.example.com", "example.com", true},
+		{"notexample.com", "example.com", false},
+		{"example.com", "sub.example.com", false},
+		{"bar.com", "foo.com", false},
+		{"127.0.0.1", "127.0.0.1", true},
+		{"localhost", "127.0.0.1", false},
+		{"127.0.0.1", "localhost", false},
+		{"::1", "::1", true},
+		{"::2", "::1", false},
+		{"::1", "example.com", false},
+		// Zone ID containing a hostname must not match as a subdomain.
+		{"::1%.www.example.com", "example.com", false},
+		{"fe80::1%eth0", "eth0", false},
+		// Empty parent must never match.
+		{"example.com", "", false},
+		{"", "", false},
+		// Trailing-dot FQDN: "sub.example.com." vs "example.com" are not equal
+		// because isDomainOrSubdomain operates on raw strings; callers normalise
+		// via Hostname() which strips trailing dots in practice.
+		{"sub.example.com.", "example.com.", true},
+		{"sub.example.com.", "example.com", false},
+		// Case folding is the caller's responsibility (shouldSendCredentialsOnRedirect
+		// lowercases before calling); isDomainOrSubdomain itself is case-sensitive.
+		{"Sub.Example.Com", "example.com", false},
+	} {
+		t.Run(tc.sub+"→"+tc.parent, func(t *testing.T) {
+			require.Equal(t, tc.want, isDomainOrSubdomain(tc.sub, tc.parent))
+		})
+	}
+}
+
+func TestSameHostRedirectKeepsCredentials(t *testing.T) {
+	credsSeen := false
+	mux := http.NewServeMux()
+	mux.HandleFunc("/start", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/end", http.StatusFound)
+	})
+	mux.HandleFunc("/end", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "" {
+			credsSeen = true
+		}
+		fmt.Fprint(w, ExpectedMessage)
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	cfg := HTTPClientConfig{
+		FollowRedirects: true,
+		Authorization: &Authorization{
+			Type:        "Bearer",
+			Credentials: "secret-token",
+		},
+	}
+	client, err := NewClientFromConfig(cfg, "test")
+	require.NoError(t, err)
+
+	resp, err := client.Get(server.URL + "/start")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, ExpectedMessage, strings.TrimSpace(string(body)))
+	require.Truef(t, credsSeen, "credentials should be forwarded on same-host redirect")
+}
+
+func TestRoundTripperCrossHostRedirectDropsCredentials(t *testing.T) {
+	// Verify that a custom http.Client built from NewRoundTripperFromConfig
+	// (not NewClientFromConfig) also strips credentials on cross-host redirects,
+	// because isCrossHostRedirect uses req.Response and requires no CheckRedirect hook.
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "" {
+			http.Error(w, "credentials leaked to cross-host redirect target", http.StatusForbidden)
+			return
+		}
+		fmt.Fprint(w, ExpectedMessage)
+	}))
+	t.Cleanup(target.Close)
+
+	targetPort := target.Listener.Addr().(*net.TCPAddr).Port
+	targetLocalhostURL := fmt.Sprintf("http://localhost:%d", targetPort)
+
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, targetLocalhostURL+r.URL.Path, http.StatusFound)
+	}))
+	t.Cleanup(origin.Close)
+
+	cfg := HTTPClientConfig{
+		FollowRedirects: true,
+		Authorization: &Authorization{
+			Type:        "Bearer",
+			Credentials: "secret-token",
+		},
+	}
+	rt, err := NewRoundTripperFromConfig(cfg, "test")
+	require.NoError(t, err)
+
+	client := &http.Client{Transport: rt}
+	resp, err := client.Get(origin.URL)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, ExpectedMessage, strings.TrimSpace(string(body)))
+}
+
+func TestOAuth2CrossHostRedirectDropsCredentials(t *testing.T) {
+	// target checks that no OAuth2 Bearer token arrives on a cross-host redirect.
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "" {
+			http.Error(w, "credentials leaked to cross-host redirect target", http.StatusForbidden)
+			return
+		}
+		fmt.Fprint(w, ExpectedMessage)
+	}))
+	t.Cleanup(target.Close)
+
+	targetPort := target.Listener.Addr().(*net.TCPAddr).Port
+	targetLocalhostURL := fmt.Sprintf("http://localhost:%d", targetPort)
+
+	originAuthSeen := ""
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		originAuthSeen = r.Header.Get("Authorization")
+		http.Redirect(w, r, targetLocalhostURL+r.URL.Path, http.StatusFound)
+	}))
+	t.Cleanup(origin.Close)
+
+	// tokenServer issues a static Bearer token used by the OAuth2 round-tripper.
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		res, _ := json.Marshal(oauth2TestServerResponse{
+			AccessToken: "oauth2-secret-token",
+			TokenType:   "Bearer",
+		})
+		w.Header().Add("Content-Type", "application/json")
+		_, _ = w.Write(res)
+	}))
+	t.Cleanup(tokenServer.Close)
+
+	cfg := HTTPClientConfig{
+		FollowRedirects: true,
+		OAuth2: &OAuth2{
+			ClientID: "testclient",
+			TokenURL: tokenServer.URL + "/token",
+		},
+	}
+	client, err := NewClientFromConfig(cfg, "test")
+	require.NoError(t, err)
+
+	resp, err := client.Get(origin.URL)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, ExpectedMessage, strings.TrimSpace(string(body)))
+	require.NotEmptyf(t, originAuthSeen, "OAuth2 Bearer token must be present on the initial request to origin")
+}
+
+func TestMultiHopCrossHostRedirectDropsCredentials(t *testing.T) {
+	// Chain: origin (127.0.0.1) → hop (localhost) → final (localhost).
+	// Both hop and final differ from the original host (127.0.0.1 ≠ localhost),
+	// so isCrossHostRedirect must strip credentials from both hops.
+	// Note that hop→final is same-hostname (localhost→localhost), which confirms
+	// that the cross-host check compares against the original host, not the
+	// immediately preceding hop.
+	finalAuthSeen := ""
+	final := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		finalAuthSeen = r.Header.Get("Authorization")
+		fmt.Fprint(w, ExpectedMessage)
+	}))
+	t.Cleanup(final.Close)
+
+	finalPort := final.Listener.Addr().(*net.TCPAddr).Port
+	finalURL := fmt.Sprintf("http://localhost:%d/", finalPort)
+
+	hopAuthSeen := ""
+	hop := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hopAuthSeen = r.Header.Get("Authorization")
+		http.Redirect(w, r, finalURL, http.StatusFound)
+	}))
+	t.Cleanup(hop.Close)
+
+	hopPort := hop.Listener.Addr().(*net.TCPAddr).Port
+	hopURL := fmt.Sprintf("http://localhost:%d/", hopPort)
+
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, hopURL, http.StatusFound)
+	}))
+	t.Cleanup(origin.Close)
+
+	cfg := HTTPClientConfig{
+		FollowRedirects: true,
+		Authorization: &Authorization{
+			Type:        "Bearer",
+			Credentials: "secret-token",
+		},
+	}
+	client, err := NewClientFromConfig(cfg, "test")
+	require.NoError(t, err)
+
+	resp, err := client.Get(origin.URL)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, ExpectedMessage, strings.TrimSpace(string(body)))
+	require.Emptyf(t, hopAuthSeen, "credentials must not reach hop: original host 127.0.0.1 differs from localhost")
+	require.Emptyf(t, finalAuthSeen, "credentials must not reach final: original host 127.0.0.1 still differs from localhost")
+}
+
+func TestPortChangeRedirectKeepsCredentials(t *testing.T) {
+	// Both servers bind to 127.0.0.1; only the port differs. Credentials must
+	// be forwarded because the hostname is the same.
+	credsSeen := false
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "" {
+			credsSeen = true
+		}
+		fmt.Fprint(w, ExpectedMessage)
+	}))
+	t.Cleanup(target.Close)
+
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL, http.StatusFound)
+	}))
+	t.Cleanup(origin.Close)
+
+	cfg := HTTPClientConfig{
+		FollowRedirects: true,
+		Authorization: &Authorization{
+			Type:        "Bearer",
+			Credentials: "secret-token",
+		},
+	}
+	client, err := NewClientFromConfig(cfg, "test")
+	require.NoError(t, err)
+
+	resp, err := client.Get(origin.URL)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, ExpectedMessage, strings.TrimSpace(string(body)))
+	require.Truef(t, credsSeen, "credentials must be forwarded when only the port changes")
+}
+
 func TestValidateHTTPConfig(t *testing.T) {
 	cfg, _, err := LoadHTTPConfigFile("testdata/http.conf.good.yml")
 	if err != nil {
