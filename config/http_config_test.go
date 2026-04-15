@@ -15,13 +15,18 @@ package config
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -2320,4 +2325,96 @@ func TestMultipleHeaders(t *testing.T) {
 
 	_, err = client.Get(ts.URL)
 	require.NoErrorf(t, err, "can't fetch URL: %v", err)
+}
+
+// TestTLSConfigAllowIncompatibleKeyUsage verifies that when
+// AllowIncompatibleKeyUsage is set, a TLS connection to a server whose
+// certificate lacks the expected Extended Key Usage (e.g. a Let's Encrypt
+// certificate used for mutual TLS after LE dropped clientAuth EKU support)
+// succeeds where it would otherwise fail.
+func TestTLSConfigAllowIncompatibleKeyUsage(t *testing.T) {
+	// Generate a self-signed CA + server cert that has ONLY serverAuth EKU
+	// (no clientAuth). This simulates a Let's Encrypt-style cert.
+	caKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	caTemplate := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "test-ca"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		IsCA:                  true,
+		KeyUsage:              x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+	}
+	caDER, err := x509.CreateCertificate(rand.Reader, caTemplate, caTemplate, &caKey.PublicKey, caKey)
+	require.NoError(t, err)
+	caCert, err := x509.ParseCertificate(caDER)
+	require.NoError(t, err)
+
+	srvKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	srvTemplate := &x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		Subject:      pkix.Name{CommonName: "127.0.0.1"},
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+		// clientAuth only — no serverAuth. This triggers the EKU mismatch a
+		// TLS client sees when the peer cert lacks ExtKeyUsageServerAuth, which
+		// is the scenario for LE certs used in mutual-TLS gossip rings.
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	}
+	srvDER, err := x509.CreateCertificate(rand.Reader, srvTemplate, caCert, &srvKey.PublicKey, caKey)
+	require.NoError(t, err)
+
+	srvTLSCert := tls.Certificate{
+		Certificate: [][]byte{srvDER},
+		PrivateKey:  srvKey,
+	}
+	caPool := x509.NewCertPool()
+	caPool.AddCert(caCert)
+
+	// Start a TLS test server using the serverAuth-only certificate.
+	serverTLSCfg := &tls.Config{Certificates: []tls.Certificate{srvTLSCert}}
+	listener, err := tls.Listen("tcp", "127.0.0.1:0", serverTLSCfg)
+	require.NoError(t, err)
+	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})}
+	go srv.Serve(listener) //nolint:errcheck
+	defer srv.Close()
+	addr := "https://" + listener.Addr().String()
+
+	t.Run("without AllowIncompatibleKeyUsage fails on EKU mismatch", func(t *testing.T) {
+		cfg := HTTPClientConfig{
+			TLSConfig: TLSConfig{
+				// CA is trusted but EKU check will reject the server cert.
+				InsecureSkipVerify: false,
+			},
+		}
+		// Use the generated CA so hostname+chain pass; only EKU should fail.
+		tlsCfg, err := NewTLSConfig(&cfg.TLSConfig)
+		require.NoError(t, err)
+		tlsCfg.RootCAs = caPool
+		client := &http.Client{Transport: &http.Transport{TLSClientConfig: tlsCfg}}
+		_, err = client.Get(addr)
+		require.Error(t, err, "expected EKU error without AllowIncompatibleKeyUsage")
+		require.Contains(t, err.Error(), "incompatible key usage")
+	})
+
+	t.Run("with AllowIncompatibleKeyUsage succeeds", func(t *testing.T) {
+		cfg := TLSConfig{
+			AllowIncompatibleKeyUsage: true,
+			// ServerName override for IP-addressed connection.
+		}
+		tlsCfg, err := NewTLSConfig(&cfg)
+		require.NoError(t, err)
+		require.True(t, tlsCfg.InsecureSkipVerify, "InsecureSkipVerify should be true internally")
+		require.NotNil(t, tlsCfg.VerifyPeerCertificate, "VerifyPeerCertificate should be set")
+		tlsCfg.RootCAs = caPool
+		client := &http.Client{Transport: &http.Transport{TLSClientConfig: tlsCfg}}
+		resp, err := client.Get(addr)
+		require.NoError(t, err, "connection should succeed when AllowIncompatibleKeyUsage=true")
+		resp.Body.Close()
+	})
 }

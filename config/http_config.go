@@ -1192,6 +1192,45 @@ func NewTLSConfigWithContext(ctx context.Context, cfg *TLSConfig, optFuncs ...TL
 		}
 	}
 
+	if cfg.AllowIncompatibleKeyUsage && !cfg.InsecureSkipVerify {
+		// Go's TLS library always checks Extended Key Usage (EKU) as part of
+		// its built-in peer certificate verification. To skip only the EKU
+		// check while preserving chain trust, hostname, and expiry validation,
+		// we must set InsecureSkipVerify=true (which disables all built-in
+		// verification) and then re-implement the verification ourselves via
+		// VerifyPeerCertificate — omitting the KeyUsages constraint.
+		serverName := tlsConfig.ServerName
+		tlsConfig.InsecureSkipVerify = true //nolint:gosec // EKU-only bypass; chain+hostname still verified below.
+		tlsConfig.VerifyPeerCertificate = func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+			if len(rawCerts) == 0 {
+				return nil
+			}
+			certs := make([]*x509.Certificate, len(rawCerts))
+			for i, raw := range rawCerts {
+				cert, err := x509.ParseCertificate(raw)
+				if err != nil {
+					return fmt.Errorf("tls: failed to parse peer certificate: %w", err)
+				}
+				certs[i] = cert
+			}
+			opts := x509.VerifyOptions{
+				// Access tlsConfig.RootCAs at call time so callers who
+				// modify RootCAs after NewTLSConfig returns are respected.
+				Roots:         tlsConfig.RootCAs,
+				Intermediates: x509.NewCertPool(),
+				DNSName:       serverName,
+				// ExtKeyUsageAny bypasses EKU checking. An empty slice
+				// defaults to ExtKeyUsageServerAuth per the x509 package docs.
+				KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+			}
+			for _, cert := range certs[1:] {
+				opts.Intermediates.AddCert(cert)
+			}
+			_, err := certs[0].Verify(opts)
+			return err
+		}
+	}
+
 	return tlsConfig, nil
 }
 
@@ -1222,6 +1261,16 @@ type TLSConfig struct {
 	ServerName string `yaml:"server_name,omitempty" json:"server_name,omitempty"`
 	// Disable target certificate validation.
 	InsecureSkipVerify bool `yaml:"insecure_skip_verify" json:"insecure_skip_verify"`
+	// AllowIncompatibleKeyUsage disables the Extended Key Usage (EKU) check on
+	// peer certificates while still verifying the certificate chain, expiry,
+	// and (for client connections) the server hostname.
+	//
+	// This is useful when connecting to services that use a certificate without
+	// the expected EKU — for example Let's Encrypt certificates after they
+	// dropped TLS Client Authentication support in 2026. The full certificate
+	// chain trust and hostname verification still apply; only the EKU assertion
+	// is skipped.
+	AllowIncompatibleKeyUsage bool `yaml:"allow_incompatible_key_usage,omitempty" json:"allow_incompatible_key_usage,omitempty"`
 	// Minimum TLS version.
 	MinVersion TLSVersion `yaml:"min_version,omitempty" json:"min_version,omitempty"`
 	// Maximum TLS version.
