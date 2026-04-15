@@ -2398,23 +2398,22 @@ func TestTLSConfigAllowIncompatibleKeyUsage(t *testing.T) {
 		tlsCfg.RootCAs = caPool
 		client := &http.Client{Transport: &http.Transport{TLSClientConfig: tlsCfg}}
 		_, err = client.Get(addr)
-		require.Error(t, err, "expected EKU error without AllowIncompatibleKeyUsage")
+		require.Errorf(t, err, "expected EKU error without AllowIncompatibleKeyUsage")
 		require.Contains(t, err.Error(), "incompatible key usage")
 	})
 
 	t.Run("with AllowIncompatibleKeyUsage succeeds", func(t *testing.T) {
 		cfg := TLSConfig{
 			AllowIncompatibleKeyUsage: true,
-			// ServerName override for IP-addressed connection.
 		}
 		tlsCfg, err := NewTLSConfig(&cfg)
 		require.NoError(t, err)
-		require.True(t, tlsCfg.InsecureSkipVerify, "InsecureSkipVerify should be true internally")
-		require.NotNil(t, tlsCfg.VerifyPeerCertificate, "VerifyPeerCertificate should be set")
+		require.Truef(t, tlsCfg.InsecureSkipVerify, "InsecureSkipVerify should be true internally")
+		require.NotNilf(t, tlsCfg.VerifyPeerCertificate, "VerifyPeerCertificate should be set")
 		tlsCfg.RootCAs = caPool
 		client := &http.Client{Transport: &http.Transport{TLSClientConfig: tlsCfg}}
 		resp, err := client.Get(addr)
-		require.NoError(t, err, "connection should succeed when AllowIncompatibleKeyUsage=true")
+		require.NoErrorf(t, err, "connection should succeed when AllowIncompatibleKeyUsage=true")
 		resp.Body.Close()
 	})
 }
