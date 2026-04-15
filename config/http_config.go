@@ -1063,6 +1063,12 @@ func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 		needsInit bool
 	)
 
+	// This should not happen when config goes through the normal Prometheus
+	// validation path, but guard against a nil credential to avoid a panic.
+	if rt.oauthCredential == nil {
+		return nil, errors.New("oauth2 client secret is required")
+	}
+
 	rt.mtx.RLock()
 	secret = rt.lastSecret
 	needsInit = rt.lastRT.Source == nil
