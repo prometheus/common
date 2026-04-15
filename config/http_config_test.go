@@ -2321,3 +2321,81 @@ func TestMultipleHeaders(t *testing.T) {
 	_, err = client.Get(ts.URL)
 	require.NoErrorf(t, err, "can't fetch URL: %v", err)
 }
+
+func TestOAuth2WithClientAssertion(t *testing.T) {
+	const preSignedJWT = "header.payload.signature"
+
+	var (
+		gotAssertionType string
+		gotAssertion     string
+	)
+	tokenTS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, r.ParseForm())
+		gotAssertionType = r.FormValue("client_assertion_type")
+		gotAssertion = r.FormValue("client_assertion")
+		res, _ := json.Marshal(oauth2TestServerResponse{AccessToken: "tok", TokenType: "Bearer"})
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(res)
+	}))
+	defer tokenTS.Close()
+	appTS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "Bearer tok", r.Header.Get("Authorization"))
+		fmt.Fprintln(w, "ok")
+	}))
+	defer appTS.Close()
+
+	cfg := &HTTPClientConfig{
+		OAuth2: &OAuth2{
+			ClientID:        "my-client",
+			ClientAssertion: Secret(preSignedJWT),
+			TokenURL:        tokenTS.URL,
+		},
+	}
+	client, err := NewClientFromConfig(*cfg, "test")
+	require.NoError(t, err)
+
+	_, err = client.Get(appTS.URL)
+	require.NoError(t, err)
+
+	require.Equal(t, "urn:ietf:params:oauth:client-assertion-type:jwt-bearer", gotAssertionType)
+	require.Equal(t, preSignedJWT, gotAssertion)
+}
+
+func TestOAuth2ClientAssertionValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		cfg     OAuth2
+		wantErr string
+	}{
+		{
+			name:    "both client_assertion and client_assertion_file",
+			cfg:     OAuth2{ClientID: "x", TokenURL: "http://t", ClientAssertion: "jwt", ClientAssertionFile: "/f"},
+			wantErr: "at most one of oauth2 client_assertion and client_assertion_file must be configured",
+		},
+		{
+			name:    "client_assertion with client_secret",
+			cfg:     OAuth2{ClientID: "x", TokenURL: "http://t", ClientAssertion: "jwt", ClientSecret: "s"},
+			wantErr: "oauth2 client_assertion cannot be combined with client_secret or client_certificate_key",
+		},
+		{
+			name:    "client_assertion with client_certificate_key",
+			cfg:     OAuth2{ClientID: "x", TokenURL: "http://t", ClientAssertion: "jwt", ClientCertificateKey: "k"},
+			wantErr: "oauth2 client_assertion cannot be combined with client_secret or client_certificate_key",
+		},
+		{
+			name: "client_assertion_file alone is valid",
+			cfg:  OAuth2{ClientID: "x", TokenURL: "http://t", ClientAssertionFile: "/path/to/jwt"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := tc.cfg
+			err := (&HTTPClientConfig{OAuth2: &cfg}).Validate()
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}

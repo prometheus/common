@@ -269,8 +269,17 @@ type OAuth2 struct {
 	Audience string `yaml:"audience,omitempty" json:"audience,omitempty"`
 	// Claims is a map of claims to be added to the JWT token. Only used if
 	// GrantType is set to "urn:ietf:params:oauth:grant-type:jwt-bearer".
-	Claims         map[string]interface{} `yaml:"claims,omitempty" json:"claims,omitempty"`
-	Scopes         []string               `yaml:"scopes,omitempty" json:"scopes,omitempty"`
+	Claims map[string]interface{} `yaml:"claims,omitempty" json:"claims,omitempty"`
+	// ClientAssertion is a pre-signed JWT sent as the client_assertion parameter
+	// (RFC 7521 §4.2 / RFC 7523 §2.2). Use this when the assertion is generated
+	// externally (e.g. by a sidecar, KMS, or separate job). Mutually exclusive
+	// with client_secret* and client_certificate_key*.
+	ClientAssertion Secret `yaml:"client_assertion,omitempty" json:"client_assertion,omitempty"`
+	// ClientAssertionFile is a path to a file whose contents are used as the
+	// client_assertion. The file is re-read on every token refresh so that
+	// rotated assertions are picked up automatically.
+	ClientAssertionFile string  `yaml:"client_assertion_file,omitempty" json:"client_assertion_file,omitempty"`
+	Scopes              []string `yaml:"scopes,omitempty" json:"scopes,omitempty"`
 	TokenURL       string                 `yaml:"token_url,omitempty" json:"token_url,omitempty"`
 	EndpointParams map[string]string      `yaml:"endpoint_params,omitempty" json:"endpoint_params,omitempty"`
 	TLSConfig      TLSConfig              `yaml:"tls_config,omitempty"`
@@ -449,6 +458,16 @@ func (c *HTTPClientConfig) Validate() error {
 			}
 		} else if nonZeroCount(len(c.OAuth2.ClientSecret) > 0, len(c.OAuth2.ClientSecretFile) > 0, len(c.OAuth2.ClientSecretRef) > 0) > 1 {
 			return errors.New("at most one of oauth2 client_secret, client_secret_file & client_secret_ref must be configured using grant-type=client_credentials")
+		}
+		if hasAssertion := nonZeroCount(len(c.OAuth2.ClientAssertion) > 0, len(c.OAuth2.ClientAssertionFile) > 0) > 0; hasAssertion {
+			if nonZeroCount(len(c.OAuth2.ClientAssertion) > 0, len(c.OAuth2.ClientAssertionFile) > 0) > 1 {
+				return errors.New("at most one of oauth2 client_assertion and client_assertion_file must be configured")
+			}
+			hasSecret := nonZeroCount(len(c.OAuth2.ClientSecret) > 0, len(c.OAuth2.ClientSecretFile) > 0, len(c.OAuth2.ClientSecretRef) > 0) > 0
+			hasCertKey := nonZeroCount(len(c.OAuth2.ClientCertificateKey) > 0, len(c.OAuth2.ClientCertificateKeyFile) > 0, len(c.OAuth2.ClientCertificateKeyRef) > 0) > 0
+			if hasSecret || hasCertKey {
+				return errors.New("oauth2 client_assertion cannot be combined with client_secret or client_certificate_key")
+			}
 		}
 	}
 	if err := c.ProxyConfig.Validate(); err != nil {
@@ -710,6 +729,12 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 				oauthCredential, err = toSecret(opts.secretManager, cfg.OAuth2.ClientCertificateKey, cfg.OAuth2.ClientCertificateKeyFile, cfg.OAuth2.ClientCertificateKeyRef)
 				if err != nil {
 					return nil, fmt.Errorf("unable to use client certificate: %w", err)
+				}
+			} else if len(cfg.OAuth2.ClientAssertion) > 0 || len(cfg.OAuth2.ClientAssertionFile) > 0 {
+				// Pre-signed JWT assertion (RFC 7521 §4.2 / RFC 7523 §2.2).
+				oauthCredential, err = toSecret(nil, cfg.OAuth2.ClientAssertion, cfg.OAuth2.ClientAssertionFile, "")
+				if err != nil {
+					return nil, fmt.Errorf("unable to use client assertion: %w", err)
 				}
 			} else {
 				oauthCredential, err = toSecret(opts.secretManager, cfg.OAuth2.ClientSecret, cfg.OAuth2.ClientSecretFile, cfg.OAuth2.ClientSecretRef)
@@ -1032,6 +1057,19 @@ func (rt *oauth2RoundTripper) newOauth2TokenSource(req *http.Request, clientCred
 			Audience:         rt.config.Audience,
 			PrivateClaims:    rt.config.Claims,
 			EndpointParams:   mapToValues(rt.config.EndpointParams),
+		}
+	} else if len(rt.config.ClientAssertion) > 0 || len(rt.config.ClientAssertionFile) > 0 {
+		// RFC 7521 §4.2 / RFC 7523 §2.2 — client_assertion authentication.
+		// The pre-signed JWT is sent as client_assertion together with the
+		// appropriate client_assertion_type; no client_secret is included.
+		params := mapToValues(rt.config.EndpointParams)
+		params.Set("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer")
+		params.Set("client_assertion", clientCredential)
+		config = &clientcredentials.Config{
+			ClientID:       rt.config.ClientID,
+			Scopes:         rt.config.Scopes,
+			TokenURL:       rt.config.TokenURL,
+			EndpointParams: params,
 		}
 	} else {
 		config = &clientcredentials.Config{
