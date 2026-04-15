@@ -278,12 +278,12 @@ type OAuth2 struct {
 	// ClientAssertionFile is a path to a file whose contents are used as the
 	// client_assertion. The file is re-read on every token refresh so that
 	// rotated assertions are picked up automatically.
-	ClientAssertionFile string  `yaml:"client_assertion_file,omitempty" json:"client_assertion_file,omitempty"`
-	Scopes              []string `yaml:"scopes,omitempty" json:"scopes,omitempty"`
-	TokenURL       string                 `yaml:"token_url,omitempty" json:"token_url,omitempty"`
-	EndpointParams map[string]string      `yaml:"endpoint_params,omitempty" json:"endpoint_params,omitempty"`
-	TLSConfig      TLSConfig              `yaml:"tls_config,omitempty"`
-	ProxyConfig    `yaml:",inline"`
+	ClientAssertionFile string            `yaml:"client_assertion_file,omitempty" json:"client_assertion_file,omitempty"`
+	Scopes              []string          `yaml:"scopes,omitempty" json:"scopes,omitempty"`
+	TokenURL            string            `yaml:"token_url,omitempty" json:"token_url,omitempty"`
+	EndpointParams      map[string]string `yaml:"endpoint_params,omitempty" json:"endpoint_params,omitempty"`
+	TLSConfig           TLSConfig         `yaml:"tls_config,omitempty"`
+	ProxyConfig         `yaml:",inline"`
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
@@ -725,18 +725,19 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 				err             error
 			)
 
-			if cfg.OAuth2.GrantType == grantTypeJWTBearer {
+			switch {
+			case cfg.OAuth2.GrantType == grantTypeJWTBearer:
 				oauthCredential, err = toSecret(opts.secretManager, cfg.OAuth2.ClientCertificateKey, cfg.OAuth2.ClientCertificateKeyFile, cfg.OAuth2.ClientCertificateKeyRef)
 				if err != nil {
 					return nil, fmt.Errorf("unable to use client certificate: %w", err)
 				}
-			} else if len(cfg.OAuth2.ClientAssertion) > 0 || len(cfg.OAuth2.ClientAssertionFile) > 0 {
+			case len(cfg.OAuth2.ClientAssertion) > 0 || len(cfg.OAuth2.ClientAssertionFile) > 0:
 				// Pre-signed JWT assertion (RFC 7521 §4.2 / RFC 7523 §2.2).
 				oauthCredential, err = toSecret(nil, cfg.OAuth2.ClientAssertion, cfg.OAuth2.ClientAssertionFile, "")
 				if err != nil {
 					return nil, fmt.Errorf("unable to use client assertion: %w", err)
 				}
-			} else {
+			default:
 				oauthCredential, err = toSecret(opts.secretManager, cfg.OAuth2.ClientSecret, cfg.OAuth2.ClientSecretFile, cfg.OAuth2.ClientSecretRef)
 				if err != nil {
 					return nil, fmt.Errorf("unable to use client secret: %w", err)
@@ -1025,7 +1026,8 @@ func (rt *oauth2RoundTripper) newOauth2TokenSource(req *http.Request, clientCred
 
 	var config oauth2TokenSourceConfig
 
-	if rt.config.GrantType == grantTypeJWTBearer {
+	switch {
+	case rt.config.GrantType == grantTypeJWTBearer:
 		// RFC 7523 3.1 - JWT authorization grants
 		// RFC 7523 3.2 - Client Authentication Processing is not implement upstream yet,
 		// see https://github.com/golang/oauth2/pull/745
@@ -1058,7 +1060,7 @@ func (rt *oauth2RoundTripper) newOauth2TokenSource(req *http.Request, clientCred
 			PrivateClaims:    rt.config.Claims,
 			EndpointParams:   mapToValues(rt.config.EndpointParams),
 		}
-	} else if len(rt.config.ClientAssertion) > 0 || len(rt.config.ClientAssertionFile) > 0 {
+	case len(rt.config.ClientAssertion) > 0 || len(rt.config.ClientAssertionFile) > 0:
 		// RFC 7521 §4.2 / RFC 7523 §2.2 — client_assertion authentication.
 		// The pre-signed JWT is sent as client_assertion together with the
 		// appropriate client_assertion_type; no client_secret is included.
@@ -1071,7 +1073,7 @@ func (rt *oauth2RoundTripper) newOauth2TokenSource(req *http.Request, clientCred
 			TokenURL:       rt.config.TokenURL,
 			EndpointParams: params,
 		}
-	} else {
+	default:
 		config = &clientcredentials.Config{
 			ClientID:       rt.config.ClientID,
 			ClientSecret:   clientCredential,
