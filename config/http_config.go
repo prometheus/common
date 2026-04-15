@@ -828,10 +828,7 @@ func (*refSecret) Immutable() bool {
 }
 
 // toSecret returns a SecretReader from one of the given sources, assuming exactly
-// one or none of the sources are provided. When no source is provided it
-// returns (nil, nil); callers MUST guard the returned reader with a nil check
-// before invoking any method on it — see the nil-deref issue tracked at
-// https://github.com/prometheus/common/issues/790.
+// one or none of the sources are provided.
 func toSecret(secretManager SecretManager, text Secret, file, ref string) (SecretReader, error) {
 	if text != "" {
 		return NewInlineSecret(string(text)), nil
@@ -1056,11 +1053,8 @@ func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 		needsInit bool
 	)
 
-	// oauthCredential can be nil when the caller constructed an oauth2
-	// config without any client-secret source (Secret/File/Ref all empty).
-	// That is an invalid config — oauth2 requires a client secret — but
-	// rather than panicking on the Immutable()/Fetch() calls below, surface
-	// it as a request-time error so the caller can see it.
+	// This should not happen when config goes through the normal Prometheus
+	// validation path, but guard against a nil credential to avoid a panic.
 	if rt.oauthCredential == nil {
 		return nil, errors.New("oauth2 client secret is required")
 	}
