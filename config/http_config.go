@@ -717,7 +717,7 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 					return nil, fmt.Errorf("unable to use client secret: %w", err)
 				}
 			}
-			rt = NewOAuth2RoundTripper(oauthCredential, cfg.OAuth2, rt, &opts)
+			rt = NewOAuth2RoundTripper(oauthCredential, cfg.OAuth2, rt, optFuncs...)
 		}
 
 		if cfg.HTTPHeaders != nil {
@@ -942,16 +942,26 @@ type oauth2RoundTripper struct {
 	client          *http.Client
 }
 
-func NewOAuth2RoundTripper(oauthCredential SecretReader, config *OAuth2, next http.RoundTripper, opts *httpClientOptions) http.RoundTripper {
+// NewOAuth2RoundTripper returns a round tripper that performs OAuth2
+// authentication. The opts variadic parameter accepts any HTTPClientOption
+// (e.g. WithDialContextFunc, WithKeepAlivesDisabled) so that callers outside
+// this package can fully configure the transport without needing access to the
+// unexported *httpClientOptions type.
+func NewOAuth2RoundTripper(oauthCredential SecretReader, config *OAuth2, next http.RoundTripper, optFuncs ...HTTPClientOption) http.RoundTripper {
 	if oauthCredential == nil {
 		oauthCredential = NewInlineSecret("")
+	}
+
+	opts := defaultHTTPClientOptions
+	for _, opt := range optFuncs {
+		opt.applyToHTTPClientOptions(&opts)
 	}
 
 	return &oauth2RoundTripper{
 		config: config,
 		// A correct tokenSource will be added later on.
 		lastRT:          &oauth2.Transport{Base: next},
-		opts:            opts,
+		opts:            &opts,
 		oauthCredential: oauthCredential,
 	}
 }
