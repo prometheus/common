@@ -386,6 +386,72 @@ func TestValidationScheme_IsMetricNameValid(t *testing.T) {
 	}
 }
 
+// TestEscapeNameLabelContext verifies that colons are correctly escaped when
+// EscapeName is called with ContextLabel.
+// Colons are reserved for metric names only and must never be preserved in escaped label names.
+// Ref: https://github.com/prometheus/prometheus/issues/18380
+func TestEscapeNameLabelContext(t *testing.T) {
+	scenarios := []struct {
+		name   string
+		input  string
+		scheme EscapingScheme
+		want   string
+	}{
+		{
+			name:   "colon and hyphen in label - underscores",
+			input:  "app:instance-id",
+			scheme: UnderscoreEscaping,
+			want:   "app_instance_id",
+		},
+		{
+			name:   "colon and dot in label - underscores",
+			input:  "http.status:sum",
+			scheme: UnderscoreEscaping,
+			want:   "http_status_sum",
+		},
+		{
+			name:   "colon and dot in label - dots",
+			input:  "http.status:sum",
+			scheme: DotsEscaping,
+			want:   "http_dot_status__sum",
+		},
+		{
+			name:   "colon and hyphen in label - dots",
+			input:  "app:instance-id",
+			scheme: DotsEscaping,
+			want:   "app__instance__id",
+		},
+		{
+			name:   "colon and hyphen in label - values",
+			input:  "app:instance-id",
+			scheme: ValueEncodingEscaping,
+			want:   "U__app_3a_instance_2d_id",
+		},
+		{
+			name:   "colon only in label - underscores",
+			input:  "app:service",
+			scheme: UnderscoreEscaping,
+			want:   "app_service",
+		},
+		{
+			name:   "no colon - label and metric should agree",
+			input:  "my_metric_name",
+			scheme: UnderscoreEscaping,
+			want:   "my_metric_name",
+		},
+	}
+
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			got := EscapeName(scenario.input, scenario.scheme, ContextLabel)
+			if got != scenario.want {
+				t.Errorf("EscapeName(%q, %v, ContextLabel) = %q, want %q",
+					scenario.input, scenario.scheme, got, scenario.want)
+			}
+		})
+	}
+}
+
 func TestMetricClone(t *testing.T) {
 	m := Metric{
 		"first_name":   "electro",
@@ -531,7 +597,7 @@ func TestEscapeName(t *testing.T) {
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
-			got := EscapeName(scenario.input, UnderscoreEscaping)
+			got := EscapeName(scenario.input, UnderscoreEscaping, ContextMetric)
 			if got != scenario.expectedUnderscores {
 				t.Errorf("expected string output %s but got %s", scenario.expectedUnderscores, got)
 			}
@@ -541,7 +607,7 @@ func TestEscapeName(t *testing.T) {
 				t.Errorf("expected unescaped string output %s but got %s", scenario.expectedUnderscores, got)
 			}
 
-			got = EscapeName(scenario.input, DotsEscaping)
+			got = EscapeName(scenario.input, DotsEscaping, ContextMetric)
 			if got != scenario.expectedDots {
 				t.Errorf("expected string output %s but got %s", scenario.expectedDots, got)
 			}
@@ -550,7 +616,7 @@ func TestEscapeName(t *testing.T) {
 				t.Errorf("expected unescaped string output %s but got %s", scenario.expectedUnescapedDots, got)
 			}
 
-			got = EscapeName(scenario.input, ValueEncodingEscaping)
+			got = EscapeName(scenario.input, ValueEncodingEscaping, ContextMetric)
 			if got != scenario.expectedValue {
 				t.Errorf("expected string output %s but got %s", scenario.expectedValue, got)
 			}

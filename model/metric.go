@@ -86,6 +86,15 @@ var _ interface {
 	fmt.Stringer
 } = new(ValidationScheme)
 
+// ValidationContext determines whether a name being validated or escaped
+// is a metric name or a label name. Colons are only valid in metric names.
+type ValidationContext int
+
+const (
+	ContextMetric ValidationContext = iota
+	ContextLabel
+)
+
 // String returns the string representation of s.
 func (s ValidationScheme) String() string {
 	switch s {
@@ -165,7 +174,7 @@ func (s ValidationScheme) IsValidMetricName(metricName string) bool {
 			return false
 		}
 		for i, b := range metricName {
-			if !isValidLegacyRune(b, i) {
+			if !isValidLegacyRune(b, i, ContextMetric) {
 				return false
 			}
 		}
@@ -353,7 +362,7 @@ func EscapeMetricFamily(v *dto.MetricFamily, scheme EscapingScheme) *dto.MetricF
 	if v.Name == nil || IsValidLegacyMetricName(v.GetName()) {
 		out.Name = v.Name
 	} else {
-		out.Name = proto.String(EscapeName(v.GetName(), scheme))
+		out.Name = proto.String(EscapeName(v.GetName(), scheme, ContextMetric))
 	}
 	for _, m := range v.Metric {
 		if !metricNeedsEscaping(m) {
@@ -378,7 +387,7 @@ func EscapeMetricFamily(v *dto.MetricFamily, scheme EscapingScheme) *dto.MetricF
 				}
 				escaped.Label = append(escaped.Label, &dto.LabelPair{
 					Name:  proto.String(MetricNameLabel),
-					Value: proto.String(EscapeName(l.GetValue(), scheme)),
+					Value: proto.String(EscapeName(l.GetValue(), scheme, ContextMetric)),
 				})
 				continue
 			}
@@ -387,7 +396,7 @@ func EscapeMetricFamily(v *dto.MetricFamily, scheme EscapingScheme) *dto.MetricF
 				continue
 			}
 			escaped.Label = append(escaped.Label, &dto.LabelPair{
-				Name:  proto.String(EscapeName(l.GetName(), scheme)),
+				Name:  proto.String(EscapeName(l.GetName(), scheme, ContextLabel)),
 				Value: l.Value,
 			})
 		}
@@ -412,7 +421,7 @@ func metricNeedsEscaping(m *dto.Metric) bool {
 // scheme. Depending on the rules of escaping, this may cause no change in the
 // string that is returned. (Especially NoEscaping, which by definition is a
 // noop). This function does not do any validation of the name.
-func EscapeName(name string, scheme EscapingScheme) string {
+func EscapeName(name string, scheme EscapingScheme, ctx ValidationContext) string {
 	if len(name) == 0 {
 		return name
 	}
@@ -421,11 +430,14 @@ func EscapeName(name string, scheme EscapingScheme) string {
 	case NoEscaping:
 		return name
 	case UnderscoreEscaping:
-		if IsValidLegacyMetricName(name) {
+		if ctx == ContextMetric && IsValidLegacyMetricName(name) {
+			return name
+		}
+		if ctx == ContextLabel && LegacyValidation.IsValidLabelName(name) {
 			return name
 		}
 		for i, b := range name {
-			if isValidLegacyRune(b, i) {
+			if isValidLegacyRune(b, i, ctx) {
 				escaped.WriteRune(b)
 			} else {
 				escaped.WriteRune('_')
@@ -440,7 +452,7 @@ func EscapeName(name string, scheme EscapingScheme) string {
 				escaped.WriteString("__")
 			case b == '.':
 				escaped.WriteString("_dot_")
-			case isValidLegacyRune(b, i):
+			case isValidLegacyRune(b, i, ctx):
 				escaped.WriteRune(b)
 			default:
 				escaped.WriteString("__")
@@ -456,7 +468,7 @@ func EscapeName(name string, scheme EscapingScheme) string {
 			switch {
 			case b == '_':
 				escaped.WriteString("__")
-			case isValidLegacyRune(b, i):
+			case isValidLegacyRune(b, i, ctx):
 				escaped.WriteRune(b)
 			case !utf8.ValidRune(b):
 				escaped.WriteString("_FFFD_")
@@ -555,8 +567,16 @@ func UnescapeName(name string, scheme EscapingScheme) string {
 	}
 }
 
-func isValidLegacyRune(b rune, i int) bool {
-	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || b == '_' || b == ':' || (b >= '0' && b <= '9' && i > 0)
+func isValidLegacyRune(r rune, i int, ctx ValidationContext) bool {
+	if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_' || (r >= '0' && r <= '9' && i > 0) {
+		return true
+	}
+	// Colons are reserved for metric names (e.g. recording rules) only.
+	// They have never been valid in label names.
+	if ctx == ContextMetric && r == ':' {
+		return true
+	}
+	return false
 }
 
 func (e EscapingScheme) String() string {
