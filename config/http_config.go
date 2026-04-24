@@ -608,10 +608,14 @@ func NewClientFromConfig(cfg HTTPClientConfig, name string, optFuncs ...HTTPClie
 		return nil, err
 	}
 	client := newClient(rt)
-	if !cfg.FollowRedirects {
-		client.CheckRedirect = func(*http.Request, []*http.Request) error {
+	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if !cfg.FollowRedirects {
 			return http.ErrUseLastResponse
 		}
+		if len(via) > 0 && !shouldSendCredentialsOnRedirect(via[0].URL, req.URL) {
+			*req = *req.WithContext(context.WithValue(req.Context(), crossHostRedirectKey{}, true))
+		}
+		return nil
 	}
 	return client, nil
 }
@@ -721,6 +725,11 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 		}
 
 		if cfg.HTTPHeaders != nil {
+			// Strip sensitive headers added by headersRoundTripper on cross-host
+			// redirects before they reach the transport.
+			if cfg.FollowRedirects {
+				rt = &sensitiveHeadersStripRT{next: rt}
+			}
 			rt = NewHeadersRoundTripper(cfg.HTTPHeaders, rt)
 		}
 
@@ -862,7 +871,7 @@ func NewAuthorizationCredentialsRoundTripper(authType string, authCredentials Se
 }
 
 func (rt *authorizationCredentialsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	if len(req.Header.Get("Authorization")) != 0 {
+	if len(req.Header.Get("Authorization")) != 0 || isCrossHostRedirect(req) {
 		return rt.rt.RoundTrip(req)
 	}
 
@@ -900,7 +909,7 @@ func NewBasicAuthRoundTripper(username, password SecretReader, rt http.RoundTrip
 }
 
 func (rt *basicAuthRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	if len(req.Header.Get("Authorization")) != 0 {
+	if len(req.Header.Get("Authorization")) != 0 || isCrossHostRedirect(req) {
 		return rt.rt.RoundTrip(req)
 	}
 	var username string
@@ -1101,6 +1110,9 @@ func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 	rt.mtx.RLock()
 	currentRT := rt.lastRT
 	rt.mtx.RUnlock()
+	if isCrossHostRedirect(req) {
+		return currentRT.Base.RoundTrip(req)
+	}
 	return currentRT.RoundTrip(req)
 }
 
@@ -1120,6 +1132,78 @@ func mapToValues(m map[string]string) url.Values {
 	}
 
 	return v
+}
+
+// crossHostRedirectKey is the context key used to mark cross-host redirects.
+type crossHostRedirectKey struct{}
+
+// isCrossHostRedirect reports whether req was marked as a cross-host redirect
+// by the CheckRedirect handler.
+func isCrossHostRedirect(req *http.Request) bool {
+	return req.Context().Value(crossHostRedirectKey{}) != nil
+}
+
+// sensitiveHeadersOnRedirect lists the headers that must not be forwarded when
+// following a redirect to a different host, mirroring the list in
+// makeHeadersCopier in net/http/client.go.
+var sensitiveHeadersOnRedirect = map[string]struct{}{
+	"Authorization":       {},
+	"Www-Authenticate":    {},
+	"Cookie":              {},
+	"Cookie2":             {},
+	"Proxy-Authorization": {},
+	"Proxy-Authenticate":  {},
+}
+
+// sensitiveHeadersStripRT strips sensitive headers from requests marked as
+// cross-host redirects before passing them to the underlying transport.
+type sensitiveHeadersStripRT struct {
+	next http.RoundTripper
+}
+
+func (rt *sensitiveHeadersStripRT) RoundTrip(req *http.Request) (*http.Response, error) {
+	if isCrossHostRedirect(req) {
+		req = cloneRequest(req)
+		for h := range sensitiveHeadersOnRedirect {
+			req.Header.Del(h)
+		}
+	}
+	return rt.next.RoundTrip(req)
+}
+
+func (rt *sensitiveHeadersStripRT) CloseIdleConnections() {
+	if ci, ok := rt.next.(closeIdler); ok {
+		ci.CloseIdleConnections()
+	}
+}
+
+// shouldSendCredentialsOnRedirect reports whether credentials from a request
+// to initial should be forwarded when redirecting to dest. It mirrors the
+// logic in shouldCopyHeaderOnRedirect from net/http/client.go: credentials
+// are forwarded when dest is the same host as, or a subdomain of, initial.
+// Port is not considered, matching Go's standard library behaviour.
+func shouldSendCredentialsOnRedirect(initial, dest *url.URL) bool {
+	ihost := strings.ToLower(initial.Hostname())
+	dhost := strings.ToLower(dest.Hostname())
+	return isDomainOrSubdomain(dhost, ihost)
+}
+
+// isDomainOrSubdomain reports whether sub is a subdomain (or exact match) of
+// parent. It mirrors isDomainOrSubdomain from net/http/client.go.
+func isDomainOrSubdomain(sub, parent string) bool {
+	if sub == parent {
+		return true
+	}
+	// A colon means sub is an IPv6 address; a percent sign introduces an IPv6
+	// zone ID. Neither can be a hostname, and both could otherwise pass the
+	// suffix check below (e.g. "::1%.www.example.com" ends with "example.com").
+	if strings.ContainsAny(sub, ":%") {
+		return false
+	}
+	if !strings.HasSuffix(sub, parent) {
+		return false
+	}
+	return sub[len(sub)-len(parent)-1] == '.'
 }
 
 // cloneRequest returns a clone of the provided *http.Request.
