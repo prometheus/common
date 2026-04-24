@@ -1484,11 +1484,10 @@ func (t *tlsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	// The cert and key files are read separately by the client
 	// using GetClientCertificate.
 	tlsConfig := t.tlsConfig.Clone()
-	if !updateRootCA(tlsConfig, caData) {
-		if t.settings.CA == nil {
-			return nil, errors.New("unable to use specified CA cert: none configured")
+	if t.settings.CA != nil {
+		if !updateRootCA(tlsConfig, caData) {
+			return nil, fmt.Errorf("unable to use specified CA cert %s", t.settings.CA.Description())
 		}
-		return nil, fmt.Errorf("unable to use specified CA cert %s", t.settings.CA.Description())
 	}
 	rt, err = t.newRT(tlsConfig)
 	if err != nil {

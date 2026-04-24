@@ -41,18 +41,20 @@ import (
 )
 
 const (
-	TLSCAChainPath        = "testdata/tls-ca-chain.pem"
-	ServerCertificatePath = "testdata/server.crt"
-	ServerKeyPath         = "testdata/server.key"
-	ClientCertificatePath = "testdata/client.crt"
-	ClientKeyNoPassPath   = "testdata/client.key"
-	InvalidCA             = "testdata/client.key"
-	WrongClientCertPath   = "testdata/self-signed-client.crt"
-	WrongClientKeyPath    = "testdata/self-signed-client.key"
-	EmptyFile             = "testdata/empty"
-	MissingCA             = "missing/ca.crt"
-	MissingCert           = "missing/cert.crt"
-	MissingKey            = "missing/secret.key"
+	TLSCAChainPath         = "testdata/tls-ca-chain.pem"
+	ServerCertificatePath  = "testdata/server.crt"
+	ServerKeyPath          = "testdata/server.key"
+	ClientCertificatePath  = "testdata/client.crt"
+	ClientKeyNoPassPath    = "testdata/client.key"
+	Client2CertificatePath = "testdata/client2.crt"
+	Client2KeyNoPassPath   = "testdata/client2.key"
+	InvalidCA              = "testdata/client.key"
+	WrongClientCertPath    = "testdata/self-signed-client.crt"
+	WrongClientKeyPath     = "testdata/self-signed-client.key"
+	EmptyFile              = "testdata/empty"
+	MissingCA              = "missing/ca.crt"
+	MissingCert            = "missing/cert.crt"
+	MissingKey             = "missing/secret.key"
 
 	ExpectedMessage                   = "I'm here to serve you!!!"
 	ExpectedError                     = "expected error"
@@ -1014,6 +1016,8 @@ func getCertificateBlobs(t *testing.T) map[string][]byte {
 		TLSCAChainPath,
 		ClientCertificatePath,
 		ClientKeyNoPassPath,
+		Client2CertificatePath,
+		Client2KeyNoPassPath,
 		ServerCertificatePath,
 		ServerKeyPath,
 		WrongClientCertPath,
@@ -2067,7 +2071,7 @@ func TestModifyTLSCertificates(t *testing.T) {
 func TestTLSRoundTripper_NoCAConfigured(t *testing.T) {
 	bs := getCertificateBlobs(t)
 
-	tmpDir, err := os.MkdirTemp("", "tlspanic")
+	tmpDir, err := os.MkdirTemp("", "tlsroundtrippernoca")
 	require.NoErrorf(t, err, "Failed to create tmp dir")
 	defer os.RemoveAll(tmpDir)
 	cert, key := filepath.Join(tmpDir, "cert"), filepath.Join(tmpDir, "key")
@@ -2079,6 +2083,24 @@ func TestTLSRoundTripper_NoCAConfigured(t *testing.T) {
 	require.NoError(t, err)
 	defer testServer.Close()
 
+	tests := []struct {
+		cert string
+		key  string
+
+		errMsg string
+	}{
+		{
+			cert: Client2CertificatePath,
+			key:  Client2KeyNoPassPath,
+		},
+		{
+			cert: EmptyFile,
+			key:  ClientKeyNoPassPath,
+
+			errMsg: "unable to use specified client cert",
+		},
+	}
+
 	cfg := HTTPClientConfig{
 		TLSConfig: TLSConfig{
 			CertFile:           cert,
@@ -2087,23 +2109,50 @@ func TestTLSRoundTripper_NoCAConfigured(t *testing.T) {
 		},
 	}
 
-	writeCertificate(bs, ClientCertificatePath, cert)
-	writeCertificate(bs, ClientKeyNoPassPath, key)
-	c, err := NewClientFromConfig(cfg, "test")
-	require.NoErrorf(t, err, "Error creating HTTP Client: %v", err)
+	var c *http.Client
+	for i, tc := range tests {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			writeCertificate(bs, ClientCertificatePath, cert)
+			writeCertificate(bs, ClientKeyNoPassPath, key)
+			if c == nil {
+				c, err = NewClientFromConfig(cfg, "test")
+				require.NoErrorf(t, err, "Error creating HTTP Client: %v", err)
+			}
 
-	req, err := http.NewRequest(http.MethodGet, testServer.URL, nil)
-	require.NoErrorf(t, err, "Error creating HTTP request: %v", err)
+			req, err := http.NewRequest(http.MethodGet, testServer.URL, nil)
+			require.NoErrorf(t, err, "Error creating HTTP request: %v", err)
 
-	r, err := c.Do(req)
-	require.NoErrorf(t, err, "Can't connect to the test server")
-	r.Body.Close()
+			r, err := c.Do(req)
+			require.NoErrorf(t, err, "Can't connect to the test server")
+			r.Body.Close()
 
-	err = os.WriteFile(cert, []byte("-----BEGIN GARBAGE-----\nabc\n-----END GARBAGE-----\n"), 0o664)
-	require.NoError(t, err)
+			writeCertificate(bs, tc.cert, cert)
+			writeCertificate(bs, tc.key, key)
 
-	_, err = c.Do(req)
-	require.ErrorContainsf(t, err, "unable to use specified CA cert: none configured", "Expected error to mention missing CA cert")
+			r, err = c.Do(req)
+			if len(tc.errMsg) > 0 {
+				if err == nil {
+					r.Body.Close()
+					t.Fatalf("Could connect to the test server.")
+				}
+				require.ErrorContainsf(t, err, tc.errMsg, "Expected error message to contain %q, got %q", tc.errMsg, err)
+				return
+			}
+
+			require.NoErrorf(t, err, "Expected no error, got %q", err)
+
+			b, err := io.ReadAll(r.Body)
+			r.Body.Close()
+			if err != nil {
+				t.Errorf("Can't read the server response body")
+			}
+
+			got := strings.TrimSpace(string(b))
+			if ExpectedMessage != got {
+				t.Errorf("The expected message %q differs from the obtained message %q", ExpectedMessage, got)
+			}
+		})
+	}
 }
 
 // loadHTTPConfigJSON parses the JSON input s into a HTTPClientConfig.

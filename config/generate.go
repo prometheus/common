@@ -217,6 +217,16 @@ func main() {
 		log.Fatal(err)
 	}
 
+	log.Println("Generating second client certificate")
+	cert, key, err = GenerateCertificate(caCert, caKey, false, "localhost")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := writeCertificateAndKey("testdata/client2", cert, key); err != nil {
+		log.Fatal(err)
+	}
+
 	log.Println("Generating self-signed client certificate")
 	cert, key, err = GenerateCertificate(nil, nil, false, "localhost")
 	if err != nil {
