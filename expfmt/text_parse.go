@@ -416,18 +416,15 @@ func (p *TextParser) startLabelName() stateFn {
 		((p.currentMF.GetType() != dto.MetricType_HISTOGRAM &&
 			p.currentMF.GetType() != dto.MetricType_GAUGE_HISTOGRAM) ||
 			p.currentLabelPair.GetName() != model.BucketLabel) {
-		p.currentLabelPairs = append(p.currentLabelPairs, p.currentLabelPair)
-	}
-	// Check for duplicate label names.
-	labels := make(map[string]struct{})
-	for _, l := range p.currentLabelPairs {
-		lName := l.GetName()
-		if _, exists := labels[lName]; exists {
-			p.parseError(fmt.Sprintf("duplicate label names for metric %q", p.currentMF.GetName()))
-			p.currentLabelPairs = nil
-			return nil
+		// Check for duplicate label names.
+		for _, l := range p.currentLabelPairs {
+			if l.GetName() == p.currentLabelPair.GetName() {
+				p.parseError(fmt.Sprintf("duplicate label names for metric %q", p.currentMF.GetName()))
+				p.currentLabelPairs = nil
+				return nil
+			}
 		}
-		labels[lName] = struct{}{}
+		p.currentLabelPairs = append(p.currentLabelPairs, p.currentLabelPair)
 	}
 	return p.startLabelValue
 }
