@@ -121,6 +121,11 @@ func TestNegotiateIncludingOpenMetrics(t *testing.T) {
 			expectedFmt:       "application/openmetrics-text; version=1.0.0; charset=utf-8; escaping=values",
 		},
 		{
+			name:              "OM format, 2.0.0 version",
+			acceptHeaderValue: "application/openmetrics-text;version=2.0.0",
+			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=values",
+		},
+		{
 			name:              "OM format, 0.0.1 version with utf-8 is not valid, falls back",
 			acceptHeaderValue: "application/openmetrics-text;version=0.0.1",
 			expectedFmt:       "application/openmetrics-text; version=0.0.1; charset=utf-8; escaping=values",
@@ -265,6 +270,15 @@ foo_metric 1.234
 		{
 			metric: metric1,
 			format: FmtOpenMetrics_1_0_0,
+			expOut: `# TYPE foo_metric unknown
+# UNIT foo_metric seconds
+foo_metric 1.234
+`,
+		},
+		// 8: Untyped FmtOpenMetrics_2_0_0
+		{
+			metric: metric1,
+			format: FmtOpenMetrics_2_0_0,
 			expOut: `# TYPE foo_metric unknown
 # UNIT foo_metric seconds
 foo_metric 1.234

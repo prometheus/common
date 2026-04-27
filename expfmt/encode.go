@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/munnerz/goautoneg"
 	dto "github.com/prometheus/client_model/go"
@@ -118,8 +119,10 @@ func NegotiateIncludingOpenMetrics(h http.Header) Format {
 		if ac.Type == "text" && ac.SubType == "plain" && (ver == TextVersion || ver == "") {
 			return FmtText + escapingScheme
 		}
-		if ac.Type+"/"+ac.SubType == OpenMetricsType && (ver == OpenMetricsVersion_0_0_1 || ver == OpenMetricsVersion_1_0_0 || ver == "") {
+		if ac.Type+"/"+ac.SubType == OpenMetricsType && (ver == OpenMetricsVersion_0_0_1 || ver == OpenMetricsVersion_1_0_0 || ver == OpenMetricsVersion_2_0_0 || ver == "") {
 			switch ver {
+			case OpenMetricsVersion_2_0_0:
+				return FmtOpenMetrics_2_0_0 + escapingScheme
 			case OpenMetricsVersion_1_0_0:
 				return FmtOpenMetrics_1_0_0 + escapingScheme
 			default:
@@ -181,6 +184,18 @@ func NewEncoder(w io.Writer, format Format, options ...EncoderOption) Encoder {
 			close: func() error { return nil },
 		}
 	case TypeOpenMetrics:
+		if strings.Contains(string(format), "version="+OpenMetricsVersion_2_0_0) {
+			return encoderCloser{
+				encode: func(v *dto.MetricFamily) error {
+					_, err := MetricFamilyToOpenMetrics20(w, model.EscapeMetricFamily(v, escapingScheme), options...)
+					return err
+				},
+				close: func() error {
+					_, err := FinalizeOpenMetrics(w)
+					return err
+				},
+			}
+		}
 		return encoderCloser{
 			encode: func(v *dto.MetricFamily) error {
 				_, err := MetricFamilyToOpenMetrics(w, model.EscapeMetricFamily(v, escapingScheme), options...)
