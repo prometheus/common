@@ -72,17 +72,18 @@ func (p *OpenMetricsParser) setCreatedTimestamp(dst **timestamppb.Timestamp) boo
 // OpenMetricsParser is used to parse the simple and flat openmetrics-based exchange format. Its
 // zero value is ready to use and applies legacy name validation rules.
 type OpenMetricsParser struct {
-	metricFamiliesByName map[string]*dto.MetricFamily
-	buf                  *bufio.Reader // Where the parsed input is read through.
-	err                  error         // Most recent error.
-	lineCount            int           // Tracks the line count for error messages.
-	currentByte          byte          // The most recent byte read.
-	currentToken         bytes.Buffer  // Re-used each time a token has to be gathered from multiple bytes.
-	currentMF            *dto.MetricFamily
-	currentMetric        *dto.Metric
-	currentLabelPair     *dto.LabelPair
-	currentIsExemplar    bool
-	currentExemplar      *dto.Exemplar
+	metricFamiliesByName   map[string]*dto.MetricFamily
+	openMetricsTypesByName map[string]string
+	buf                    *bufio.Reader // Where the parsed input is read through.
+	err                    error         // Most recent error.
+	lineCount              int           // Tracks the line count for error messages.
+	currentByte            byte          // The most recent byte read.
+	currentToken           bytes.Buffer  // Re-used each time a token has to be gathered from multiple bytes.
+	currentMF              *dto.MetricFamily
+	currentMetric          *dto.Metric
+	currentLabelPair       *dto.LabelPair
+	currentIsExemplar      bool
+	currentExemplar        *dto.Exemplar
 
 	// The remaining member variables are only used for summaries/histograms.
 	currentLabels map[string]string // All labels including '__name__' but excluding 'quantile'/'le'
@@ -161,6 +162,7 @@ func (p *OpenMetricsParser) OpenMetricsToMetricFamilies(in io.Reader) (map[strin
 
 func (p *OpenMetricsParser) reset(in io.Reader) {
 	p.metricFamiliesByName = map[string]*dto.MetricFamily{}
+	p.openMetricsTypesByName = map[string]string{}
 	if p.buf == nil {
 		p.buf = bufio.NewReader(in)
 	} else {
@@ -710,6 +712,7 @@ func (p *OpenMetricsParser) readingType() stateFn {
 	// Unsupported types are mapped to untyped until the classic Prometheus
 	// protobuf model grows a representation for them.
 	if _, ok := unsupportedOpenMetricsMetricTypes[strings.ToUpper(p.currentToken.String())]; ok {
+		p.openMetricsTypesByName[p.currentMF.GetName()] = strings.ToUpper(p.currentToken.String())
 		p.currentMF.Type = dto.MetricType_UNTYPED.Enum()
 	} else {
 		if strings.ToUpper(p.currentToken.String()) == "GAUGEHISTOGRAM" {
@@ -1032,6 +1035,12 @@ func (p *OpenMetricsParser) setOrCreateCurrentMF() {
 			return
 		}
 	}
+	infoName := infoMetricName(name)
+	if p.currentMF = p.metricFamiliesByName[infoName]; p.currentMF != nil {
+		if p.openMetricsTypesByName[infoName] == "INFO" {
+			return
+		}
+	}
 	// Try out if this is a _sum or _count for a summary/histogram.
 	summaryName := summaryMetricName(name)
 	if p.currentMF = p.metricFamiliesByName[summaryName]; p.currentMF != nil {
@@ -1078,6 +1087,15 @@ func counterMetricName(name string) string {
 	}
 }
 
+func infoMetricName(name string) string {
+	switch {
+	case isInfo(name):
+		return name[:len(name)-5]
+	default:
+		return name
+	}
+}
+
 func gaugehistogramMetricName(name string) string {
 	switch {
 	case isGCount(name):
@@ -1109,4 +1127,8 @@ func isTotal(name string) bool {
 
 func isCreated(name string) bool {
 	return len(name) > 8 && name[len(name)-8:] == "_created"
+}
+
+func isInfo(name string) bool {
+	return len(name) > 5 && name[len(name)-5:] == "_info"
 }

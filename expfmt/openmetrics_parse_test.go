@@ -1340,6 +1340,34 @@ request_duration_microseconds_created 123456789.123
 				},
 			},
 		},
+		// 16: Unsupported info family using OpenMetrics base family metadata name.
+		{
+			in: `# TYPE target info
+# HELP target help
+target_info{service_name="service"} 1
+# EOF
+`,
+			out: []*dto.MetricFamily{
+				{
+					Name: proto.String("target"),
+					Help: proto.String("help"),
+					Type: dto.MetricType_UNTYPED.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Label: []*dto.LabelPair{
+								{
+									Name:  proto.String("service_name"),
+									Value: proto.String("service"),
+								},
+							},
+							Untyped: &dto.Untyped{
+								Value: proto.Float64(1),
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for i, scenario := range scenarios {

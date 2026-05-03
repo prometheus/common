@@ -188,6 +188,27 @@ func TestOpenMetricsDecoderWithUTF8Names(t *testing.T) {
 	require.Equal(t, "labél", mf.GetMetric()[0].GetLabel()[0].GetName())
 }
 
+func TestOpenMetricsDecoderInfoFamilyUsesBaseName(t *testing.T) {
+	dec := NewDecoder(
+		strings.NewReader(`# TYPE target info
+# HELP target help
+target_info{service_name="service"} 1
+# EOF
+`),
+		FmtOpenMetrics_1_0_0,
+	)
+
+	var mf dto.MetricFamily
+	require.NoError(t, dec.Decode(&mf))
+	require.Equal(t, "target", mf.GetName())
+	require.Equal(t, "help", mf.GetHelp())
+	require.Equal(t, dto.MetricType_UNTYPED, mf.GetType())
+	require.Len(t, mf.GetMetric(), 1)
+	require.Len(t, mf.GetMetric()[0].GetLabel(), 1)
+	require.Equal(t, "service_name", mf.GetMetric()[0].GetLabel()[0].GetName())
+	require.Equal(t, "service", mf.GetMetric()[0].GetLabel()[0].GetValue())
+}
+
 func TestProtoDecoder(t *testing.T) {
 	testTime := model.Now()
 
