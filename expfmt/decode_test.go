@@ -103,6 +103,112 @@ mf2 4
 	require.Truef(t, reflect.DeepEqual(all, out), "output does not match")
 }
 
+func TestOpenMetricsDecoder(t *testing.T) {
+	var (
+		ts = model.Now()
+		in = `
+# Only a quite simple scenario with two metric families.
+# More complicated tests of the parser itself can be found in the OpenMetrics parser tests.
+# TYPE metric1 counter
+metric1_total 3
+mf1{label="value1"} -3.14 123456
+mf1{label="value2"} 42
+metric1_total 4
+# EOF
+`
+		out = model.Vector{
+			&model.Sample{
+				Metric: model.Metric{
+					model.MetricNameLabel: "mf1",
+					"label":               "value1",
+				},
+				Value:     -3.14,
+				Timestamp: 123456,
+			},
+			&model.Sample{
+				Metric: model.Metric{
+					model.MetricNameLabel: "mf1",
+					"label":               "value2",
+				},
+				Value:     42,
+				Timestamp: ts,
+			},
+			&model.Sample{
+				Metric: model.Metric{
+					model.MetricNameLabel: "metric1",
+				},
+				Value:     3,
+				Timestamp: ts,
+			},
+			&model.Sample{
+				Metric: model.Metric{
+					model.MetricNameLabel: "metric1",
+				},
+				Value:     4,
+				Timestamp: ts,
+			},
+		}
+	)
+
+	dec := &SampleDecoder{
+		Dec: NewDecoder(strings.NewReader(in), FmtOpenMetrics_1_0_0),
+		Opts: &DecodeOptions{
+			Timestamp: ts,
+		},
+	}
+	var all model.Vector
+	for {
+		var smpls model.Vector
+		err := dec.Decode(&smpls)
+		if err != nil && errors.Is(err, io.EOF) {
+			break
+		}
+		require.NoError(t, err)
+		all = append(all, smpls...)
+	}
+	sort.Sort(all)
+	sort.Sort(out)
+	require.Truef(t, reflect.DeepEqual(all, out), "output does not match")
+}
+
+func TestOpenMetricsDecoderWithUTF8Names(t *testing.T) {
+	dec := NewDecoder(
+		strings.NewReader(`# TYPE "métric" gauge
+{"métric","labél"="value"} 1
+# EOF
+`),
+		FmtOpenMetrics_1_0_0.WithEscapingScheme(model.NoEscaping),
+	)
+
+	var mf dto.MetricFamily
+	require.NoError(t, dec.Decode(&mf))
+	require.Equal(t, "métric", mf.GetName())
+	require.Len(t, mf.GetMetric(), 1)
+	require.Len(t, mf.GetMetric()[0].GetLabel(), 1)
+	require.Equal(t, "labél", mf.GetMetric()[0].GetLabel()[0].GetName())
+}
+
+func TestOpenMetricsDecoderInfoFamilyUsesBaseName(t *testing.T) {
+	dec := NewDecoder(
+		strings.NewReader(`# TYPE target info
+# HELP target help
+target_info{service_name="service"} 1
+# EOF
+`),
+		FmtOpenMetrics_1_0_0,
+	)
+
+	var mf dto.MetricFamily
+	require.NoError(t, dec.Decode(&mf))
+	require.Equal(t, "target", mf.GetName())
+	require.Equal(t, "help", mf.GetHelp())
+	require.Equal(t, dto.MetricType_UNTYPED, mf.GetType())
+	require.Len(t, mf.GetMetric(), 1)
+	require.Len(t, mf.GetMetric()[0].GetLabel(), 1)
+	require.Equal(t, "service_name", mf.GetMetric()[0].GetLabel()[0].GetName())
+	require.Equal(t, "service", mf.GetMetric()[0].GetLabel()[0].GetValue())
+}
+
 func TestProtoDecoder(t *testing.T) {
 	testTime := model.Now()
 
@@ -452,6 +558,22 @@ func testDiscriminatorHTTPHeader(t testing.TB) {
 		},
 		{
 			input:  map[string]string{"Content-Type": `text/plain; version=0.0.3`},
+			output: FmtUnknown,
+		},
+		{
+			input:  map[string]string{"Content-Type": `application/openmetrics-text; version=1.0.0; charset=utf-8`},
+			output: FmtOpenMetrics_1_0_0,
+		},
+		{
+			input:  map[string]string{"Content-Type": `application/openmetrics-text; version=0.0.1; charset=utf-8`},
+			output: FmtOpenMetrics_0_0_1,
+		},
+		{
+			input:  map[string]string{"Content-Type": `application/openmetrics-text; charset=utf-8`},
+			output: FmtOpenMetrics_0_0_1,
+		},
+		{
+			input:  map[string]string{"Content-Type": `application/openmetrics-text; version=1.0.0; charset=latin-1`},
 			output: FmtUnknown,
 		},
 	}
