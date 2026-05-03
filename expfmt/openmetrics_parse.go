@@ -26,7 +26,6 @@ import (
 	"time"
 
 	dto "github.com/prometheus/client_model/go"
-
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -366,9 +365,10 @@ func (p *OpenMetricsParser) startLabelName() stateFn {
 	}
 	// Special summary/histogram treatment. Don't add 'quantile' and 'le'
 	// labels to 'real' labels.
-	if !(p.currentMF.GetType() == dto.MetricType_SUMMARY && p.currentLabelPair.GetName() == model.QuantileLabel) &&
-		!(p.currentMF.GetType() == dto.MetricType_HISTOGRAM && p.currentLabelPair.GetName() == model.BucketLabel) &&
-		!(p.currentMF.GetType() == dto.MetricType_GAUGE_HISTOGRAM && p.currentLabelPair.GetName() == model.BucketLabel) &&
+	if (p.currentMF.GetType() != dto.MetricType_SUMMARY || p.currentLabelPair.GetName() != model.QuantileLabel) &&
+		((p.currentMF.GetType() != dto.MetricType_HISTOGRAM &&
+			p.currentMF.GetType() != dto.MetricType_GAUGE_HISTOGRAM) ||
+			p.currentLabelPair.GetName() != model.BucketLabel) &&
 		!p.currentIsMetricCreated {
 		if p.currentIsExemplar {
 			p.currentExemplar.Label = append(p.currentExemplar.Label, p.currentLabelPair)
@@ -390,11 +390,9 @@ func (p *OpenMetricsParser) startLabelName() stateFn {
 			lName := l.GetName()
 			if _, exists := labels[lName]; !exists {
 				labels[lName] = struct{}{}
-			} else {
-				if !p.currentIsMetricCreated {
-					p.parseError(fmt.Sprintf("duplicate label names for metric %q", p.currentMF.GetName()))
-					return nil
-				}
+			} else if !p.currentIsMetricCreated {
+				p.parseError(fmt.Sprintf("duplicate label names for metric %q", p.currentMF.GetName()))
+				return nil
 			}
 		}
 	}
@@ -470,11 +468,12 @@ func (p *OpenMetricsParser) readingValue() stateFn {
 		// When we are here, we have read all the labels, so for the
 		// special case of a summary/histogram, we can finally find out
 		// if the metric already exists.
-		if p.currentMF.GetType() == dto.MetricType_SUMMARY {
+		switch p.currentMF.GetType() {
+		case dto.MetricType_SUMMARY:
 			p.currentMetric = p.getOrCreateMetric(p.summaries)
-		} else if p.currentMF.GetType() == dto.MetricType_HISTOGRAM || p.currentMF.GetType() == dto.MetricType_GAUGE_HISTOGRAM {
+		case dto.MetricType_HISTOGRAM, dto.MetricType_GAUGE_HISTOGRAM:
 			p.currentMetric = p.getOrCreateMetric(p.histograms)
-		} else {
+		default:
 			p.currentMF.Metric = append(p.currentMF.Metric, p.currentMetric)
 		}
 	}
@@ -559,9 +558,10 @@ func (p *OpenMetricsParser) readingValue() stateFn {
 	default:
 		p.err = fmt.Errorf("unexpected type for metric name %q", p.currentMF.GetName())
 	}
-	if p.currentByte == '\n' {
+	switch p.currentByte {
+	case '\n':
 		return p.startOfLine
-	} else if p.currentByte == '#' {
+	case '#':
 		return p.startExemplar
 	}
 	return p.startTimestamp
@@ -621,10 +621,9 @@ func (p *OpenMetricsParser) startTimestamp() stateFn {
 	if p.currentToken.Len() > 0 {
 		if p.currentToken.String() == "#" {
 			return p.startExemplar
-		} else {
-			p.parseError(fmt.Sprintf("spurious string after timestamp: %q", p.currentToken.String()))
-			return nil
 		}
+		p.parseError(fmt.Sprintf("spurious string after timestamp: %q", p.currentToken.String()))
+		return nil
 	}
 	return p.startOfLine
 }
