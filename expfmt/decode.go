@@ -65,6 +65,18 @@ func ResponseFormat(h http.Header) Format {
 			return FmtUnknown
 		}
 		return FmtText
+	case OpenMetricsType:
+		if c, ok := params["charset"]; ok && c != "utf-8" {
+			return FmtUnknown
+		}
+		switch params["version"] {
+		case "", OpenMetricsVersion_0_0_1:
+			return FmtOpenMetrics_0_0_1
+		case OpenMetricsVersion_1_0_0:
+			return FmtOpenMetrics_1_0_0
+		default:
+			return FmtUnknown
+		}
 	}
 
 	return FmtUnknown
@@ -74,12 +86,11 @@ func ResponseFormat(h http.Header) Format {
 // names are validated based on the provided Format -- if the format requires
 // escaping, raditional Prometheues validity checking is used. Otherwise, names
 // are checked for UTF-8 validity. Supported formats include delimited protobuf
-// and Prometheus text format.  For historical reasons, this decoder fallbacks
-// to classic text decoding for any other format. This decoder does not fully
-// support OpenMetrics although it may often succeed due to the similarities
-// between the formats. This decoder may not support the latest features of
-// Prometheus text format and is not intended for high-performance applications.
-// See: https://github.com/prometheus/common/issues/812
+// and the Prometheus/OpenMetrics text formats. For historical reasons, this
+// decoder fallbacks to classic text decoding for any other format. This decoder
+// may not support the latest features of the text formats and is not intended
+// for high-performance applications. See:
+// https://github.com/prometheus/common/issues/812
 func NewDecoder(r io.Reader, format Format) Decoder {
 	scheme := model.LegacyValidation
 	if format.ToEscapingScheme() == model.NoEscaping {
@@ -88,6 +99,8 @@ func NewDecoder(r io.Reader, format Format) Decoder {
 	switch format.FormatType() {
 	case TypeProtoDelim:
 		return &protoDecoder{r: bufio.NewReader(r), s: scheme}
+	case TypeOpenMetrics:
+		return &openMetricsDecoder{r: r}
 	case TypeProtoText, TypeProtoCompact:
 		return &errDecoder{err: fmt.Errorf("format %s not supported for decoding", format)}
 	}
@@ -136,6 +149,37 @@ type errDecoder struct {
 }
 
 func (d *errDecoder) Decode(*dto.MetricFamily) error {
+	return d.err
+}
+
+// openMetricsDecoder implements the Decoder interface for the OpenMetrics text protocol.
+type openMetricsDecoder struct {
+	r    io.Reader
+	fams map[string]*dto.MetricFamily
+	err  error
+}
+
+// Decode implements the Decoder interface.
+func (d *openMetricsDecoder) Decode(mf *dto.MetricFamily) error {
+	if d.err == nil {
+		// Read all metrics in one shot.
+		var p OpenMetricsParser
+		d.fams, d.err = p.OpenMetricsToMetricFamilies(d.r)
+		// If we don't get an error, store io.EOF for the end.
+		if d.err == nil {
+			d.err = io.EOF
+		}
+	}
+	// Pick off one MetricFamily per Decode until there's nothing left.
+	for key, fam := range d.fams {
+		mf.Name = fam.Name
+		mf.Help = fam.Help
+		mf.Type = fam.Type
+		mf.Unit = fam.Unit
+		mf.Metric = fam.Metric
+		delete(d.fams, key)
+		return nil
+	}
 	return d.err
 }
 
