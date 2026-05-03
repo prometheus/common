@@ -41,8 +41,8 @@ const (
 	FormatOpenMetrics = "openmetrics"
 )
 
-// ParseError signals errors while parsing the simple and flat text-based
-// exchange format.
+// ParseError signals errors while parsing the simple and flat Prometheus or
+// OpenMetrics text exposition formats.
 type ParseError struct {
 	Line   int
 	Msg    string

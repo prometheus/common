@@ -70,7 +70,7 @@ func (p *OpenMetricsParser) setCreatedTimestamp(dst **timestamppb.Timestamp) boo
 }
 
 // OpenMetricsParser is used to parse the simple and flat openmetrics-based exchange format. Its
-// zero value is ready to use.
+// zero value is ready to use and applies legacy name validation rules.
 type OpenMetricsParser struct {
 	metricFamiliesByName map[string]*dto.MetricFamily
 	buf                  *bufio.Reader // Where the parsed input is read through.
@@ -106,6 +106,7 @@ type OpenMetricsParser struct {
 	// count and sum of that summary/histogram.
 	currentIsSummaryCount, currentIsSummarySum     bool
 	currentIsHistogramCount, currentIsHistogramSum bool
+	scheme                                         model.ValidationScheme
 }
 
 // OpenMetricsToMetricFamilies reads 'in' as the simple and flat openmetrics-based
@@ -135,7 +136,7 @@ func (p *OpenMetricsParser) OpenMetricsToMetricFamilies(in io.Reader) (map[strin
 	p.reset(in)
 	p.currentIsEOF = false
 	for nextState := p.startOfLine; nextState != nil; nextState = nextState() {
-		// Magic happens here...
+		// Advance the parser state machine until parsing completes.
 	}
 	// Get rid of empty metric families.
 	for k, mf := range p.metricFamiliesByName {
@@ -149,6 +150,11 @@ func (p *OpenMetricsParser) OpenMetricsToMetricFamilies(in io.Reader) (map[strin
 	// of an input stream.)
 	if p.err != nil && errors.Is(p.err, io.EOF) {
 		p.parseError("unexpected end of input stream")
+	}
+	for _, mf := range p.metricFamiliesByName {
+		for _, metric := range mf.Metric {
+			normalizeHistogram(metric.GetHistogram())
+		}
 	}
 	return p.metricFamiliesByName, p.err
 }
@@ -200,6 +206,8 @@ func (p *OpenMetricsParser) startOfLine() stateFn {
 		return p.startComment
 	case '\n':
 		return p.startOfLine // Empty line, start the next one.
+	case '{':
+		return p.startMetricNameInBraces
 	}
 	if !isValidMetricNameStart(p.currentByte) {
 		p.parseError(fmt.Sprintf("%q is not a valid start token", p.currentByte))
@@ -256,6 +264,9 @@ func (p *OpenMetricsParser) startComment() stateFn {
 		return nil
 	}
 	p.setOrCreateCurrentMF()
+	if p.err != nil {
+		return nil
+	}
 	if p.skipBlankTab(); p.err != nil {
 		return nil // Unexpected end of input.
 	}
@@ -286,29 +297,42 @@ func (p *OpenMetricsParser) readingMetricName() stateFn {
 		return nil
 	}
 
-	p.setOrCreateCurrentMF()
-	// Now is the time to fix the type if it hasn't happened yet.
-	if p.currentMF.Type == nil {
-		p.currentMF.Type = dto.MetricType_UNTYPED.Enum()
-	}
-	if p.currentMF.GetType() == dto.MetricType_COUNTER {
-		if !strings.HasSuffix(p.currentToken.String(), "_total") && !strings.HasSuffix(p.currentToken.String(), "_created") {
-			p.parseError(fmt.Sprintf("expected '_total' or '_created' as counter metric name suffix, got metric name %q", p.currentToken.String()))
-			return nil
-		}
-	}
-	// metric is not new if the metric ends with "_created".
-	if !p.currentIsMetricCreated {
-		p.currentMetric = &dto.Metric{}
-	}
-	// Do not append the newly created currentMetric to
-	// currentMF.Metric right now. First wait if this is a summary,
-	// and the metric exists already, which we can only know after
-	// having read all the labels.
-	if p.skipBlankTabIfCurrentBlankTab(); p.err != nil {
-		return nil // Unexpected end of input.
+	if !p.initializeCurrentMetric() {
+		return nil
 	}
 	return p.readingLabels
+}
+
+func (p *OpenMetricsParser) startMetricNameInBraces() stateFn {
+	if p.skipBlankTab(); p.err != nil {
+		return nil // Unexpected end of input.
+	}
+	if p.currentByte != '"' {
+		p.parseError(fmt.Sprintf("%q is not a valid start token", '{'))
+		return nil
+	}
+	if p.readTokenAsMetricName(); p.err != nil {
+		return nil
+	}
+	if p.currentToken.Len() == 0 {
+		p.parseError("invalid metric name")
+		return nil
+	}
+	if !p.initializeCurrentMetric() {
+		return nil
+	}
+	switch p.currentByte {
+	case ',':
+		return p.startLabelName
+	case '}':
+		if p.skipBlankTab(); p.err != nil {
+			return nil // Unexpected end of input.
+		}
+		return p.readingValue
+	default:
+		p.parseError(fmt.Sprintf("unexpected end of metric name %q", p.currentByte))
+		return nil
+	}
 }
 
 // readingLabels represents the state where the last byte read (now in
@@ -361,6 +385,10 @@ func (p *OpenMetricsParser) startLabelName() stateFn {
 	p.currentLabelPair = &dto.LabelPair{Name: proto.String(p.currentToken.String())}
 	if p.currentLabelPair.GetName() == string(model.MetricNameLabel) {
 		p.parseError(fmt.Sprintf("label name %q is reserved", model.MetricNameLabel))
+		return nil
+	}
+	if !p.validationScheme().IsValidLabelName(p.currentLabelPair.GetName()) {
+		p.parseError(fmt.Sprintf("invalid label name %q", p.currentLabelPair.GetName()))
 		return nil
 	}
 	// Special summary/histogram treatment. Don't add 'quantile' and 'le'
@@ -509,7 +537,6 @@ func (p *OpenMetricsParser) readingValue() stateFn {
 	case dto.MetricType_UNTYPED:
 		p.currentMetric.Untyped = &dto.Untyped{Value: proto.Float64(value)}
 	case dto.MetricType_SUMMARY:
-		// *sigh*
 		if p.currentMetric.Summary == nil {
 			p.currentMetric.Summary = &dto.Summary{}
 		}
@@ -530,7 +557,6 @@ func (p *OpenMetricsParser) readingValue() stateFn {
 			)
 		}
 	case dto.MetricType_HISTOGRAM, dto.MetricType_GAUGE_HISTOGRAM:
-		// *sigh*
 		if p.currentMetric.Histogram == nil {
 			p.currentMetric.Histogram = &dto.Histogram{}
 		}
@@ -539,15 +565,31 @@ func (p *OpenMetricsParser) readingValue() stateFn {
 			p.currentExemplar.Value = proto.Float64(value)
 			p.currentBucket.Exemplar = p.currentExemplar
 		case p.currentIsHistogramCount:
-			p.currentMetric.Histogram.SampleCount = proto.Uint64(uint64(value))
+			if uintValue := uint64(value); value == float64(uintValue) {
+				p.currentMetric.Histogram.SampleCount = proto.Uint64(uintValue)
+			} else {
+				if value < 0 {
+					p.parseError(fmt.Sprintf("negative count for histogram %q", p.currentMF.GetName()))
+					return nil
+				}
+				p.currentMetric.Histogram.SampleCountFloat = proto.Float64(value)
+			}
 		case p.currentIsHistogramSum:
 			p.currentMetric.Histogram.SampleSum = proto.Float64(value)
 		case p.currentIsMetricCreated && !p.setCreatedTimestamp(&p.currentMetric.Histogram.CreatedTimestamp):
 			return nil
 		case !math.IsNaN(p.currentBucketValue):
 			p.currentBucket = &dto.Bucket{
-				UpperBound:      proto.Float64(p.currentBucketValue),
-				CumulativeCount: proto.Uint64(uint64(value)),
+				UpperBound: proto.Float64(p.currentBucketValue),
+			}
+			if uintValue := uint64(value); value == float64(uintValue) {
+				p.currentBucket.CumulativeCount = proto.Uint64(uintValue)
+			} else {
+				if value < 0 {
+					p.parseError(fmt.Sprintf("negative bucket population for histogram %q", p.currentMF.GetName()))
+					return nil
+				}
+				p.currentBucket.CumulativeCountFloat = proto.Float64(value)
 			}
 			p.currentMetric.Histogram.Bucket = append(
 				p.currentMetric.Histogram.Bucket,
@@ -686,7 +728,7 @@ func (p *OpenMetricsParser) readingType() stateFn {
 
 func (p *OpenMetricsParser) readingUnit() stateFn {
 	if p.currentMF.Unit != nil {
-		p.parseError(fmt.Sprintf("second UNIT line for metric name %q", p.currentMF.GetUnit()))
+		p.parseError(fmt.Sprintf("second UNIT line for metric name %q", p.currentMF.GetName()))
 		return nil
 	}
 	if p.readTokenUntilNewline(true); p.err != nil {
@@ -708,6 +750,13 @@ func (p *OpenMetricsParser) parseError(msg string) {
 		Msg:    msg,
 		Format: FormatOpenMetrics,
 	}
+}
+
+func (p *OpenMetricsParser) validationScheme() model.ValidationScheme {
+	if p.scheme == model.UnsetValidation {
+		return model.LegacyValidation
+	}
+	return p.scheme
 }
 
 // skipBlankTab reads (and discards) bytes from p.buf until it encounters a byte
@@ -755,9 +804,10 @@ func (p *OpenMetricsParser) readTokenUntilWhitespace() {
 // readTokenUntilNewline copies bytes from p.buf into p.currentToken.  The first
 // byte considered is the byte already read (now in p.currentByte).  The first
 // newline byte encountered is still copied into p.currentByte, but not into
-// p.currentToken. If recognizeEscapeSequence is true, two escape sequences are
-// recognized: '\\' translates into '\', and '\n' into a line-feed character.
-// All other escape sequences are invalid and cause an error.
+// p.currentToken. If recognizeEscapeSequence is true, three escape sequences are
+// recognized: '\\' translates into '\', '\n' into a line-feed character, and
+// '\"' into a double quote. All other escape sequences are invalid and cause an
+// error.
 func (p *OpenMetricsParser) readTokenUntilNewline(recognizeEscapeSequence bool) {
 	p.currentToken.Reset()
 	escaped := false
@@ -768,6 +818,8 @@ func (p *OpenMetricsParser) readTokenUntilNewline(recognizeEscapeSequence bool) 
 				p.currentToken.WriteByte(p.currentByte)
 			case 'n':
 				p.currentToken.WriteByte('\n')
+			case '"':
+				p.currentToken.WriteByte('"')
 			default:
 				p.parseError(fmt.Sprintf("invalid escape sequence '\\%c'", p.currentByte))
 				return
@@ -793,13 +845,44 @@ func (p *OpenMetricsParser) readTokenUntilNewline(recognizeEscapeSequence bool) 
 // but not into p.currentToken.
 func (p *OpenMetricsParser) readTokenAsMetricName() {
 	p.currentToken.Reset()
+	quoted := false
+	escaped := false
 	if !isValidMetricNameStart(p.currentByte) {
 		return
 	}
-	for {
-		p.currentToken.WriteByte(p.currentByte)
+	for p.err == nil {
+		if escaped {
+			switch p.currentByte {
+			case '\\':
+				p.currentToken.WriteByte(p.currentByte)
+			case 'n':
+				p.currentToken.WriteByte('\n')
+			case '"':
+				p.currentToken.WriteByte('"')
+			default:
+				p.parseError(fmt.Sprintf("invalid escape sequence '\\%c'", p.currentByte))
+				return
+			}
+			escaped = false
+		} else {
+			switch p.currentByte {
+			case '"':
+				quoted = !quoted
+				if !quoted {
+					p.currentByte, p.err = p.buf.ReadByte()
+					return
+				}
+			case '\n':
+				p.parseError(fmt.Sprintf("metric name %q contains unescaped new-line", p.currentToken.String()))
+				return
+			case '\\':
+				escaped = true
+			default:
+				p.currentToken.WriteByte(p.currentByte)
+			}
+		}
 		p.currentByte, p.err = p.buf.ReadByte()
-		if p.err != nil || !isValidMetricNameContinuation(p.currentByte, false) {
+		if !isValidMetricNameContinuation(p.currentByte, quoted) || (!quoted && (p.currentByte == ' ' || p.currentByte == ',' || p.currentByte == '}')) {
 			return
 		}
 	}
@@ -811,13 +894,44 @@ func (p *OpenMetricsParser) readTokenAsMetricName() {
 // but not into p.currentToken.
 func (p *OpenMetricsParser) readTokenAsLabelName() {
 	p.currentToken.Reset()
+	quoted := false
+	escaped := false
 	if !isValidLabelNameStart(p.currentByte) {
 		return
 	}
-	for {
-		p.currentToken.WriteByte(p.currentByte)
+	for p.err == nil {
+		if escaped {
+			switch p.currentByte {
+			case '\\':
+				p.currentToken.WriteByte(p.currentByte)
+			case 'n':
+				p.currentToken.WriteByte('\n')
+			case '"':
+				p.currentToken.WriteByte('"')
+			default:
+				p.parseError(fmt.Sprintf("invalid escape sequence '\\%c'", p.currentByte))
+				return
+			}
+			escaped = false
+		} else {
+			switch p.currentByte {
+			case '"':
+				quoted = !quoted
+				if !quoted {
+					p.currentByte, p.err = p.buf.ReadByte()
+					return
+				}
+			case '\n':
+				p.parseError(fmt.Sprintf("label name %q contains unescaped new-line", p.currentToken.String()))
+				return
+			case '\\':
+				escaped = true
+			default:
+				p.currentToken.WriteByte(p.currentByte)
+			}
+		}
 		p.currentByte, p.err = p.buf.ReadByte()
-		if p.err != nil || !isValidLabelNameContinuation(p.currentByte, false) {
+		if !isValidLabelNameContinuation(p.currentByte, quoted) || (!quoted && p.currentByte == '=') {
 			return
 		}
 	}
@@ -862,6 +976,34 @@ func (p *OpenMetricsParser) readTokenAsLabelValue() {
 	}
 }
 
+func (p *OpenMetricsParser) initializeCurrentMetric() bool {
+	p.setOrCreateCurrentMF()
+	if p.err != nil {
+		return false
+	}
+	if p.currentMF.Type == nil {
+		p.currentMF.Type = dto.MetricType_UNTYPED.Enum()
+	}
+	if p.currentMF.GetType() == dto.MetricType_COUNTER {
+		if !strings.HasSuffix(p.currentToken.String(), "_total") && !strings.HasSuffix(p.currentToken.String(), "_created") {
+			p.parseError(fmt.Sprintf("expected '_total' or '_created' as counter metric name suffix, got metric name %q", p.currentToken.String()))
+			return false
+		}
+	}
+	// metric is not new if the metric ends with "_created".
+	if !p.currentIsMetricCreated {
+		p.currentMetric = &dto.Metric{}
+	}
+	// Do not append the newly created currentMetric to
+	// currentMF.Metric right now. First wait if this is a summary,
+	// and the metric exists already, which we can only know after
+	// having read all the labels.
+	if p.skipBlankTabIfCurrentBlankTab(); p.err != nil {
+		return false
+	}
+	return true
+}
+
 func (p *OpenMetricsParser) setOrCreateCurrentMF() {
 	p.currentIsSummaryCount = false
 	p.currentIsSummarySum = false
@@ -872,6 +1014,10 @@ func (p *OpenMetricsParser) setOrCreateCurrentMF() {
 	p.currentIsEOF = false
 
 	name := p.currentToken.String()
+	if !p.validationScheme().IsValidMetricName(name) {
+		p.parseError(fmt.Sprintf("invalid metric name %q", name))
+		return
+	}
 	if isCreated(name) {
 		p.currentIsMetricCreated = true
 		name = strings.TrimSuffix(name, "_created")

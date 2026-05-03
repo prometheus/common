@@ -171,6 +171,23 @@ metric1_total 4
 	require.Truef(t, reflect.DeepEqual(all, out), "output does not match")
 }
 
+func TestOpenMetricsDecoderWithUTF8Names(t *testing.T) {
+	dec := NewDecoder(
+		strings.NewReader(`# TYPE "métric" gauge
+{"métric","labél"="value"} 1
+# EOF
+`),
+		FmtOpenMetrics_1_0_0.WithEscapingScheme(model.NoEscaping),
+	)
+
+	var mf dto.MetricFamily
+	require.NoError(t, dec.Decode(&mf))
+	require.Equal(t, "métric", mf.GetName())
+	require.Len(t, mf.GetMetric(), 1)
+	require.Len(t, mf.GetMetric()[0].GetLabel(), 1)
+	require.Equal(t, "labél", mf.GetMetric()[0].GetLabel()[0].GetName())
+}
+
 func TestProtoDecoder(t *testing.T) {
 	testTime := model.Now()
 

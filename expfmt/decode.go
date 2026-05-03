@@ -84,7 +84,7 @@ func ResponseFormat(h http.Header) Format {
 
 // NewDecoder returns a new decoder based on the given input format. Metric
 // names are validated based on the provided Format -- if the format requires
-// escaping, raditional Prometheues validity checking is used. Otherwise, names
+// escaping, traditional Prometheus validity checking is used. Otherwise, names
 // are checked for UTF-8 validity. Supported formats include delimited protobuf
 // and the Prometheus/OpenMetrics text formats. For historical reasons, this
 // decoder fallbacks to classic text decoding for any other format. This decoder
@@ -100,7 +100,7 @@ func NewDecoder(r io.Reader, format Format) Decoder {
 	case TypeProtoDelim:
 		return &protoDecoder{r: bufio.NewReader(r), s: scheme}
 	case TypeOpenMetrics:
-		return &openMetricsDecoder{r: r}
+		return &openMetricsDecoder{r: r, s: scheme}
 	case TypeProtoText, TypeProtoCompact:
 		return &errDecoder{err: fmt.Errorf("format %s not supported for decoding", format)}
 	}
@@ -156,6 +156,7 @@ func (d *errDecoder) Decode(*dto.MetricFamily) error {
 type openMetricsDecoder struct {
 	r    io.Reader
 	fams map[string]*dto.MetricFamily
+	s    model.ValidationScheme
 	err  error
 }
 
@@ -163,7 +164,7 @@ type openMetricsDecoder struct {
 func (d *openMetricsDecoder) Decode(mf *dto.MetricFamily) error {
 	if d.err == nil {
 		// Read all metrics in one shot.
-		var p OpenMetricsParser
+		p := OpenMetricsParser{scheme: d.s}
 		d.fams, d.err = p.OpenMetricsToMetricFamilies(d.r)
 		// If we don't get an error, store io.EOF for the end.
 		if d.err == nil {

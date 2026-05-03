@@ -23,6 +23,8 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/prometheus/common/model"
 )
 
 func testOpenMetricsParse(t testing.TB) {
@@ -1384,6 +1386,73 @@ func TestOpenMetricsSkipBlankTabUntilNewline(t *testing.T) {
 	}
 }
 
+func TestOpenMetricsParserValidationScheme(t *testing.T) {
+	input := `# TYPE "métric" gauge
+{"métric","labél"="value"} 1
+# EOF
+`
+
+	var parser OpenMetricsParser
+	if _, err := parser.OpenMetricsToMetricFamilies(strings.NewReader(input)); err == nil || !strings.Contains(err.Error(), `invalid metric name "métric"`) {
+		t.Fatalf("expected legacy parser to reject UTF-8 metric names, got %v", err)
+	}
+
+	parser = OpenMetricsParser{scheme: model.UTF8Validation}
+	families, err := parser.OpenMetricsToMetricFamilies(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("unexpected error parsing UTF-8 names: %v", err)
+	}
+	mf := families["métric"]
+	if mf == nil {
+		t.Fatal("expected metric family for UTF-8 metric name")
+	}
+	if got := mf.GetMetric()[0].GetLabel()[0].GetName(); got != "labél" {
+		t.Fatalf("expected UTF-8 label name to round-trip, got %q", got)
+	}
+}
+
+func TestOpenMetricsParserEscapedQuotesInHelp(t *testing.T) {
+	input := `# HELP metric help with \"quotes\"
+# TYPE metric gauge
+metric 1
+# EOF
+`
+
+	var parser OpenMetricsParser
+	families, err := parser.OpenMetricsToMetricFamilies(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("unexpected error parsing HELP text with escaped quotes: %v", err)
+	}
+	if got := families["metric"].GetHelp(); got != `help with "quotes"` {
+		t.Fatalf("unexpected HELP text: %q", got)
+	}
+}
+
+func TestOpenMetricsParserHistogramFloatCounts(t *testing.T) {
+	input := `# TYPE metric histogram
+metric_bucket{le="1"} 1.5
+metric_bucket{le="+Inf"} 2.5
+metric_count 2.5
+metric_sum 3
+# EOF
+`
+
+	var parser OpenMetricsParser
+	families, err := parser.OpenMetricsToMetricFamilies(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("unexpected error parsing histogram with floating counts: %v", err)
+	}
+	histogram := families["metric"].GetMetric()[0].GetHistogram()
+	if histogram.GetSampleCountFloat() != 2.5 || histogram.SampleCount != nil {
+		t.Fatalf("expected histogram sample count to use the float field, got %v", histogram)
+	}
+	for i, bucket := range histogram.GetBucket() {
+		if bucket.GetCumulativeCountFloat() == 0 || bucket.CumulativeCount != nil {
+			t.Fatalf("expected bucket %d to use the float count field, got %v", i, bucket)
+		}
+	}
+}
+
 func testOpenMetricParseError(t testing.TB) {
 	scenarios := []struct {
 		in  string
@@ -1637,6 +1706,28 @@ metric{t="1"} 3.14
 				# UNIT metric_seconds seconds
 `,
 			err: `openmetrics format parsing error in line 2: '\t' is not a valid start token`,
+		},
+		// 42: second UNIT line references the metric name.
+		{
+			in: `# TYPE metric_seconds counter
+# UNIT metric_seconds seconds
+# UNIT metric_seconds seconds
+`,
+			err: `openmetrics format parsing error in line 3: second UNIT line for metric name "metric_seconds"`,
+		},
+		// 43: histogram counts must not be negative.
+		{
+			in: `# TYPE metric histogram
+metric_count -1
+`,
+			err: `openmetrics format parsing error in line 2: negative count for histogram "metric"`,
+		},
+		// 44: histogram bucket counts must not be negative.
+		{
+			in: `# TYPE metric histogram
+metric_bucket{le="1"} -1
+`,
+			err: `openmetrics format parsing error in line 2: negative bucket population for histogram "metric"`,
 		},
 	}
 	var omParser OpenMetricsParser
