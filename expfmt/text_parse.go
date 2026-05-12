@@ -339,6 +339,11 @@ func (p *TextParser) startLabelName() stateFn {
 		return nil // Unexpected end of input.
 	}
 	if p.currentByte == '}' {
+		if p.currentMetric == nil {
+			p.parseError("unexpected '}' without metric name")
+			p.currentLabelPairs = nil
+			return nil
+		}
 		p.currentMetric.Label = append(p.currentMetric.Label, p.currentLabelPairs...)
 		p.currentLabelPairs = nil
 		if p.skipBlankTab(); p.err != nil {
