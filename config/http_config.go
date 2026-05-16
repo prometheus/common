@@ -459,6 +459,10 @@ func (c *HTTPClientConfig) Validate() error {
 			return err
 		}
 	}
+	// Change empty URL to nil to avoid connection errors
+	if c.ProxyURL.URL != nil && *c.ProxyURL.URL == (url.URL{}) {
+		c.ProxyURL.URL = nil
+	}
 	return nil
 }
 
