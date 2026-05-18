@@ -1608,6 +1608,33 @@ func TestHost(t *testing.T) {
 	defer ts.Close()
 
 	config := DefaultHTTPClientConfig
+	config.HTTPHost = "localhost.localdomain"
+
+	rt, err := NewRoundTripperFromConfig(config, "test_host")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	client := http.Client{
+		Transport: rt,
+	}
+	_, err = client.Get(ts.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestHostWithNewRoundTripperFromConfig(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Host != "localhost.localdomain" {
+			t.Fatalf("Expected Host header in request to be 'localhost.localdomain', got '%s'", r.Host)
+		}
+
+		w.Header().Add("Content-Type", "application/json")
+	}))
+	defer ts.Close()
+
+	config := DefaultHTTPClientConfig
 
 	rt, err := NewRoundTripperFromConfig(config, "test_host", WithHost("localhost.localdomain"))
 	require.NoError(t, err)
