@@ -2064,11 +2064,13 @@ func TestModifyTLSCertificates(t *testing.T) {
 	}
 }
 
+// TestTLSRoundTripper_NoCAConfigured verifies that client cert rotation works
+// when no ca_file is configured. Regression test for prometheus/prometheus#16622.
 func TestTLSRoundTripper_NoCAConfigured(t *testing.T) {
 	bs := getCertificateBlobs(t)
 
-	tmpDir, err := os.MkdirTemp("", "tlspanic")
-	require.NoErrorf(t, err, "Failed to create tmp dir")
+	tmpDir, err := os.MkdirTemp("", "tlsnocacert")
+	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 	cert, key := filepath.Join(tmpDir, "cert"), filepath.Join(tmpDir, "key")
 
@@ -2090,20 +2092,24 @@ func TestTLSRoundTripper_NoCAConfigured(t *testing.T) {
 	writeCertificate(bs, ClientCertificatePath, cert)
 	writeCertificate(bs, ClientKeyNoPassPath, key)
 	c, err := NewClientFromConfig(cfg, "test")
-	require.NoErrorf(t, err, "Error creating HTTP Client: %v", err)
-
-	req, err := http.NewRequest(http.MethodGet, testServer.URL, nil)
-	require.NoErrorf(t, err, "Error creating HTTP request: %v", err)
-
-	r, err := c.Do(req)
-	require.NoErrorf(t, err, "Can't connect to the test server")
-	r.Body.Close()
-
-	err = os.WriteFile(cert, []byte("-----BEGIN GARBAGE-----\nabc\n-----END GARBAGE-----\n"), 0o664)
 	require.NoError(t, err)
 
-	_, err = c.Do(req)
-	require.ErrorContainsf(t, err, "unable to use specified CA cert: none configured", "Expected error to mention missing CA cert")
+	req, err := http.NewRequest(http.MethodGet, testServer.URL, nil)
+	require.NoError(t, err)
+
+	r, err := c.Do(req)
+	require.NoErrorf(t, err, "request should succeed before cert rotation")
+	r.Body.Close()
+
+	// Rotate the cert/key files to different (but still valid) certs.
+	// Tthe next RoundTrip should rebuild the transport.
+	writeCertificate(bs, ServerCertificatePath, cert)
+	writeCertificate(bs, ServerKeyPath, key)
+
+	// The request still succeeds after cert rotation.
+	r, err = c.Do(req)
+	require.NoErrorf(t, err, "request should succeed after cert rotation without ca_file")
+	r.Body.Close()
 }
 
 // loadHTTPConfigJSON parses the JSON input s into a HTTPClientConfig.
