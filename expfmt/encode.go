@@ -60,8 +60,25 @@ func (ec encoderCloser) Close() error {
 // appropriate accepted type is found, FmtText is returned (which is the
 // Prometheus text format). This function will never negotiate FmtOpenMetrics,
 // as the support is still experimental. To include the option to negotiate
-// FmtOpenMetrics, use NegotiateIncludingOpenMetrics.
+// FmtOpenMetrics, use NegotiateIncludingOpenMetrics or NegotiateIncluding.
 func Negotiate(h http.Header) Format {
+	return NegotiateIncluding(h)
+}
+
+// NegotiateIncludingOpenMetrics works like Negotiate but includes
+// FmtOpenMetrics as an option for the result. Note that this function is
+// temporary and will disappear once FmtOpenMetrics is fully supported and as
+// such may be negotiated by the normal Negotiate function.
+func NegotiateIncludingOpenMetrics(h http.Header) Format {
+	return NegotiateIncluding(h, FmtOpenMetrics_1_0_0, FmtOpenMetrics_0_0_1)
+}
+
+// NegotiateIncluding returns the Content-Type based on the given Accept header.
+// It automatically includes the default formats (Protobuf and Text) as options.
+// Additional formats provided in the arguments are also included as options,
+// and are checked in the order they are provided, respecting the preference
+// order in the Accept header.
+func NegotiateIncluding(h http.Header, additionalFormats ...Format) Format {
 	escapingScheme := Format(fmt.Sprintf("; escaping=%s", Format(model.NameEscapingScheme.String())))
 	for _, ac := range goautoneg.ParseAccept(h.Get(hdrAccept)) {
 		if escapeParam := ac.Params[model.EscapingKey]; escapeParam != "" {
@@ -73,6 +90,13 @@ func Negotiate(h http.Header) Format {
 			}
 		}
 		ver := ac.Params["version"]
+
+		for _, f := range additionalFormats {
+			if matchFormat(ac, f) {
+				return f + escapingScheme
+			}
+		}
+
 		if ac.Type+"/"+ac.SubType == ProtoType && ac.Params["proto"] == ProtoProtocol {
 			switch ac.Params["encoding"] {
 			case "delimited":
@@ -90,47 +114,39 @@ func Negotiate(h http.Header) Format {
 	return FmtText + escapingScheme
 }
 
-// NegotiateIncludingOpenMetrics works like Negotiate but includes
-// FmtOpenMetrics as an option for the result. Note that this function is
-// temporary and will disappear once FmtOpenMetrics is fully supported and as
-// such may be negotiated by the normal Negotiate function.
-func NegotiateIncludingOpenMetrics(h http.Header) Format {
-	escapingScheme := Format(fmt.Sprintf("; escaping=%s", Format(model.NameEscapingScheme.String())))
-	for _, ac := range goautoneg.ParseAccept(h.Get(hdrAccept)) {
-		if escapeParam := ac.Params[model.EscapingKey]; escapeParam != "" {
-			switch Format(escapeParam) {
-			case model.AllowUTF8, model.EscapeUnderscores, model.EscapeDots, model.EscapeValues:
-				escapingScheme = Format("; escaping=" + escapeParam)
-			default:
-				// If the escaping parameter is unknown, ignore it.
-			}
+// matchFormat checks if a parsed accept clause matches a given Format.
+func matchFormat(ac goautoneg.Accept, f Format) bool {
+	parsed := goautoneg.ParseAccept(string(f))
+	if len(parsed) == 0 {
+		return false
+	}
+	target := parsed[0]
+
+	if ac.Type != target.Type || ac.SubType != target.SubType {
+		return false
+	}
+
+	// Default OpenMetrics version to OpenMetricsVersion_0_0_1
+	acVersion := ac.Params["version"]
+	if acVersion == "" && ac.Type+"/"+ac.SubType == OpenMetricsType {
+		acVersion = OpenMetricsVersion_0_0_1
+	}
+
+	// General param matching
+	for k, v := range target.Params {
+		if k == "charset" {
+			continue
 		}
-		ver := ac.Params["version"]
-		if ac.Type+"/"+ac.SubType == ProtoType && ac.Params["proto"] == ProtoProtocol {
-			switch ac.Params["encoding"] {
-			case "delimited":
-				return FmtProtoDelim + escapingScheme
-			case "text":
-				return FmtProtoText + escapingScheme
-			case "compact-text":
-				return FmtProtoCompact + escapingScheme
-			}
+		acVal := ac.Params[k]
+		if k == "version" {
+			acVal = acVersion
 		}
-		if ac.Type == "text" && ac.SubType == "plain" && (ver == TextVersion || ver == "") {
-			return FmtText + escapingScheme
-		}
-		if ac.Type+"/"+ac.SubType == OpenMetricsType && (ver == OpenMetricsVersion_0_0_1 || ver == OpenMetricsVersion_1_0_0 || ver == OpenMetricsVersion_2_0_0 || ver == "") {
-			switch ver {
-			case OpenMetricsVersion_2_0_0:
-				return FmtOpenMetrics_2_0_0 + escapingScheme
-			case OpenMetricsVersion_1_0_0:
-				return FmtOpenMetrics_1_0_0 + escapingScheme
-			default:
-				return FmtOpenMetrics_0_0_1 + escapingScheme
-			}
+		if acVal != v {
+			return false
 		}
 	}
-	return FmtText + escapingScheme
+
+	return true
 }
 
 // NewEncoder returns a new encoder based on content type negotiation. All
