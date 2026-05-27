@@ -123,7 +123,7 @@ func TestNegotiateIncludingOpenMetrics(t *testing.T) {
 		{
 			name:              "OM format, 2.0.0 version",
 			acceptHeaderValue: "application/openmetrics-text;version=2.0.0",
-			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=values",
+			expectedFmt:       "text/plain; version=0.0.4; charset=utf-8; escaping=values",
 		},
 		{
 			name:              "OM format, 0.0.1 version with utf-8 is not valid, falls back",
@@ -200,6 +200,63 @@ func TestNegotiateIncludingOpenMetrics(t *testing.T) {
 			actualFmt := string(NegotiateIncludingOpenMetrics(h))
 			if actualFmt != test.expectedFmt {
 				t.Errorf("case %d: expected Negotiate to return format %s, but got %s instead", i, test.expectedFmt, actualFmt)
+			}
+		})
+	}
+}
+
+func TestNegotiateIncluding(t *testing.T) {
+	tests := []struct {
+		name              string
+		acceptHeaderValue string
+		additionalFormats []Format
+		expectedFmt       string
+	}{
+		{
+			name:              "requested OM 2.0, supported OM 2.0",
+			acceptHeaderValue: "application/openmetrics-text;version=2.0.0",
+			additionalFormats: []Format{FmtOpenMetrics_2_0_0},
+			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=values",
+		},
+		{
+			name:              "requested OM 2.0, not supported",
+			acceptHeaderValue: "application/openmetrics-text;version=2.0.0",
+			additionalFormats: []Format{FmtOpenMetrics_1_0_0},
+			expectedFmt:       "text/plain; version=0.0.4; charset=utf-8; escaping=values", // falls back to text
+		},
+		{
+			name:              "requested OM 1.0 and 2.0, supported both, prefers first in Accept",
+			acceptHeaderValue: "application/openmetrics-text;version=1.0.0, application/openmetrics-text;version=2.0.0;q=0.9",
+			additionalFormats: []Format{FmtOpenMetrics_2_0_0, FmtOpenMetrics_1_0_0},
+			expectedFmt:       "application/openmetrics-text; version=1.0.0; charset=utf-8; escaping=values",
+		},
+		{
+			name:              "requested OM 1.0 and 2.0, supported both, prefers higher q",
+			acceptHeaderValue: "application/openmetrics-text;version=1.0.0;q=0.8, application/openmetrics-text;version=2.0.0",
+			additionalFormats: []Format{FmtOpenMetrics_2_0_0, FmtOpenMetrics_1_0_0},
+			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=values",
+		},
+		{
+			name:              "fallback to default text",
+			acceptHeaderValue: "application/unknown",
+			additionalFormats: []Format{FmtOpenMetrics_2_0_0},
+			expectedFmt:       "text/plain; version=0.0.4; charset=utf-8; escaping=values",
+		},
+	}
+
+	oldDefault := model.NameEscapingScheme
+	model.NameEscapingScheme = model.ValueEncodingEscaping
+	defer func() {
+		model.NameEscapingScheme = oldDefault
+	}()
+
+	for i, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			h := http.Header{}
+			h.Add(hdrAccept, test.acceptHeaderValue)
+			actualFmt := string(NegotiateIncluding(h, test.additionalFormats...))
+			if actualFmt != test.expectedFmt {
+				t.Errorf("case %d: expected NegotiateIncluding to return format %s, but got %s instead", i, test.expectedFmt, actualFmt)
 			}
 		})
 	}
