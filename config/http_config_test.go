@@ -1599,6 +1599,40 @@ func TestOAuth2UserAgent(t *testing.T) {
 	require.Equalf(t, "Bearer 12345", authorization, "Expected authorization header to be 'Bearer 12345', got '%s'", authorization)
 }
 
+func TestOAuth2DialContextFunc(t *testing.T) {
+	tokenServerInvoked := false
+	tokenTS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		tokenServerInvoked = true
+		res, _ := json.Marshal(oauth2TestServerResponse{
+			AccessToken: "12345",
+			TokenType:   "Bearer",
+		})
+		w.Header().Add("Content-Type", "application/json")
+		_, _ = w.Write(res)
+	}))
+	defer tokenTS.Close()
+
+	config := DefaultHTTPClientConfig
+	config.OAuth2 = &OAuth2{
+		ClientID:     "1",
+		ClientSecret: "2",
+		TokenURL:     tokenTS.URL + "/token",
+	}
+
+	dialFn := func(_ context.Context, _, _ string) (net.Conn, error) {
+		return nil, errors.New(ExpectedError)
+	}
+
+	rt, err := NewRoundTripperFromConfig(config, "test_oauth2_dialctx", WithDialContextFunc(dialFn))
+	require.NoError(t, err)
+
+	client := http.Client{Transport: rt}
+	_, err = client.Get(tokenTS.URL)
+	require.Error(t, err)
+	require.Containsf(t, err.Error(), ExpectedError, "expected error from DialContextFunc, got: %v", err)
+	require.Falsef(t, tokenServerInvoked, "OAuth2 token endpoint must not be reached when DialContextFunc blocks")
+}
+
 func TestHost(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equalf(t, "localhost.localdomain", r.Host, "Expected Host header in request to be 'localhost.localdomain', got '%s'", r.Host)
