@@ -987,6 +987,7 @@ func (rt *oauth2RoundTripper) newOauth2TokenSource(req *http.Request, clientCred
 			IdleConnTimeout:       10 * time.Second,
 			TLSHandshakeTimeout:   10 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
+			DialContext:           rt.opts.dialContextFunc,
 		}, nil
 	}
 
