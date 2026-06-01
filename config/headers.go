@@ -64,8 +64,9 @@ func (h *Headers) SetDirectory(dir string) {
 	if h == nil {
 		return
 	}
-	for _, h := range h.Headers {
-		h.SetDirectory(dir)
+	for name, header := range h.Headers {
+		header.SetDirectory(dir)
+		h.Headers[name] = header
 	}
 }
 

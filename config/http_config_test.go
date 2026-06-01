@@ -2361,3 +2361,28 @@ func TestMultipleHeaders(t *testing.T) {
 	_, err = client.Get(ts.URL)
 	require.NoErrorf(t, err, "can't fetch URL: %v", err)
 }
+
+func TestHeadersFileRelativeToConfigFile(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "nested-value", r.Header.Get("X-Test"))
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(ts.Close)
+
+	tmpDir := t.TempDir()
+	configDir := filepath.Join(tmpDir, "configs")
+	require.NoError(t, os.MkdirAll(configDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "header-value"), []byte("nested-value\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "http.yml"), []byte(`http_headers:
+  X-Test:
+    files: [configs/header-value]
+`), 0o644))
+
+	cfg, _, err := LoadHTTPConfigFile(filepath.Join(configDir, "http.yml"))
+	require.NoErrorf(t, err, "Error loading HTTP client config: %v", err)
+	client, err := NewClientFromConfig(*cfg, "test")
+	require.NoErrorf(t, err, "Error creating HTTP Client: %v", err)
+
+	_, err = client.Get(ts.URL)
+	require.NoErrorf(t, err, "can't fetch URL: %v", err)
+}

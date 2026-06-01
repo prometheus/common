@@ -18,7 +18,10 @@ package config
 
 import (
 	"net/http"
+	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestReservedHeaders(t *testing.T) {
@@ -28,4 +31,21 @@ func TestReservedHeaders(t *testing.T) {
 			t.Errorf("ReservedHeaders keys should be lowercase: got %q, expected %q", k, http.CanonicalHeaderKey(k))
 		}
 	}
+}
+
+func TestHeadersSetDirectory(t *testing.T) {
+	headers := &Headers{
+		Headers: map[string]Header{
+			"X-Test": {
+				Files: []string{"headers-file-a", "/tmp/already-absolute"},
+			},
+		},
+	}
+
+	headers.SetDirectory("/etc/prometheus")
+
+	require.Equal(t,
+		[]string{filepath.Join("/etc/prometheus", "headers-file-a"), "/tmp/already-absolute"},
+		headers.Headers["X-Test"].Files,
+	)
 }
