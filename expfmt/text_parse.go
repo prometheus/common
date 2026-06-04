@@ -602,15 +602,21 @@ func (p *TextParser) readingValue() stateFn {
 	if p.currentByte == '\n' {
 		return p.startOfLine
 	}
-	return p.startTimestamp
+	if isBlankOrTab(p.currentByte) {
+		p.skipBlankTabIfCurrentBlankTab()
+		if p.err != nil {
+			return nil // Unexpected end of input.
+		}
+		if p.currentByte == '\n' {
+			return p.startOfLine
+		}
+	}
+	return p.readingTimestamp
 }
 
-// startTimestamp represents the state where the next byte read from p.buf is
-// the start of the timestamp (or whitespace leading up to it).
-func (p *TextParser) startTimestamp() stateFn {
-	if p.skipBlankTab(); p.err != nil {
-		return nil // Unexpected end of input.
-	}
+// readingTimestamp represents the state where the last byte read (now in
+// p.currentByte) is the first byte of the timestamp.
+func (p *TextParser) readingTimestamp() stateFn {
 	if p.readTokenUntilWhitespace(); p.err != nil {
 		return nil // Unexpected end of input.
 	}
@@ -621,6 +627,18 @@ func (p *TextParser) startTimestamp() stateFn {
 		return nil
 	}
 	p.currentMetric.TimestampMs = proto.Int64(timestamp)
+	if p.currentByte == '\n' {
+		return p.startOfLine
+	}
+	if isBlankOrTab(p.currentByte) {
+		p.skipBlankTabIfCurrentBlankTab()
+		if p.err != nil {
+			return nil // Unexpected end of input.
+		}
+		if p.currentByte == '\n' {
+			return p.startOfLine
+		}
+	}
 	if p.readTokenUntilNewline(false); p.err != nil {
 		return nil // Unexpected end of input.
 	}
