@@ -140,13 +140,16 @@ func (t *Time) UnmarshalJSON(b []byte) error {
 		prec := dotPrecision - len(frac)
 		if prec < 0 {
 			frac = frac[:dotPrecision]
-		} else if prec > 0 {
-			frac += strings.Repeat("0", prec)
 		}
-
 		va, err := strconv.ParseInt(frac, 10, 32)
 		if err != nil {
 			return err
+		}
+		switch prec {
+		case 1:
+			va *= 10
+		case 2:
+			va *= 100
 		}
 
 		// If the value was something like -0.1 the negative is lost in the
