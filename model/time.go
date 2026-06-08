@@ -135,7 +135,6 @@ func (t *Time) UnmarshalJSON(b []byte) error {
 		if err != nil {
 			return err
 		}
-		v *= second
 
 		prec := dotPrecision - len(frac)
 		if prec < 0 {
@@ -152,13 +151,10 @@ func (t *Time) UnmarshalJSON(b []byte) error {
 			va *= 100
 		}
 
-		// If the value was something like -0.1 the negative is lost in the
-		// parsing because of the leading zero, this ensures that we capture it.
-		if len(base) > 0 && base[0] == '-' && v+va > 0 {
-			*t = Time(v+va) * -1
-		} else {
-			*t = Time(v + va)
+		if len(base) > 0 && base[0] == '-' {
+			va = -va
 		}
+		*t = Time(v*second + va)
 	}
 	return nil
 }

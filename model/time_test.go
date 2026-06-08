@@ -432,6 +432,11 @@ func TestTimeJSON(t *testing.T) {
 	}{
 		{Time(1), `0.001`},
 		{Time(-1), `-0.001`},
+		{Time(1001), `1.001`},
+		{Time(-1001), `-1.001`},
+		{Time(123000), `123`},
+		{Time(123100), `123.1`},
+		{Time(123010), `123.01`},
 	}
 
 	for i, test := range tests {
