@@ -11,6 +11,7 @@ linters:
     - govet
     - loggercheck
     - misspell
+    - modernize
     - nilnesserr
     # TODO(bwplotka): Enable once https://github.com/golangci/golangci-lint/issues/3228 is fixed.
     # - nolintlint
@@ -43,6 +44,9 @@ linters:
       - linters:
           - gocritic
         text: "appendAssign"
+      - linters:
+          - errcheck
+        path: _test.go
     warn-unused: true
   settings:
     depguard:
@@ -77,6 +81,15 @@ linters:
         - shadow
         - fieldalignment
       enable-all: true
+    modernize:
+      disable:
+        # Suggest replacing omitempty with omitzero for struct fields.
+        # Disable this check for now since it introduces too many changes in our existing codebase.
+        # See https://pkg.go.dev/golang.org/x/tools/go/analysis/passes/modernize#hdr-Analyzer_omitzero for more details.
+        - omitzero
+        # Disable newexpr check for now since it introduces too many changes in our existing codebase.
+        # To be re-enabled as a part of https://github.com/prometheus/prometheus/issues/18066.
+        - newexpr
     perfsprint:
       # Optimizes even if it requires an int or uint type cast.
       int-conversion: true

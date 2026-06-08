@@ -23,7 +23,7 @@ import (
 func TestHumanizeDuration(t *testing.T) {
 	tc := []struct {
 		name     string
-		input    interface{}
+		input    any
 		expected string
 	}{
 		// Integers
@@ -81,7 +81,7 @@ func TestHumanizeDurationErrorString(t *testing.T) {
 func TestHumanizeTimestamp(t *testing.T) {
 	tc := []struct {
 		name     string
-		input    interface{}
+		input    any
 		expected string
 	}{
 		// Int
