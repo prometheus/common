@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/http"
 	"net/url"
@@ -76,7 +77,7 @@ var TLSVersions = map[string]TLSVersion{
 	"TLS10": (TLSVersion)(tls.VersionTLS10),
 }
 
-func (tv *TLSVersion) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (tv *TLSVersion) UnmarshalYAML(unmarshal func(any) error) error {
 	var s string
 	err := unmarshal(&s)
 	if err != nil {
@@ -89,7 +90,7 @@ func (tv *TLSVersion) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return fmt.Errorf("unknown TLS version: %s", s)
 }
 
-func (tv TLSVersion) MarshalYAML() (interface{}, error) {
+func (tv TLSVersion) MarshalYAML() (any, error) {
 	for s, v := range TLSVersions {
 		if tv == v {
 			return s, nil
@@ -178,7 +179,7 @@ type URL struct {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface for URLs.
-func (u *URL) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (u *URL) UnmarshalYAML(unmarshal func(any) error) error {
 	var s string
 	if err := unmarshal(&s); err != nil {
 		return err
@@ -193,7 +194,7 @@ func (u *URL) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // MarshalYAML implements the yaml.Marshaler interface for URLs.
-func (u URL) MarshalYAML() (interface{}, error) {
+func (u URL) MarshalYAML() (any, error) {
 	if u.URL != nil {
 		return u.Redacted(), nil
 	}
@@ -269,16 +270,16 @@ type OAuth2 struct {
 	Audience string `yaml:"audience,omitempty" json:"audience,omitempty"`
 	// Claims is a map of claims to be added to the JWT token. Only used if
 	// GrantType is set to "urn:ietf:params:oauth:grant-type:jwt-bearer".
-	Claims         map[string]interface{} `yaml:"claims,omitempty" json:"claims,omitempty"`
-	Scopes         []string               `yaml:"scopes,omitempty" json:"scopes,omitempty"`
-	TokenURL       string                 `yaml:"token_url,omitempty" json:"token_url,omitempty"`
-	EndpointParams map[string]string      `yaml:"endpoint_params,omitempty" json:"endpoint_params,omitempty"`
-	TLSConfig      TLSConfig              `yaml:"tls_config,omitempty"`
+	Claims         map[string]any    `yaml:"claims,omitempty" json:"claims,omitempty"`
+	Scopes         []string          `yaml:"scopes,omitempty" json:"scopes,omitempty"`
+	TokenURL       string            `yaml:"token_url,omitempty" json:"token_url,omitempty"`
+	EndpointParams map[string]string `yaml:"endpoint_params,omitempty" json:"endpoint_params,omitempty"`
+	TLSConfig      TLSConfig         `yaml:"tls_config,omitempty"`
 	ProxyConfig    `yaml:",inline"`
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (o *OAuth2) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (o *OAuth2) UnmarshalYAML(unmarshal func(any) error) error {
 	type plain OAuth2
 	if err := unmarshal((*plain)(o)); err != nil {
 		return err
@@ -463,7 +464,7 @@ func (c *HTTPClientConfig) Validate() error {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (c *HTTPClientConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (c *HTTPClientConfig) UnmarshalYAML(unmarshal func(any) error) error {
 	type plain HTTPClientConfig
 	*c = DefaultHTTPClientConfig
 	if err := unmarshal((*plain)(c)); err != nil {
@@ -483,7 +484,7 @@ func (c *HTTPClientConfig) UnmarshalJSON(data []byte) error {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (a *BasicAuth) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (a *BasicAuth) UnmarshalYAML(unmarshal func(any) error) error {
 	type plain BasicAuth
 	return unmarshal((*plain)(a))
 }
@@ -1220,10 +1221,7 @@ func cloneRequest(r *http.Request) *http.Request {
 	r2 := new(http.Request)
 	*r2 = *r
 	// Deep copy of the Header.
-	r2.Header = make(http.Header)
-	for k, s := range r.Header {
-		r2.Header[k] = s
-	}
+	maps.Copy(r.Header, r2.Header)
 	return r2
 }
 
@@ -1346,7 +1344,7 @@ func (c *TLSConfig) SetDirectory(dir string) {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (c *TLSConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (c *TLSConfig) UnmarshalYAML(unmarshal func(any) error) error {
 	type plain TLSConfig
 	if err := unmarshal((*plain)(c)); err != nil {
 		return err

@@ -1128,7 +1128,6 @@ func TestTLSRoundTripper(t *testing.T) {
 
 	var c *http.Client
 	for i, tc := range testCases {
-		tc := tc
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			writeCertificate(bs, tc.ca, ca)
 			writeCertificate(bs, tc.cert, cert)
@@ -1239,7 +1238,6 @@ func TestTLSRoundTripper_Inline(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		tc := tc
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			cfg := HTTPClientConfig{
 				TLSConfig: TLSConfig{
@@ -1316,10 +1314,8 @@ func TestTLSRoundTripperRaces(t *testing.T) {
 	ch := make(chan struct{})
 	var total, ok int64
 	// Spawn 10 Go routines polling the server concurrently.
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 10 {
+		wg.Go(func() {
 			for {
 				select {
 				case <-ch:
@@ -1333,13 +1329,11 @@ func TestTLSRoundTripperRaces(t *testing.T) {
 					}
 				}
 			}
-		}()
+		})
 	}
 
 	// Change the CA file every 10ms for 1 second.
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		i := 0
 		for {
 			tick := time.NewTicker(10 * time.Millisecond)
@@ -1355,7 +1349,7 @@ func TestTLSRoundTripperRaces(t *testing.T) {
 				return
 			}
 		}
-	}()
+	})
 
 	wg.Wait()
 	require.NotEqualf(t, ok, total, "Expecting some requests to fail but got %d/%d successful requests", ok, total)
@@ -2106,7 +2100,7 @@ endpoint_params:
 		Scopes:                   []string{"A", "B"},
 		TokenURL:                 ts.tokenURL(),
 		EndpointParams:           map[string]string{"hi": "hello"},
-		Claims: map[string]interface{}{
+		Claims: map[string]any{
 			"iss":     "https://example.com",
 			"aud":     "common-test",
 			"sub":     "common",

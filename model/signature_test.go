@@ -281,7 +281,7 @@ func benchmarkMetricToFastFingerprintConc(b *testing.B, ls LabelSet, e Fingerpri
 	end.Add(concLevel)
 	errc := make(chan error, 1)
 
-	for i := 0; i < concLevel; i++ {
+	for range concLevel {
 		go func() {
 			start.Wait()
 			for j := b.N / concLevel; j >= 0; j-- {
