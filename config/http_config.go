@@ -1068,6 +1068,18 @@ func (rt *oauth2RoundTripper) newOauth2TokenSource(req *http.Request, clientCred
 }
 
 func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if isCrossHostRedirect(req) {
+		// Bypass the OAuth2 transport so no token is attached. Read Base under
+		// the lock to avoid a data race with concurrent reconfigurations.
+		rt.mtx.RLock()
+		base := rt.lastRT.Base
+		rt.mtx.RUnlock()
+		if base == nil {
+			base = http.DefaultTransport
+		}
+		return base.RoundTrip(req)
+	}
+
 	var (
 		secret    string
 		needsInit bool
@@ -1111,9 +1123,6 @@ func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 	rt.mtx.RLock()
 	currentRT := rt.lastRT
 	rt.mtx.RUnlock()
-	if isCrossHostRedirect(req) {
-		return currentRT.Base.RoundTrip(req)
-	}
 	return currentRT.RoundTrip(req)
 }
 
