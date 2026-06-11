@@ -1515,6 +1515,53 @@ func TestSameHostRedirectKeepsCredentials(t *testing.T) {
 	require.Truef(t, credsSeen, "credentials should be forwarded on same-host redirect")
 }
 
+func TestRedirectBackToOriginalHostKeepsCredentialsStripped(t *testing.T) {
+	// Mirror net/http's sticky behaviour: once a redirect chain leaves the
+	// original host, credentials must stay stripped for the rest of the chain,
+	// even when a later hop redirects back to the original host.
+	credsSeen := false
+	final := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "" {
+			credsSeen = true
+		}
+		fmt.Fprint(w, ExpectedMessage)
+	}))
+	t.Cleanup(final.Close)
+
+	// middle listens on 127.0.0.1 but is reached via "localhost", so the hop
+	// from the origin (127.0.0.1) to middle is cross-host. It then redirects
+	// back to final, which shares the original "127.0.0.1" hostname.
+	middle := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, final.URL, http.StatusFound)
+	}))
+	t.Cleanup(middle.Close)
+	middlePort := middle.Listener.Addr().(*net.TCPAddr).Port
+	middleLocalhostURL := fmt.Sprintf("http://localhost:%d", middlePort)
+
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, middleLocalhostURL, http.StatusFound)
+	}))
+	t.Cleanup(origin.Close)
+
+	cfg := HTTPClientConfig{
+		FollowRedirects: true,
+		Authorization: &Authorization{
+			Type:        "Bearer",
+			Credentials: "secret-token",
+		},
+	}
+	client, err := NewClientFromConfig(cfg, "test")
+	require.NoError(t, err)
+
+	resp, err := client.Get(origin.URL)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	_, err = io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	require.Falsef(t, credsSeen, "credentials must stay stripped after leaving the original host, even when redirected back to it")
+}
+
 func TestRoundTripperCrossHostRedirectDropsCredentials(t *testing.T) {
 	// Verify that a custom http.Client built from NewRoundTripperFromConfig
 	// (not NewClientFromConfig) also strips credentials on cross-host redirects,

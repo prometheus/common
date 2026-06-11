@@ -1117,10 +1117,16 @@ func mapToValues(m map[string]string) url.Values {
 	return v
 }
 
-// isCrossHostRedirect reports whether req is a redirect to a different host
-// than the original request. It detects this by walking the req.Response chain
-// (which Go's HTTP client populates on every redirect hop) to find the original
-// request's hostname, then comparing it to the current destination.
+// isCrossHostRedirect reports whether req is a redirect that has left the
+// original request's host at any point in the chain. It detects this by walking
+// the req.Response chain (which Go's HTTP client populates on every redirect
+// hop) to find the original request's hostname, then checking every hop in the
+// chain against it.
+//
+// The decision is sticky, mirroring net/http: once any hop leaves the original
+// host's domain, credentials and sensitive headers stay stripped for the rest
+// of the chain, even if a later hop redirects back to the original host.
+//
 // This works regardless of whether the caller uses NewClientFromConfig or a
 // custom http.Client built from NewRoundTripperFromConfigWithContext directly.
 func isCrossHostRedirect(req *http.Request) bool {
@@ -1128,7 +1134,12 @@ func isCrossHostRedirect(req *http.Request) bool {
 		return false
 	}
 	originalHost := strings.ToLower(originalRequestHost(req))
-	return !isDomainOrSubdomain(strings.ToLower(req.URL.Hostname()), originalHost)
+	for r := req; r.Response != nil && r.Response.Request != nil; r = r.Response.Request {
+		if !isDomainOrSubdomain(strings.ToLower(r.URL.Hostname()), originalHost) {
+			return true
+		}
+	}
+	return false
 }
 
 func originalRequestHost(req *http.Request) string {
@@ -1140,8 +1151,10 @@ func originalRequestHost(req *http.Request) string {
 }
 
 // sensitiveHeadersOnRedirect lists the headers that must not be forwarded when
-// following a redirect to a different host, mirroring the list in
-// makeHeadersCopier in net/http/client.go.
+// following a redirect to a different host. The first four entries match the
+// list stripped by makeHeadersCopier in net/http/client.go; we additionally
+// strip the Proxy-* headers, which net/http does not, to avoid leaking proxy
+// credentials to an untrusted host.
 var sensitiveHeadersOnRedirect = map[string]struct{}{
 	"Authorization": {},
 	// "Www-Authenticate" is the canonical form produced by
