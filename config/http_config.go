@@ -721,6 +721,14 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 		}
 
 		if cfg.HTTPHeaders != nil {
+			// Strip sensitive headers added by headersRoundTripper on cross-host
+			// redirects before they reach the transport. Only needed when
+			// redirects are actually followed; when FollowRedirects is false
+			// CheckRedirect returns ErrUseLastResponse immediately so there are
+			// no subsequent requests.
+			if cfg.FollowRedirects {
+				rt = &sensitiveHeadersStripRT{next: rt}
+			}
 			rt = NewHeadersRoundTripper(cfg.HTTPHeaders, rt)
 		}
 
@@ -862,7 +870,7 @@ func NewAuthorizationCredentialsRoundTripper(authType string, authCredentials Se
 }
 
 func (rt *authorizationCredentialsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	if len(req.Header.Get("Authorization")) != 0 {
+	if len(req.Header.Get("Authorization")) != 0 || isCrossHostRedirect(req) {
 		return rt.rt.RoundTrip(req)
 	}
 
@@ -900,7 +908,7 @@ func NewBasicAuthRoundTripper(username, password SecretReader, rt http.RoundTrip
 }
 
 func (rt *basicAuthRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	if len(req.Header.Get("Authorization")) != 0 {
+	if len(req.Header.Get("Authorization")) != 0 || isCrossHostRedirect(req) {
 		return rt.rt.RoundTrip(req)
 	}
 	var username string
@@ -1102,6 +1110,9 @@ func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 	rt.mtx.RLock()
 	currentRT := rt.lastRT
 	rt.mtx.RUnlock()
+	if isCrossHostRedirect(req) {
+		return currentRT.Base.RoundTrip(req)
+	}
 	return currentRT.RoundTrip(req)
 }
 
@@ -1121,6 +1132,85 @@ func mapToValues(m map[string]string) url.Values {
 	}
 
 	return v
+}
+
+// isCrossHostRedirect reports whether req is a redirect to a different host
+// than the original request. It detects this by walking the req.Response chain
+// (which Go's HTTP client populates on every redirect hop) to find the original
+// request's hostname, then comparing it to the current destination.
+// This works regardless of whether the caller uses NewClientFromConfig or a
+// custom http.Client built from NewRoundTripperFromConfigWithContext directly.
+func isCrossHostRedirect(req *http.Request) bool {
+	if req.Response == nil {
+		return false
+	}
+	originalHost := strings.ToLower(originalRequestHost(req))
+	return !isDomainOrSubdomain(strings.ToLower(req.URL.Hostname()), originalHost)
+}
+
+func originalRequestHost(req *http.Request) string {
+	r := req
+	for r.Response != nil && r.Response.Request != nil {
+		r = r.Response.Request
+	}
+	return r.URL.Hostname()
+}
+
+// sensitiveHeadersOnRedirect lists the headers that must not be forwarded when
+// following a redirect to a different host, mirroring the list in
+// makeHeadersCopier in net/http/client.go.
+var sensitiveHeadersOnRedirect = map[string]struct{}{
+	"Authorization": {},
+	// "Www-Authenticate" is the canonical form produced by
+	// textproto.CanonicalMIMEHeaderKey; it is not a typo of "WWW-Authenticate".
+	"Www-Authenticate":    {},
+	"Cookie":              {},
+	"Cookie2":             {},
+	"Proxy-Authorization": {},
+	"Proxy-Authenticate":  {},
+}
+
+// sensitiveHeadersStripRT strips sensitive headers from requests marked as
+// cross-host redirects before passing them to the underlying transport.
+type sensitiveHeadersStripRT struct {
+	next http.RoundTripper
+}
+
+func (rt *sensitiveHeadersStripRT) RoundTrip(req *http.Request) (*http.Response, error) {
+	if isCrossHostRedirect(req) {
+		req = cloneRequest(req)
+		for h := range sensitiveHeadersOnRedirect {
+			req.Header.Del(h)
+		}
+	}
+	return rt.next.RoundTrip(req)
+}
+
+func (rt *sensitiveHeadersStripRT) CloseIdleConnections() {
+	if ci, ok := rt.next.(closeIdler); ok {
+		ci.CloseIdleConnections()
+	}
+}
+
+// isDomainOrSubdomain reports whether sub is a subdomain (or exact match) of
+// parent. It mirrors isDomainOrSubdomain from net/http/client.go.
+func isDomainOrSubdomain(sub, parent string) bool {
+	if parent == "" {
+		return false
+	}
+	if sub == parent {
+		return true
+	}
+	// A colon means sub is an IPv6 address; a percent sign introduces an IPv6
+	// zone ID. Neither can be a hostname, and both could otherwise pass the
+	// suffix check below (e.g. "::1%.www.example.com" ends with "example.com").
+	if strings.ContainsAny(sub, ":%") {
+		return false
+	}
+	if !strings.HasSuffix(sub, parent) {
+		return false
+	}
+	return sub[len(sub)-len(parent)-1] == '.'
 }
 
 // cloneRequest returns a clone of the provided *http.Request.
