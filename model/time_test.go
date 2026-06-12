@@ -432,6 +432,11 @@ func TestTimeJSON(t *testing.T) {
 	}{
 		{Time(1), `0.001`},
 		{Time(-1), `-0.001`},
+		{Time(1001), `1.001`},
+		{Time(-1001), `-1.001`},
+		{Time(123000), `123`},
+		{Time(123100), `123.1`},
+		{Time(123010), `123.01`},
 	}
 
 	for i, test := range tests {
@@ -458,5 +463,19 @@ func BenchmarkParseDuration(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, err := ParseDuration(data)
 		require.NoError(b, err)
+	}
+}
+
+func BenchmarkUnmarshalTime(b *testing.B) {
+	cases := []string{"1780924784", "1780924784.01", "1780924784.001"}
+
+	for _, c := range cases {
+		b.Run(c, func(b *testing.B) {
+			var t Time
+			data := []byte(c)
+			for b.Loop() {
+				_ = t.UnmarshalJSON(data)
+			}
+		})
 	}
 }
