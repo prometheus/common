@@ -1332,6 +1332,12 @@ request_duration_microseconds_count 2693
 `,
 			errUTF8: `text format parsing error in line 5: negative bucket population for histogram "request_duration_microseconds"`,
 		},
+		// 47: Empty braces with no metric name (regression test for a nil
+		// pointer dereference in startLabelName).
+		{
+			in:      `{} 3.14`,
+			errUTF8: "text format parsing error in line 1: invalid metric name",
+		},
 	}
 	for i, scenario := range scenarios {
 		parser.scheme = model.UTF8Validation

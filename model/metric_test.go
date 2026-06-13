@@ -844,7 +844,7 @@ func TestEscapeMetricFamily(t *testing.T) {
 		},
 	}
 
-	unexportList := []interface{}{dto.MetricFamily{}, dto.Metric{}, dto.LabelPair{}, dto.Counter{}, dto.Gauge{}}
+	unexportList := []any{dto.MetricFamily{}, dto.Metric{}, dto.LabelPair{}, dto.Counter{}, dto.Gauge{}}
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
