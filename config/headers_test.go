@@ -22,6 +22,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -35,6 +36,23 @@ func TestReservedHeaders(t *testing.T) {
 			t.Errorf("ReservedHeaders keys should be lowercase: got %q, expected %q", k, http.CanonicalHeaderKey(k))
 		}
 	}
+}
+
+func TestHeadersSetDirectory(t *testing.T) {
+	headers := &Headers{
+		Headers: map[string]Header{
+			"X-Test": {
+				Files: []string{"headers-file-a", "/tmp/already-absolute"},
+			},
+		},
+	}
+
+	headers.SetDirectory("/etc/prometheus")
+
+	require.Equal(t,
+		[]string{filepath.Join("/etc/prometheus", "headers-file-a"), "/tmp/already-absolute"},
+		headers.Headers["X-Test"].Files,
+	)
 }
 
 func TestHeadersRoundTripperSameHost(t *testing.T) {
