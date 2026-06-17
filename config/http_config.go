@@ -325,7 +325,7 @@ func LoadHTTPConfigFile(filename string) (*HTTPClientConfig, []byte, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	cfg.SetDirectory(filepath.Dir(filepath.Dir(filename)))
+	cfg.SetDirectory(filepath.Dir(filename))
 	return cfg, content, nil
 }
 
