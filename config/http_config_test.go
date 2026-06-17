@@ -2720,3 +2720,32 @@ func TestMultipleHeaders(t *testing.T) {
 	_, err = client.Get(ts.URL)
 	require.NoErrorf(t, err, "can't fetch URL: %v", err)
 }
+
+// TestLoadHTTPConfigFileResolvesPathsRelativeToConfigFile ensures that relative
+// file paths inside a config loaded with LoadHTTPConfigFile are resolved
+// relative to the directory containing the config file, as documented by the
+// SetDirectory contract.
+func TestLoadHTTPConfigFileResolvesPathsRelativeToConfigFile(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "header-value", r.Header.Get("X-Test"))
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(ts.Close)
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "header-value"), []byte("header-value\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "http.yml"), []byte(`http_headers:
+  X-Test:
+    files: [header-value]
+`), 0o644))
+
+	cfg, _, err := LoadHTTPConfigFile(filepath.Join(dir, "http.yml"))
+	require.NoErrorf(t, err, "Error loading HTTP client config: %v", err)
+	require.Equal(t, filepath.Join(dir, "header-value"), cfg.HTTPHeaders.Headers["X-Test"].Files[0])
+
+	client, err := NewClientFromConfig(*cfg, "test")
+	require.NoErrorf(t, err, "Error creating HTTP Client: %v", err)
+
+	_, err = client.Get(ts.URL)
+	require.NoErrorf(t, err, "can't fetch URL: %v", err)
+}
