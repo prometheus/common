@@ -4,6 +4,29 @@
 
 ### What's Changed
 
+## v0.69.0 / 2026-06-17
+
+### Security / behavior changes
+
+* **config: credentials are no longer forwarded across cross-host redirects.** When `FollowRedirects` is enabled, the HTTP client now strips `Authorization`, `Cookie`, `Proxy-Authorization` and other sensitive headers, and skips basic-auth, bearer-token and OAuth2 credentials, when a redirect points to a different host. This aligns with Go's `net/http` behavior. Callers that relied on credentials being sent to a redirect target on another host will need to target that host directly. #901 #920 #921
+* config: `LoadHTTPConfigFile` now resolves relative file paths (e.g. `*_file` credentials, `http_headers` files) against the config file's own directory instead of its parent directory. Configs that worked around the old behavior by prefixing paths with the config's directory name must drop that prefix. #925
+
+### Bugfixes
+
+* expfmt: fix nil pointer panic when parsing empty braces `{}`. #922
+* model: fix `Time.UnmarshalJSON` for larger negative numbers. #918
+
+### Performance
+
+* model: reduce allocations in `Time.UnmarshalJSON`. #918
+
+### Internal
+
+* Synchronize common files from prometheus/prometheus. #917
+* Modernize Go. #919
+
+**Full Changelog**: https://github.com/prometheus/common/compare/v0.68.1...v0.69.0
+
 ## v0.67.2 / 2025-10-28
 
 ## What's Changed
