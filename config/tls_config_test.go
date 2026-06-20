@@ -137,6 +137,13 @@ func TestTLSVersionStringer(t *testing.T) {
 	require.Equalf(t, "TLS13", s.String(), "tls.VersionTLS13 string should be TLS13, got %s", s.String())
 }
 
+func TestTLSVersionStringerUnknown(t *testing.T) {
+	// An unknown TLS version (not present in TLSVersions) must fall back to its
+	// numeric value, not to the pointer address.
+	s := TLSVersion(0x9999) // 39321
+	require.Equal(t, "39321", s.String())
+}
+
 func TestTLSVersionMarshalYAML(t *testing.T) {
 	tests := []struct {
 		input    TLSVersion
