@@ -14,8 +14,10 @@
 package route
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -88,6 +90,30 @@ func TestContextWithoutValue(t *testing.T) {
 	r, err := http.NewRequest(http.MethodGet, "http://localhost:9090/test", nil)
 	require.NoErrorf(t, err, "Error building test request: %s", err)
 	router.ServeHTTP(nil, r)
+}
+
+func TestQuery(t *testing.T) {
+	router := New()
+	const body = "query=up"
+	called := false
+	router.Query("/test/:foo/", func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		want := "bar"
+		got := Param(r.Context(), "foo")
+		require.Equalf(t, want, got, "Unexpected context value: want %q, got %q", want, got)
+
+		gotBody, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		require.Equal(t, body, string(gotBody))
+		w.WriteHeader(http.StatusOK)
+	})
+
+	w := httptest.NewRecorder()
+	r, err := http.NewRequest(MethodQuery, "http://localhost:9090/test/bar/", strings.NewReader(body))
+	require.NoErrorf(t, err, "Error building test request: %s", err)
+	router.ServeHTTP(w, r)
+	require.Truef(t, called, "QUERY handler was not called")
+	require.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestInstrumentation(t *testing.T) {
