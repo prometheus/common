@@ -186,6 +186,30 @@ http_requests_total 1027
 `,
 		},
 		{
+			name: "CounterWithNaNExemplar",
+			in: &dto.MetricFamily{
+				Name: proto.String("http_requests_total"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Counter: &dto.Counter{
+							Value: proto.Float64(1027),
+							Exemplar: &dto.Exemplar{
+								Label: []*dto.LabelPair{
+									{Name: proto.String("trace_id"), Value: proto.String("1234")},
+								},
+								Value:     proto.Float64(math.NaN()),
+								Timestamp: &timestamppb.Timestamp{Seconds: 1234567890},
+							},
+						},
+					},
+				},
+			},
+			out: `# TYPE http_requests_total counter
+http_requests_total 1027 # {trace_id="1234"} NaN 1234567890
+`,
+		},
+		{
 			name: "Untyped",
 			in: &dto.MetricFamily{
 				Name: proto.String("test_metric"),
@@ -376,6 +400,72 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 				Type: dto.MetricType_GAUGE_HISTOGRAM.Enum(),
 				Metric: []*dto.Metric{
 					{Histogram: &dto.Histogram{}},
+				},
+			},
+		},
+		{
+			name: "CounterValueNaN",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_counter_total"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{Counter: &dto.Counter{Value: proto.Float64(math.NaN())}},
+				},
+			},
+		},
+		{
+			name: "CounterValueNegative",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_counter_total"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{Counter: &dto.Counter{Value: proto.Float64(-5.0)}},
+				},
+			},
+		},
+		{
+			name: "EmptyLabelName",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_counter_total"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Label: []*dto.LabelPair{
+							{Name: proto.String(""), Value: proto.String("bar")},
+						},
+						Counter: &dto.Counter{Value: proto.Float64(1.0)},
+					},
+				},
+			},
+		},
+		{
+			name: "NewlineInMetricName",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_counter\ntotal"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{Counter: &dto.Counter{Value: proto.Float64(1.0)}},
+				},
+			},
+		},
+		{
+			name: "NilMetric",
+			in: &dto.MetricFamily{
+				Name:   proto.String("test_counter_total"),
+				Type:   dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{nil},
+			},
+		},
+		{
+			name: "NilLabelPair",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_counter_total"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Label:   []*dto.LabelPair{nil},
+						Counter: &dto.Counter{Value: proto.Float64(1.0)},
+					},
 				},
 			},
 		},

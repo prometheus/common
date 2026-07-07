@@ -20,6 +20,7 @@ import (
 	"io"
 	"math"
 	"strconv"
+	"strings"
 
 	dto "github.com/prometheus/client_model/go"
 )
@@ -36,6 +37,9 @@ func MetricFamilyToOpenMetrics20(out io.Writer, in *dto.MetricFamily, options ..
 	name := in.GetName()
 	if name == "" {
 		return 0, fmt.Errorf("MetricFamily has no name: %s", in)
+	}
+	if containsRawNewline(name) {
+		return 0, fmt.Errorf("MetricFamily name %q contains raw newlines", name)
 	}
 
 	// Try the interface upgrade. If it doesn't work, we'll use a
@@ -150,12 +154,22 @@ func MetricFamilyToOpenMetrics20(out io.Writer, in *dto.MetricFamily, options ..
 
 	// Finally the samples, one line for each.
 	for _, metric := range in.Metric {
+		if metric == nil {
+			return written, fmt.Errorf("expected non-nil metric in MetricFamily %s", name)
+		}
 		switch metricType {
 		case dto.MetricType_COUNTER:
 			if metric.Counter == nil {
 				return written, fmt.Errorf("expected counter in metric %s %s", name, metric)
 			}
-			n, err = writeOpenMetrics20Sample(w, name, metric, metric.Counter.GetValue(), 0, false, metric.Counter.Exemplar)
+			val := metric.Counter.GetValue()
+			if math.IsNaN(val) {
+				return written, fmt.Errorf("counter value cannot be NaN in metric %s", name)
+			}
+			if val < 0 {
+				return written, fmt.Errorf("counter value cannot be negative (%g) in metric %s", val, name)
+			}
+			n, err = writeOpenMetrics20Sample(w, name, metric, val, 0, false, metric.Counter.Exemplar)
 		case dto.MetricType_GAUGE:
 			if metric.Gauge == nil {
 				return written, fmt.Errorf("expected gauge in metric %s %s", name, metric)
@@ -189,6 +203,9 @@ func MetricFamilyToOpenMetrics20(out io.Writer, in *dto.MetricFamily, options ..
 
 // writeOpenMetrics20Sample writes a single sample for simple types (Counter, Gauge, Untyped).
 func writeOpenMetrics20Sample(w enhancedWriter, name string, metric *dto.Metric, floatValue float64, intValue uint64, useIntValue bool, exemplar *dto.Exemplar) (int, error) {
+	if err := validateLabels20(metric.Label); err != nil {
+		return 0, err
+	}
 	written := 0
 	n, err := writeOpenMetricsNameAndLabelPairs(w, name, metric.Label, "", 0)
 	written += n
@@ -226,12 +243,15 @@ func writeOpenMetrics20Sample(w enhancedWriter, name string, metric *dto.Metric,
 
 	// Start Timestamp for Counter
 	if metric.Counter != nil && metric.Counter.CreatedTimestamp != nil {
+		ts := metric.Counter.CreatedTimestamp
+		if err := ts.CheckValid(); err != nil {
+			return written, fmt.Errorf("invalid created timestamp in metric %s: %w", name, err)
+		}
 		n, err = w.WriteString(" st@")
 		written += n
 		if err != nil {
 			return written, err
 		}
-		ts := metric.Counter.CreatedTimestamp
 		n, err = writeOpenMetrics20Timestamp(w, float64(ts.GetSeconds())+float64(ts.GetNanos())/1e9)
 		written += n
 		if err != nil {
@@ -260,6 +280,9 @@ func writeOpenMetrics20Sample(w enhancedWriter, name string, metric *dto.Metric,
 func writeExemplar20(w enhancedWriter, e *dto.Exemplar) (int, error) {
 	if e == nil || len(e.Label) == 0 || e.Timestamp == nil {
 		return 0, nil
+	}
+	if err := validateExemplar20(e); err != nil {
+		return 0, err
 	}
 	written := 0
 	n, err := w.WriteString(" # ")
@@ -333,4 +356,31 @@ func writeCompositeHistogram(w enhancedWriter, name string, metric *dto.Metric, 
 	_ = metric
 	_ = isGauge
 	return 0, errors.New("histogram not implemented yet")
+}
+
+func validateLabels20(labels []*dto.LabelPair) error {
+	for _, lp := range labels {
+		if lp == nil {
+			return errors.New("expected non-nil label pair")
+		}
+		lname := lp.GetName()
+		if lname == "" {
+			return errors.New("label name cannot be empty")
+		}
+		if containsRawNewline(lname) {
+			return fmt.Errorf("label name %q contains raw newlines", lname)
+		}
+	}
+	return nil
+}
+
+func containsRawNewline(s string) bool {
+	return strings.IndexByte(s, '\n') >= 0 || strings.IndexByte(s, '\r') >= 0
+}
+
+func validateExemplar20(e *dto.Exemplar) error {
+	if err := e.Timestamp.CheckValid(); err != nil {
+		return err
+	}
+	return validateLabels20(e.Label)
 }
