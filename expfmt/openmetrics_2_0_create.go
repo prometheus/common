@@ -239,8 +239,8 @@ func writeOpenMetrics20Sample(w enhancedWriter, name string, metric *dto.Metric,
 		}
 	}
 
-	if exemplar != nil && len(exemplar.Label) > 0 {
-		n, err = writeExemplar(w, exemplar)
+	if exemplar != nil && len(exemplar.Label) > 0 && exemplar.Timestamp != nil {
+		n, err = writeExemplar20(w, exemplar)
 		written += n
 		if err != nil {
 			return written, err
@@ -249,6 +249,51 @@ func writeOpenMetrics20Sample(w enhancedWriter, name string, metric *dto.Metric,
 
 	err = w.WriteByte('\n')
 	written++
+	if err != nil {
+		return written, err
+	}
+	return written, nil
+}
+
+// writeExemplar20 writes the provided exemplar in OpenMetrics 2.0 format to w.
+// In OpenMetrics 2.0, exemplars without a timestamp are dropped.
+func writeExemplar20(w enhancedWriter, e *dto.Exemplar) (int, error) {
+	if e == nil || len(e.Label) == 0 || e.Timestamp == nil {
+		return 0, nil
+	}
+	written := 0
+	n, err := w.WriteString(" # ")
+	written += n
+	if err != nil {
+		return written, err
+	}
+	n, err = writeOpenMetricsNameAndLabelPairs(w, "", e.Label, "", 0)
+	written += n
+	if err != nil {
+		return written, err
+	}
+	err = w.WriteByte(' ')
+	written++
+	if err != nil {
+		return written, err
+	}
+	n, err = writeFloat(w, e.GetValue())
+	written += n
+	if err != nil {
+		return written, err
+	}
+	err = w.WriteByte(' ')
+	written++
+	if err != nil {
+		return written, err
+	}
+	err = e.Timestamp.CheckValid()
+	if err != nil {
+		return written, err
+	}
+	ts := e.Timestamp
+	n, err = writeOpenMetrics20Timestamp(w, float64(ts.GetSeconds())+float64(ts.GetNanos())/1e9)
+	written += n
 	if err != nil {
 		return written, err
 	}
