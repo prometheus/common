@@ -55,6 +55,30 @@ http_requests_total{method="GET",code="200"} 1027 st@1234567890
 `,
 		},
 		{
+			name: "CounterWithSubsecondCreatedTimestamp",
+			in: &dto.MetricFamily{
+				Name: proto.String("http_requests_total"),
+				Help: proto.String("Total number of HTTP requests."),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Label: []*dto.LabelPair{
+							{Name: proto.String("method"), Value: proto.String("GET")},
+							{Name: proto.String("code"), Value: proto.String("200")},
+						},
+						Counter: &dto.Counter{
+							Value:            proto.Float64(1027),
+							CreatedTimestamp: &timestamppb.Timestamp{Seconds: 1234567890, Nanos: 987654321},
+						},
+					},
+				},
+			},
+			out: `# HELP http_requests_total Total number of HTTP requests.
+# TYPE http_requests_total counter
+http_requests_total{method="GET",code="200"} 1027 st@1234567890.9876542
+`,
+		},
+		{
 			name: "Gauge",
 			in: &dto.MetricFamily{
 				Name: proto.String("node_memory_active_bytes"),
@@ -120,6 +144,32 @@ node_memory_active_bytes 1.2345e+09 1234567890
 				Metric: []*dto.Metric{
 					{
 						Counter: &dto.Counter{
+							Value:            proto.Float64(1027),
+							CreatedTimestamp: &timestamppb.Timestamp{Seconds: 1234567890},
+							Exemplar: &dto.Exemplar{
+								Label: []*dto.LabelPair{
+									{Name: proto.String("trace_id"), Value: proto.String("1234")},
+								},
+								Value:     proto.Float64(1),
+								Timestamp: &timestamppb.Timestamp{Seconds: 1234567890, Nanos: 500000000},
+							},
+						},
+						TimestampMs: proto.Int64(1234567891000),
+					},
+				},
+			},
+			out: `# TYPE http_requests_total counter
+http_requests_total 1027 1234567891 st@1234567890 # {trace_id="1234"} 1 1234567890.5
+`,
+		},
+		{
+			name: "CounterWithExemplarWithoutTimestamp",
+			in: &dto.MetricFamily{
+				Name: proto.String("http_requests_total"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Counter: &dto.Counter{
 							Value: proto.Float64(1027),
 							Exemplar: &dto.Exemplar{
 								Label: []*dto.LabelPair{
@@ -132,7 +182,7 @@ node_memory_active_bytes 1.2345e+09 1234567890
 				},
 			},
 			out: `# TYPE http_requests_total counter
-http_requests_total 1027 # {trace_id="1234"} 1.0
+http_requests_total 1027
 `,
 		},
 		{
