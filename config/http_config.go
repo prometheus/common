@@ -273,6 +273,7 @@ type OAuth2 struct {
 	Claims         map[string]any    `yaml:"claims,omitempty" json:"claims,omitempty"`
 	Scopes         []string          `yaml:"scopes,omitempty" json:"scopes,omitempty"`
 	TokenURL       string            `yaml:"token_url,omitempty" json:"token_url,omitempty"`
+	TokenURLFile   string            `yaml:"token_url_file,omitempty" json:"token_url_file,omitempty"`
 	EndpointParams map[string]string `yaml:"endpoint_params,omitempty" json:"endpoint_params,omitempty"`
 	TLSConfig      TLSConfig         `yaml:"tls_config,omitempty"`
 	ProxyConfig    `yaml:",inline"`
@@ -302,6 +303,7 @@ func (o *OAuth2) SetDirectory(dir string) {
 		return
 	}
 	o.ClientSecretFile = JoinDir(dir, o.ClientSecretFile)
+	o.TokenURLFile = JoinDir(dir, o.TokenURLFile)
 	o.TLSConfig.SetDirectory(dir)
 }
 
@@ -438,8 +440,11 @@ func (c *HTTPClientConfig) Validate() error {
 		if len(c.OAuth2.ClientID) == 0 {
 			return errors.New("oauth2 client_id must be configured")
 		}
-		if len(c.OAuth2.TokenURL) == 0 {
-			return errors.New("oauth2 token_url must be configured")
+		if len(c.OAuth2.TokenURL) == 0 && len(c.OAuth2.TokenURLFile) == 0 {
+			return errors.New("one of oauth2 token_url or token_url_file must be configured")
+		}
+		if len(c.OAuth2.TokenURL) > 0 && len(c.OAuth2.TokenURLFile) > 0 {
+			return errors.New("at most one of oauth2 token_url & token_url_file must be configured")
 		}
 		if c.OAuth2.GrantType == grantTypeJWTBearer {
 			if nonZeroCount(len(c.OAuth2.ClientCertificateKey) > 0, len(c.OAuth2.ClientCertificateKeyFile) > 0, len(c.OAuth2.ClientCertificateKeyRef) > 0) > 1 {
@@ -940,13 +945,15 @@ func (rt *basicAuthRoundTripper) CloseIdleConnections() {
 }
 
 type oauth2RoundTripper struct {
-	mtx        sync.RWMutex
-	lastRT     *oauth2.Transport
-	lastSecret string
+	mtx          sync.RWMutex
+	lastRT       *oauth2.Transport
+	lastSecret   string
+	lastTokenURL string
 
 	// Required for interaction with Oauth2 server.
 	config          *OAuth2
 	oauthCredential SecretReader
+	tokenURL        SecretReader
 	opts            *httpClientOptions
 	client          *http.Client
 }
@@ -966,12 +973,21 @@ func NewOAuth2RoundTripper(oauthCredential SecretReader, config *OAuth2, next ht
 		opt.applyToHTTPClientOptions(&opts)
 	}
 
+	var tokenURL SecretReader
+	switch {
+	case config.TokenURLFile != "":
+		tokenURL = NewFileSecret(config.TokenURLFile)
+	default:
+		tokenURL = NewInlineSecret(config.TokenURL)
+	}
+
 	return &oauth2RoundTripper{
 		config: config,
 		// A correct tokenSource will be added later on.
 		lastRT:          &oauth2.Transport{Base: next},
 		opts:            &opts,
 		oauthCredential: oauthCredential,
+		tokenURL:        tokenURL,
 	}
 }
 
@@ -979,7 +995,7 @@ type oauth2TokenSourceConfig interface {
 	TokenSource(ctx context.Context) oauth2.TokenSource
 }
 
-func (rt *oauth2RoundTripper) newOauth2TokenSource(req *http.Request, clientCredential string) (client *http.Client, source oauth2.TokenSource, err error) {
+func (rt *oauth2RoundTripper) newOauth2TokenSource(req *http.Request, clientCredential, tokenURL string) (client *http.Client, source oauth2.TokenSource, err error) {
 	tlsConfig, err := NewTLSConfig(&rt.config.TLSConfig, WithSecretManager(rt.opts.secretManager))
 	if err != nil {
 		return nil, nil, err
@@ -1045,7 +1061,7 @@ func (rt *oauth2RoundTripper) newOauth2TokenSource(req *http.Request, clientCred
 			PrivateKey:       []byte(clientCredential),
 			PrivateKeyID:     rt.config.ClientCertificateKeyID,
 			Scopes:           rt.config.Scopes,
-			TokenURL:         rt.config.TokenURL,
+			TokenURL:         tokenURL,
 			SigningAlgorithm: sig,
 			Iss:              iss,
 			Subject:          rt.config.ClientID,
@@ -1058,7 +1074,7 @@ func (rt *oauth2RoundTripper) newOauth2TokenSource(req *http.Request, clientCred
 			ClientID:       rt.config.ClientID,
 			ClientSecret:   clientCredential,
 			Scopes:         rt.config.Scopes,
-			TokenURL:       rt.config.TokenURL,
+			TokenURL:       tokenURL,
 			EndpointParams: mapToValues(rt.config.EndpointParams),
 		}
 	}
@@ -1082,6 +1098,7 @@ func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 
 	var (
 		secret    string
+		tokenURL  string
 		needsInit bool
 	)
 
@@ -1093,31 +1110,46 @@ func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 
 	rt.mtx.RLock()
 	secret = rt.lastSecret
+	tokenURL = rt.lastTokenURL
 	needsInit = rt.lastRT.Source == nil
 	rt.mtx.RUnlock()
 
 	// Fetch the secret if it's our first run or always if the secret can change.
+	newSecret := secret
 	if !rt.oauthCredential.Immutable() || needsInit {
-		newSecret, err := rt.oauthCredential.Fetch(req.Context())
+		var err error
+		newSecret, err = rt.oauthCredential.Fetch(req.Context())
 		if err != nil {
 			return nil, fmt.Errorf("unable to read oauth2 client secret: %w", err)
 		}
-		if newSecret != secret || needsInit {
-			// Secret changed or it's a first run. Rebuilt oauth2 setup.
-			client, source, err := rt.newOauth2TokenSource(req, newSecret)
-			if err != nil {
-				return nil, err
-			}
+	}
 
-			rt.mtx.Lock()
-			rt.lastSecret = newSecret
-			rt.lastRT.Source = source
-			if rt.client != nil {
-				rt.client.CloseIdleConnections()
-			}
-			rt.client = client
-			rt.mtx.Unlock()
+	// Fetch the token URL if it's our first run or always if it can change (file-backed).
+	newTokenURL := tokenURL
+	if !rt.tokenURL.Immutable() || needsInit {
+		var err error
+		newTokenURL, err = rt.tokenURL.Fetch(req.Context())
+		if err != nil {
+			return nil, fmt.Errorf("unable to read oauth2 token_url: %w", err)
 		}
+	}
+
+	if newSecret != secret || newTokenURL != tokenURL || needsInit {
+		// Secret or token URL changed or it's a first run. Rebuild oauth2 setup.
+		client, source, err := rt.newOauth2TokenSource(req, newSecret, newTokenURL)
+		if err != nil {
+			return nil, err
+		}
+
+		rt.mtx.Lock()
+		rt.lastSecret = newSecret
+		rt.lastTokenURL = newTokenURL
+		rt.lastRT.Source = source
+		if rt.client != nil {
+			rt.client.CloseIdleConnections()
+		}
+		rt.client = client
+		rt.mtx.Unlock()
 	}
 
 	rt.mtx.RLock()
