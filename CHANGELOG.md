@@ -6,6 +6,25 @@
 
 * config: support `token_url_file` in the OAuth2 config, allowing the token URL to be loaded from a file (useful for Helm-style deployments where the URL is only known at deploy time). Complements the existing `token_url` field; exactly one of the two must be set. See prometheus/alertmanager#4759.
 
+## v0.70.0 / 2026-07-10
+
+### Enhancements
+
+* route: add support for the QUERY HTTP method. #932
+
+### Bugfixes
+
+* config: fix `TLSVersion.String()` printing a pointer address instead of the numeric version for unknown TLS versions. #929
+
+### Internal
+
+* expfmt: add `BenchmarkConvertMetricFamily` comparing the Prometheus text and OpenMetrics 1.0 encoders. #943
+* Update Go dependencies. #933 #934
+* Synchronize common files from prometheus/prometheus. #923 #927 #930 #937
+* Update GitHub Actions. #938 #939 #940 #941 #942
+
+**Full Changelog**: https://github.com/prometheus/common/compare/v0.69.0...v0.70.0
+
 ## v0.69.0 / 2026-06-17
 
 ### Security / behavior changes
