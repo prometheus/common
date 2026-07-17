@@ -98,6 +98,111 @@ func TestNegotiate(t *testing.T) {
 	}
 }
 
+func TestNegotiateFormats(t *testing.T) {
+	acceptValuePrefix := "application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily"
+	tests := []struct {
+		name               string
+		acceptHeaderValues []string
+		expectedFmts       []string
+	}{
+		{
+			name:               "empty accept header returns FmtText fallback",
+			acceptHeaderValues: []string{},
+			expectedFmts:       []string{"text/plain; version=0.0.4; charset=utf-8; escaping=underscores"},
+		},
+		{
+			name:               "single protobuf delimited",
+			acceptHeaderValues: []string{acceptValuePrefix + ";encoding=delimited"},
+			expectedFmts:       []string{"application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited; escaping=underscores"},
+		},
+		{
+			name:               "single protobuf text",
+			acceptHeaderValues: []string{acceptValuePrefix + ";encoding=text"},
+			expectedFmts:       []string{"application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=text; escaping=underscores"},
+		},
+		{
+			name:               "single protobuf compact-text",
+			acceptHeaderValues: []string{acceptValuePrefix + ";encoding=compact-text"},
+			expectedFmts:       []string{"application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=compact-text; escaping=underscores"},
+		},
+		{
+			name:               "plain text",
+			acceptHeaderValues: []string{"text/plain;version=0.0.4"},
+			expectedFmts:       []string{"text/plain; version=0.0.4; charset=utf-8; escaping=underscores"},
+		},
+		{
+			name:               "openmetrics is not recognised",
+			acceptHeaderValues: []string{"application/openmetrics-text;version=1.0.0"},
+			expectedFmts:       []string{"text/plain; version=0.0.4; charset=utf-8; escaping=underscores"},
+		},
+		{
+			name: "multiple formats returned in preference order",
+			acceptHeaderValues: []string{
+				acceptValuePrefix + ";encoding=delimited;q=0.6",
+				"text/plain;version=0.0.4;q=0.2",
+			},
+			expectedFmts: []string{
+				"application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited; escaping=underscores",
+				"text/plain; version=0.0.4; charset=utf-8; escaping=underscores",
+			},
+		},
+		{
+			name: "multiple formats with openmetrics skipped",
+			acceptHeaderValues: []string{
+				acceptValuePrefix + ";encoding=delimited;q=0.6",
+				"application/openmetrics-text;version=1.0.0;q=0.5",
+				"text/plain;version=0.0.4;q=0.2",
+			},
+			expectedFmts: []string{
+				"application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited; escaping=underscores",
+				"text/plain; version=0.0.4; charset=utf-8; escaping=underscores",
+			},
+		},
+		{
+			name:               "escaping param is respected",
+			acceptHeaderValues: []string{acceptValuePrefix + ";encoding=delimited;escaping=allow-utf-8"},
+			expectedFmts:       []string{"application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited; escaping=allow-utf-8"},
+		},
+		{
+			name:               "unknown escaping param falls back to default",
+			acceptHeaderValues: []string{acceptValuePrefix + ";encoding=delimited;escaping=bogus"},
+			expectedFmts:       []string{"application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited; escaping=underscores"},
+		},
+		{
+			name: "single header with multiple comma-separated formats",
+			acceptHeaderValues: []string{
+				acceptValuePrefix + ";encoding=delimited;q=0.6," +
+					"application/openmetrics-text;version=1.0.0;escaping=allow-utf-8;q=0.5," +
+					"text/plain;version=0.0.4;q=0.2",
+			},
+			expectedFmts: []string{
+				"application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited; escaping=underscores",
+				"text/plain; version=0.0.4; charset=utf-8; escaping=underscores",
+			},
+		},
+	}
+
+	oldDefault := model.NameEscapingScheme
+	model.NameEscapingScheme = model.UnderscoreEscaping
+	defer func() {
+		model.NameEscapingScheme = oldDefault
+	}()
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			h := http.Header{}
+			for _, v := range test.acceptHeaderValues {
+				h.Add(hdrAccept, v)
+			}
+			actualFmts := NegotiateFormats(h)
+			require.Len(t, actualFmts, len(test.expectedFmts), "number of returned formats")
+			for i, expected := range test.expectedFmts {
+				assert.Equal(t, expected, string(actualFmts[i]), "format at index %d", i)
+			}
+		})
+	}
+}
+
 func TestNegotiateIncludingOpenMetrics(t *testing.T) {
 	acceptValuePrefix := "application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily"
 	tests := []struct {
@@ -195,6 +300,115 @@ func TestNegotiateIncludingOpenMetrics(t *testing.T) {
 			actualFmt := string(NegotiateIncludingOpenMetrics(h))
 			if actualFmt != test.expectedFmt {
 				t.Errorf("case %d: expected Negotiate to return format %s, but got %s instead", i, test.expectedFmt, actualFmt)
+			}
+		})
+	}
+}
+
+func TestNegotiateFormatsIncludingOpenMetrics(t *testing.T) {
+	acceptValuePrefix := "application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily"
+	tests := []struct {
+		name               string
+		acceptHeaderValues []string
+		expectedFmts       []string
+	}{
+		{
+			name:               "empty accept header returns FmtText fallback",
+			acceptHeaderValues: []string{},
+			expectedFmts:       []string{"text/plain; version=0.0.4; charset=utf-8; escaping=values"},
+		},
+		{
+			name:               "single protobuf delimited",
+			acceptHeaderValues: []string{acceptValuePrefix + ";encoding=delimited"},
+			expectedFmts:       []string{"application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited; escaping=values"},
+		},
+		{
+			name:               "single OM 1.0.0",
+			acceptHeaderValues: []string{"application/openmetrics-text;version=1.0.0"},
+			expectedFmts:       []string{"application/openmetrics-text; version=1.0.0; charset=utf-8; escaping=values"},
+		},
+		{
+			name:               "single OM 0.0.1",
+			acceptHeaderValues: []string{"application/openmetrics-text;version=0.0.1"},
+			expectedFmts:       []string{"application/openmetrics-text; version=0.0.1; charset=utf-8; escaping=values"},
+		},
+		{
+			name:               "single OM no version",
+			acceptHeaderValues: []string{"application/openmetrics-text"},
+			expectedFmts:       []string{"application/openmetrics-text; version=0.0.1; charset=utf-8; escaping=values"},
+		},
+		{
+			name:               "OM invalid version is not recognised",
+			acceptHeaderValues: []string{"application/openmetrics-text;version=0.0.4"},
+			expectedFmts:       []string{"text/plain; version=0.0.4; charset=utf-8; escaping=values"},
+		},
+		{
+			name: "multiple formats returned in preference order",
+			acceptHeaderValues: []string{
+				acceptValuePrefix + ";encoding=delimited;q=0.6",
+				"application/openmetrics-text;version=1.0.0;escaping=allow-utf-8;q=0.5",
+				"text/plain;version=0.0.4;q=0.2",
+			},
+			expectedFmts: []string{
+				"application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited; escaping=values",
+				"application/openmetrics-text; version=1.0.0; charset=utf-8; escaping=allow-utf-8",
+				"text/plain; version=0.0.4; charset=utf-8; escaping=values",
+			},
+		},
+		{
+			name: "server supporting only OM and text/plain can skip protobuf",
+			acceptHeaderValues: []string{
+				acceptValuePrefix + ";encoding=delimited;q=0.6",
+				"application/openmetrics-text;version=1.0.0;q=0.5",
+				"text/plain;version=0.0.4;q=0.2",
+			},
+			expectedFmts: []string{
+				"application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited; escaping=values",
+				"application/openmetrics-text; version=1.0.0; charset=utf-8; escaping=values",
+				"text/plain; version=0.0.4; charset=utf-8; escaping=values",
+			},
+		},
+		{
+			name:               "escaping param is respected",
+			acceptHeaderValues: []string{acceptValuePrefix + ";encoding=delimited;escaping=underscores"},
+			expectedFmts:       []string{"application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited; escaping=underscores"},
+		},
+		{
+			name:               "unknown escaping param falls back to default",
+			acceptHeaderValues: []string{acceptValuePrefix + ";encoding=delimited;escaping=bogus"},
+			expectedFmts:       []string{"application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited; escaping=values"},
+		},
+		{
+			name: "single header with multiple comma-separated formats",
+			acceptHeaderValues: []string{
+				acceptValuePrefix + ";encoding=delimited;q=0.6," +
+					"application/openmetrics-text;version=1.0.0;escaping=allow-utf-8;q=0.5," +
+					"text/plain;version=0.0.4;q=0.2",
+			},
+			expectedFmts: []string{
+				"application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited; escaping=values",
+				"application/openmetrics-text; version=1.0.0; charset=utf-8; escaping=allow-utf-8",
+				"text/plain; version=0.0.4; charset=utf-8; escaping=values",
+			},
+		},
+	}
+
+	oldDefault := model.NameEscapingScheme
+	model.NameEscapingScheme = model.ValueEncodingEscaping
+	defer func() {
+		model.NameEscapingScheme = oldDefault
+	}()
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			h := http.Header{}
+			for _, v := range test.acceptHeaderValues {
+				h.Add(hdrAccept, v)
+			}
+			actualFmts := NegotiateFormatsIncludingOpenMetrics(h)
+			require.Len(t, actualFmts, len(test.expectedFmts), "number of returned formats")
+			for i, expected := range test.expectedFmts {
+				assert.Equal(t, expected, string(actualFmts[i]), "format at index %d", i)
 			}
 		})
 	}
