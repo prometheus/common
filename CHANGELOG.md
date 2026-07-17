@@ -4,6 +4,8 @@
 
 ### What's Changed
 
+* config: support `token_url_file` in the OAuth2 config, allowing the token URL to be loaded from a file (useful for Helm-style deployments where the URL is only known at deploy time). Complements the existing `token_url` field; exactly one of the two must be set. See prometheus/alertmanager#4759.
+
 ## v0.70.0 / 2026-07-10
 
 ### Enhancements

@@ -123,7 +123,11 @@ var invalidHTTPClientConfigs = []struct {
 	},
 	{
 		httpClientConfigFile: "testdata/http.conf.oauth2-no-token-url.bad.yaml",
-		errMsg:               "oauth2 token_url must be configured",
+		errMsg:               "one of oauth2 token_url or token_url_file must be configured",
+	},
+	{
+		httpClientConfigFile: "testdata/http.conf.oauth2-token-url-and-file-set.bad.yml",
+		errMsg:               "at most one of oauth2 token_url & token_url_file must be configured",
 	},
 	{
 		httpClientConfigFile: "testdata/http.conf.proxy-from-env.bad.yaml",
@@ -2092,6 +2096,64 @@ endpoint_params:
 
 	authorization = resp.Request.Header.Get("Authorization")
 	require.Equalf(t, "Bearer 12345", authorization, "Expected authorization header to be 'Bearer 12345', got '%s'", authorization)
+}
+
+func TestOAuth2WithTokenURLFile(t *testing.T) {
+	expectedAuth := new(string)
+	ts := newTestOAuthServer(t, func(t testing.TB, auth string) {
+		require.Equalf(t, *expectedAuth, auth, "bad auth, expected %s, got %s", *expectedAuth, auth)
+	})
+	defer ts.close()
+
+	tokenURLFile, err := os.CreateTemp("", "oauth2_token_url")
+	require.NoError(t, err)
+	defer os.Remove(tokenURLFile.Name())
+
+	_, err = tokenURLFile.WriteString(ts.tokenURL())
+	require.NoError(t, err)
+	require.NoError(t, tokenURLFile.Close())
+
+	yamlConfig := fmt.Sprintf(`
+client_id: 1
+client_secret: 2
+scopes:
+ - A
+ - B
+token_url_file: %s
+endpoint_params:
+ hi: hello
+`, tokenURLFile.Name())
+	expectedConfig := OAuth2{
+		ClientID:       "1",
+		ClientSecret:   "2",
+		Scopes:         []string{"A", "B"},
+		EndpointParams: map[string]string{"hi": "hello"},
+		TokenURLFile:   tokenURLFile.Name(),
+	}
+
+	var unmarshalledConfig OAuth2
+	err = yaml.Unmarshal([]byte(yamlConfig), &unmarshalledConfig)
+	require.NoErrorf(t, err, "Expected no error unmarshalling yaml, got %v", err)
+	require.Truef(t, reflect.DeepEqual(unmarshalledConfig, expectedConfig), "Got unmarshalled config %v, expected %v", unmarshalledConfig, expectedConfig)
+
+	secret := NewInlineSecret(string(expectedConfig.ClientSecret))
+	rt := NewOAuth2RoundTripper(secret, &expectedConfig, http.DefaultTransport)
+
+	client := http.Client{
+		Transport: rt,
+	}
+
+	*expectedAuth = "Basic MToy"
+	resp, err := client.Get(ts.url())
+	require.NoError(t, err)
+
+	authorization := resp.Request.Header.Get("Authorization")
+	require.Equalf(t, "Bearer 12345", authorization, "Expected authorization header to be 'Bearer 12345', got '%s'", authorization)
+
+	// A follow-up request with unchanged file contents should not trigger a token
+	// endpoint call (the underlying oauth2.ReuseTokenSource covers the caching side).
+	_, err = client.Get(ts.url())
+	require.NoError(t, err)
 }
 
 func TestOAuth2WithJWTAuth(t *testing.T) {
