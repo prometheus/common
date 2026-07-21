@@ -320,6 +320,75 @@ func IsValidLegacyMetricName(n string) bool {
 	return LegacyValidation.IsValidMetricName(n)
 }
 
+// IsValidLegacyLabelName reports whether n is a valid label name under the
+// legacy Prometheus data model. Unlike metric names, label names must not
+// contain ':'.
+func IsValidLegacyLabelName(n string) bool {
+	return LegacyValidation.IsValidLabelName(n)
+}
+
+// EscapeLabelName escapes the incoming label name according to the provided
+// escaping scheme. It behaves like EscapeName but applies label-name rules:
+// ':' is not a valid character in a label name and is always escaped.
+func EscapeLabelName(name string, scheme EscapingScheme) string {
+	if len(name) == 0 {
+		return name
+	}
+	var escaped strings.Builder
+	switch scheme {
+	case NoEscaping:
+		return name
+	case UnderscoreEscaping:
+		if IsValidLegacyLabelName(name) {
+			return name
+		}
+		for i, b := range name {
+			if isValidLegacyLabelRune(b, i) {
+				escaped.WriteRune(b)
+			} else {
+				escaped.WriteRune('_')
+			}
+		}
+		return escaped.String()
+	case DotsEscaping:
+		for i, b := range name {
+			switch {
+			case b == '_':
+				escaped.WriteString("__")
+			case b == '.':
+				escaped.WriteString("_dot_")
+			case isValidLegacyLabelRune(b, i):
+				escaped.WriteRune(b)
+			default:
+				escaped.WriteString("__")
+			}
+		}
+		return escaped.String()
+	case ValueEncodingEscaping:
+		if IsValidLegacyLabelName(name) {
+			return name
+		}
+		escaped.WriteString("U__")
+		for i, b := range name {
+			switch {
+			case b == '_':
+				escaped.WriteString("__")
+			case isValidLegacyLabelRune(b, i):
+				escaped.WriteRune(b)
+			case !utf8.ValidRune(b):
+				escaped.WriteString("_FFFD_")
+			default:
+				escaped.WriteRune('_')
+				escaped.WriteString(strconv.FormatInt(int64(b), 16))
+				escaped.WriteRune('_')
+			}
+		}
+		return escaped.String()
+	default:
+		panic(fmt.Sprintf("invalid escaping scheme %d", scheme))
+	}
+}
+
 // EscapeMetricFamily escapes the given metric names and labels with the given
 // escaping scheme. Returns a new object that uses the same pointers to fields
 // when possible and creates new escaped versions so as not to mutate the
@@ -372,12 +441,12 @@ func EscapeMetricFamily(v *dto.MetricFamily, scheme EscapingScheme) *dto.MetricF
 				})
 				continue
 			}
-			if l.Name == nil || IsValidLegacyMetricName(l.GetName()) {
+			if l.Name == nil || IsValidLegacyLabelName(l.GetName()) {
 				escaped.Label = append(escaped.Label, l)
 				continue
 			}
 			escaped.Label = append(escaped.Label, &dto.LabelPair{
-				Name:  proto.String(EscapeName(l.GetName(), scheme)),
+				Name:  proto.String(EscapeLabelName(l.GetName(), scheme)),
 				Value: l.Value,
 			})
 		}
@@ -391,7 +460,7 @@ func metricNeedsEscaping(m *dto.Metric) bool {
 		if l.GetName() == MetricNameLabel && !IsValidLegacyMetricName(l.GetValue()) {
 			return true
 		}
-		if !IsValidLegacyMetricName(l.GetName()) {
+		if !IsValidLegacyLabelName(l.GetName()) {
 			return true
 		}
 	}
@@ -547,6 +616,12 @@ func UnescapeName(name string, scheme EscapingScheme) string {
 
 func isValidLegacyRune(b rune, i int) bool {
 	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || b == '_' || b == ':' || (b >= '0' && b <= '9' && i > 0)
+}
+
+// isValidLegacyLabelRune is like isValidLegacyRune but excludes ':'.
+// Colons are reserved for metric names only; they have never been valid in label names.
+func isValidLegacyLabelRune(b rune, i int) bool {
+	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || b == '_' || (b >= '0' && b <= '9' && i > 0)
 }
 
 func (e EscapingScheme) String() string {
