@@ -209,5 +209,19 @@ func BenchmarkConvertMetricFamily(b *testing.B) {
 				out.Reset()
 			}
 		})
+		b.Run("OM2.0/"+mf.GetType().String(), func(b *testing.B) {
+			out := bytes.NewBuffer(make([]byte, 0, 1024))
+			if _, err := MetricFamilyToOpenMetrics20(out, mf); err != nil {
+				b.Skipf("skipping unsupported type: %v", err)
+			}
+			out.Reset()
+			for b.Loop() {
+				_, err := MetricFamilyToOpenMetrics20(out, mf)
+				if err != nil {
+					b.Fatal(err)
+				}
+				out.Reset()
+			}
+		})
 	}
 }
