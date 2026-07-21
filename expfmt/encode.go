@@ -94,7 +94,21 @@ func Negotiate(h http.Header) Format {
 // temporary and will disappear once FmtOpenMetrics is fully supported and as
 // such may be negotiated by the normal Negotiate function.
 func NegotiateIncludingOpenMetrics(h http.Header) Format {
+	formats := NegotiateFormatsIncludingOpenMetrics(h)
+	return formats[0]
+}
+
+// NegotiateFormatsIncludingOpenMetrics works like NegotiateIncludingOpenMetrics
+// but returns all recognised formats from the Accept header in descending
+// preference order instead of stopping at the first match. If no recognised
+// formats are found, the slice contains FmtText (with the negotiated escaping
+// scheme) as the default fallback.
+//
+// Callers that only support a subset of formats can iterate the result and pick
+// the first format they can serve.
+func NegotiateFormatsIncludingOpenMetrics(h http.Header) []Format {
 	escapingScheme := Format(fmt.Sprintf("; escaping=%s", Format(model.NameEscapingScheme.String())))
+	var formats []Format
 	for _, ac := range goautoneg.ParseAccept(h.Get(hdrAccept)) {
 		if escapeParam := ac.Params[model.EscapingKey]; escapeParam != "" {
 			switch Format(escapeParam) {
@@ -108,26 +122,31 @@ func NegotiateIncludingOpenMetrics(h http.Header) Format {
 		if ac.Type+"/"+ac.SubType == ProtoType && ac.Params["proto"] == ProtoProtocol {
 			switch ac.Params["encoding"] {
 			case "delimited":
-				return FmtProtoDelim + escapingScheme
+				formats = append(formats, FmtProtoDelim+escapingScheme)
 			case "text":
-				return FmtProtoText + escapingScheme
+				formats = append(formats, FmtProtoText+escapingScheme)
 			case "compact-text":
-				return FmtProtoCompact + escapingScheme
+				formats = append(formats, FmtProtoCompact+escapingScheme)
 			}
+			continue
 		}
 		if ac.Type == "text" && ac.SubType == "plain" && (ver == TextVersion || ver == "") {
-			return FmtText + escapingScheme
+			formats = append(formats, FmtText+escapingScheme)
+			continue
 		}
 		if ac.Type+"/"+ac.SubType == OpenMetricsType && (ver == OpenMetricsVersion_0_0_1 || ver == OpenMetricsVersion_1_0_0 || ver == "") {
 			switch ver {
 			case OpenMetricsVersion_1_0_0:
-				return FmtOpenMetrics_1_0_0 + escapingScheme
+				formats = append(formats, FmtOpenMetrics_1_0_0+escapingScheme)
 			default:
-				return FmtOpenMetrics_0_0_1 + escapingScheme
+				formats = append(formats, FmtOpenMetrics_0_0_1+escapingScheme)
 			}
 		}
 	}
-	return FmtText + escapingScheme
+	if len(formats) == 0 {
+		return []Format{FmtText + escapingScheme}
+	}
+	return formats
 }
 
 // NewEncoder returns a new encoder based on content type negotiation. All
