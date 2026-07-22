@@ -68,18 +68,19 @@ func TestDuration(t *testing.T) {
 }
 
 func TestDurationConstants(t *testing.T) {
-	require.Equal(t, Duration(time.Nanosecond), Nanosecond)
-	require.Equal(t, Duration(time.Microsecond), Microsecond)
-	require.Equal(t, Duration(time.Millisecond), Millisecond)
-	require.Equal(t, Duration(time.Second), Second)
-	require.Equal(t, Duration(time.Minute), Minute)
-	require.Equal(t, Duration(time.Hour), Hour)
-	require.Equal(t, Duration(24*time.Hour), Day)
-	require.Equal(t, Duration(7*24*time.Hour), Week)
+	// require.Equal(expected, actual) — expected is the reference time.Duration cast.
+	require.Equal(t, Nanosecond, Duration(time.Nanosecond))
+	require.Equal(t, Microsecond, Duration(time.Microsecond))
+	require.Equal(t, Millisecond, Duration(time.Millisecond))
+	require.Equal(t, Second, Duration(time.Second))
+	require.Equal(t, Minute, Duration(time.Minute))
+	require.Equal(t, Hour, Duration(time.Hour))
+	require.Equal(t, Day, Duration(24*time.Hour))
+	require.Equal(t, Week, Duration(7*24*time.Hour))
 
 	// Typical usage from the issue: multiply integers by model constants.
-	require.Equal(t, Duration(15*24*time.Hour), 15*Day)
-	require.Equal(t, Duration(5000*time.Millisecond), 5000*Millisecond)
+	require.Equal(t, 15*Day, Duration(15*24*time.Hour))
+	require.Equal(t, 5000*Millisecond, Duration(5000*time.Millisecond))
 }
 
 func TestDurationMethods(t *testing.T) {
