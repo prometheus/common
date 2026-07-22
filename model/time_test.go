@@ -67,6 +67,42 @@ func TestDuration(t *testing.T) {
 	require.Equalf(t, delta, duration, "Expected %s to be equal to %s", delta, duration)
 }
 
+func TestDurationConstants(t *testing.T) {
+	// require.Equal(expected, actual) — expected is the reference time.Duration cast.
+	require.Equal(t, Nanosecond, Duration(time.Nanosecond))
+	require.Equal(t, Microsecond, Duration(time.Microsecond))
+	require.Equal(t, Millisecond, Duration(time.Millisecond))
+	require.Equal(t, Second, Duration(time.Second))
+	require.Equal(t, Minute, Duration(time.Minute))
+	require.Equal(t, Hour, Duration(time.Hour))
+	require.Equal(t, Day, Duration(24*time.Hour))
+	require.Equal(t, Week, Duration(7*24*time.Hour))
+
+	// Typical usage from the issue: multiply integers by model constants.
+	require.Equal(t, 15*Day, Duration(15*24*time.Hour))
+	require.Equal(t, 5000*Millisecond, Duration(5000*time.Millisecond))
+}
+
+func TestDurationMethods(t *testing.T) {
+	d := 2*Hour + 30*Minute + 15*Second + 250*Millisecond
+	td := time.Duration(d)
+
+	require.Equal(t, td.Nanoseconds(), d.Nanoseconds())
+	require.Equal(t, td.Microseconds(), d.Microseconds())
+	require.Equal(t, td.Milliseconds(), d.Milliseconds())
+	require.Equal(t, td.Seconds(), d.Seconds())
+	require.Equal(t, td.Minutes(), d.Minutes())
+	require.Equal(t, td.Hours(), d.Hours())
+
+	require.Equal(t, int64(2*60*60*1000+30*60*1000+15*1000+250), d.Milliseconds())
+	require.Equal(t, int64(1500), (1500 * Microsecond).Microseconds())
+	require.Equal(t, int64(1500), (1500 * Nanosecond).Nanoseconds())
+
+	// Negative durations.
+	require.Equal(t, int64(-1500), (-1500 * Millisecond).Milliseconds())
+	require.Equal(t, -1.5, (-1500 * Millisecond).Seconds())
+}
+
 func TestParseDuration(t *testing.T) {
 	type testCase struct {
 		in              string
