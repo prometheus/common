@@ -40,10 +40,16 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
+
+	"github.com/prometheus/common/model"
 )
 
 const (
 	grantTypeJWTBearer = "urn:ietf:params:oauth:grant-type:jwt-bearer"
+
+	// defaultCacheTTL is the default duration file contents are cached
+	// before being re-read from disk.
+	defaultCacheTTL = time.Minute
 )
 
 var (
@@ -51,6 +57,7 @@ var (
 	DefaultHTTPClientConfig = HTTPClientConfig{
 		FollowRedirects: true,
 		EnableHTTP2:     true,
+		CacheTTL:        model.Duration(defaultCacheTTL),
 	}
 
 	// defaultHTTPClientOptions holds the default HTTP client options.
@@ -353,6 +360,11 @@ type HTTPClientConfig struct {
 	// The omitempty flag is not set, because it would be hidden from the
 	// marshalled configuration when set to false.
 	EnableHTTP2 bool `yaml:"enable_http2" json:"enable_http2"`
+	// CacheTTL specifies how long file contents are cached before being
+	// re-read from disk. Zero disables caching.
+	// The omitempty flag is not set, because a marshalled zero value would
+	// be unmarshalled back into the default when the key is absent.
+	CacheTTL model.Duration `yaml:"cache_ttl" json:"cache_ttl"`
 	// Proxy configuration.
 	ProxyConfig `yaml:",inline"`
 	// HTTPHeaders specify headers to inject in the requests. Those headers
@@ -632,6 +644,7 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 	for _, opt := range optFuncs {
 		opt.applyToHTTPClientOptions(&opts)
 	}
+	cacheTTL := time.Duration(cfg.CacheTTL)
 
 	var dialContext func(ctx context.Context, network, addr string) (net.Conn, error)
 
@@ -673,7 +686,7 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 		// If a authorization_credentials is provided, create a round tripper that will set the
 		// Authorization header correctly on each request.
 		if cfg.Authorization != nil {
-			credentialsSecret, err := toSecret(opts.secretManager, cfg.Authorization.Credentials, cfg.Authorization.CredentialsFile, cfg.Authorization.CredentialsRef)
+			credentialsSecret, err := toSecret(opts.secretManager, cacheTTL, cfg.Authorization.Credentials, cfg.Authorization.CredentialsFile, cfg.Authorization.CredentialsRef)
 			if err != nil {
 				return nil, fmt.Errorf("unable to use credentials: %w", err)
 			}
@@ -682,7 +695,7 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 		// Backwards compatibility, be nice with importers who would not have
 		// called Validate().
 		if len(cfg.BearerToken) > 0 || len(cfg.BearerTokenFile) > 0 {
-			bearerSecret, err := toSecret(opts.secretManager, cfg.BearerToken, cfg.BearerTokenFile, "")
+			bearerSecret, err := toSecret(opts.secretManager, cacheTTL, cfg.BearerToken, cfg.BearerTokenFile, "")
 			if err != nil {
 				return nil, fmt.Errorf("unable to use bearer token: %w", err)
 			}
@@ -690,11 +703,11 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 		}
 
 		if cfg.BasicAuth != nil {
-			usernameSecret, err := toSecret(opts.secretManager, Secret(cfg.BasicAuth.Username), cfg.BasicAuth.UsernameFile, cfg.BasicAuth.UsernameRef)
+			usernameSecret, err := toSecret(opts.secretManager, cacheTTL, Secret(cfg.BasicAuth.Username), cfg.BasicAuth.UsernameFile, cfg.BasicAuth.UsernameRef)
 			if err != nil {
 				return nil, fmt.Errorf("unable to use username: %w", err)
 			}
-			passwordSecret, err := toSecret(opts.secretManager, cfg.BasicAuth.Password, cfg.BasicAuth.PasswordFile, cfg.BasicAuth.PasswordRef)
+			passwordSecret, err := toSecret(opts.secretManager, cacheTTL, cfg.BasicAuth.Password, cfg.BasicAuth.PasswordFile, cfg.BasicAuth.PasswordRef)
 			if err != nil {
 				return nil, fmt.Errorf("unable to use password: %w", err)
 			}
@@ -708,12 +721,12 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 			)
 
 			if cfg.OAuth2.GrantType == grantTypeJWTBearer {
-				oauthCredential, err = toSecret(opts.secretManager, cfg.OAuth2.ClientCertificateKey, cfg.OAuth2.ClientCertificateKeyFile, cfg.OAuth2.ClientCertificateKeyRef)
+				oauthCredential, err = toSecret(opts.secretManager, cacheTTL, cfg.OAuth2.ClientCertificateKey, cfg.OAuth2.ClientCertificateKeyFile, cfg.OAuth2.ClientCertificateKeyRef)
 				if err != nil {
 					return nil, fmt.Errorf("unable to use client certificate: %w", err)
 				}
 			} else {
-				oauthCredential, err = toSecret(opts.secretManager, cfg.OAuth2.ClientSecret, cfg.OAuth2.ClientSecretFile, cfg.OAuth2.ClientSecretRef)
+				oauthCredential, err = toSecret(opts.secretManager, cacheTTL, cfg.OAuth2.ClientSecret, cfg.OAuth2.ClientSecretFile, cfg.OAuth2.ClientSecretRef)
 				if err != nil {
 					return nil, fmt.Errorf("unable to use client secret: %w", err)
 				}
@@ -750,7 +763,7 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 		return nil, err
 	}
 
-	tlsSettings, err := cfg.TLSConfig.roundTripperSettings(opts.secretManager)
+	tlsSettings, err := cfg.TLSConfig.roundTripperSettings(opts.secretManager, cacheTTL)
 	if err != nil {
 		return nil, err
 	}
@@ -796,18 +809,34 @@ func (*InlineSecret) Immutable() bool {
 
 type FileSecret struct {
 	file string
+	ttl  time.Duration
+
+	mu        sync.Mutex
+	cached    string
+	lastFetch time.Time
 }
 
-func NewFileSecret(file string) *FileSecret {
-	return &FileSecret{file: file}
+func NewFileSecret(file string, ttl time.Duration) *FileSecret {
+	return &FileSecret{
+		file: file,
+		ttl:  ttl,
+	}
 }
 
 func (s *FileSecret) Fetch(context.Context) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.ttl > 0 && time.Since(s.lastFetch) < s.ttl {
+		return s.cached, nil
+	}
 	fileBytes, err := os.ReadFile(s.file)
 	if err != nil {
 		return "", fmt.Errorf("unable to read file %s: %w", s.file, err)
 	}
-	return strings.TrimSpace(string(fileBytes)), nil
+	s.cached = strings.TrimSpace(string(fileBytes))
+	s.lastFetch = time.Now()
+	return s.cached, nil
 }
 
 func (s *FileSecret) Description() string {
@@ -838,12 +867,12 @@ func (*refSecret) Immutable() bool {
 
 // toSecret returns a SecretReader from one of the given sources, assuming exactly
 // one or none of the sources are provided.
-func toSecret(secretManager SecretManager, text Secret, file, ref string) (SecretReader, error) {
+func toSecret(secretManager SecretManager, ttl time.Duration, text Secret, file, ref string) (SecretReader, error) {
 	if text != "" {
 		return NewInlineSecret(string(text)), nil
 	}
 	if file != "" {
-		return NewFileSecret(file), nil
+		return NewFileSecret(file, ttl), nil
 	}
 	if ref != "" {
 		if secretManager == nil {
@@ -1001,7 +1030,7 @@ func (rt *oauth2RoundTripper) newOauth2TokenSource(req *http.Request, clientCred
 	}
 
 	var t http.RoundTripper
-	tlsSettings, err := rt.config.TLSConfig.roundTripperSettings(rt.opts.secretManager)
+	tlsSettings, err := rt.config.TLSConfig.roundTripperSettings(rt.opts.secretManager, defaultCacheTTL)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1284,7 +1313,7 @@ func NewTLSConfigWithContext(ctx context.Context, cfg *TLSConfig, optFuncs ...TL
 
 	// If a CA cert is provided then let's read it in so we can validate the
 	// scrape target's certificate properly.
-	caSecret, err := toSecret(opts.secretManager, Secret(cfg.CA), cfg.CAFile, cfg.CARef)
+	caSecret, err := toSecret(opts.secretManager, defaultCacheTTL, Secret(cfg.CA), cfg.CAFile, cfg.CARef)
 	if err != nil {
 		return nil, fmt.Errorf("unable to use CA cert: %w", err)
 	}
@@ -1305,7 +1334,7 @@ func NewTLSConfigWithContext(ctx context.Context, cfg *TLSConfig, optFuncs ...TL
 	// If a client cert & key is provided then configure TLS config accordingly.
 	if cfg.usingClientCert() && cfg.usingClientKey() {
 		// Verify that client cert and key are valid.
-		if _, err := cfg.getClientCertificate(ctx, opts.secretManager); err != nil {
+		if _, err := cfg.getClientCertificate(ctx, opts.secretManager, defaultCacheTTL); err != nil {
 			return nil, err
 		}
 		tlsConfig.GetClientCertificate = func(cri *tls.CertificateRequestInfo) (*tls.Certificate, error) {
@@ -1313,7 +1342,7 @@ func NewTLSConfigWithContext(ctx context.Context, cfg *TLSConfig, optFuncs ...TL
 			if cri != nil {
 				ctx = cri.Context()
 			}
-			return cfg.getClientCertificate(ctx, opts.secretManager)
+			return cfg.getClientCertificate(ctx, opts.secretManager, defaultCacheTTL)
 		}
 	}
 
@@ -1403,16 +1432,16 @@ func (c *TLSConfig) usingClientKey() bool {
 	return len(c.Key) > 0 || len(c.KeyFile) > 0 || len(c.KeyRef) > 0
 }
 
-func (c *TLSConfig) roundTripperSettings(secretManager SecretManager) (TLSRoundTripperSettings, error) {
-	ca, err := toSecret(secretManager, Secret(c.CA), c.CAFile, c.CARef)
+func (c *TLSConfig) roundTripperSettings(secretManager SecretManager, cacheTTL time.Duration) (TLSRoundTripperSettings, error) {
+	ca, err := toSecret(secretManager, cacheTTL, Secret(c.CA), c.CAFile, c.CARef)
 	if err != nil {
 		return TLSRoundTripperSettings{}, err
 	}
-	cert, err := toSecret(secretManager, Secret(c.Cert), c.CertFile, c.CertRef)
+	cert, err := toSecret(secretManager, cacheTTL, Secret(c.Cert), c.CertFile, c.CertRef)
 	if err != nil {
 		return TLSRoundTripperSettings{}, err
 	}
-	key, err := toSecret(secretManager, c.Key, c.KeyFile, c.KeyRef)
+	key, err := toSecret(secretManager, cacheTTL, c.Key, c.KeyFile, c.KeyRef)
 	if err != nil {
 		return TLSRoundTripperSettings{}, err
 	}
@@ -1424,13 +1453,13 @@ func (c *TLSConfig) roundTripperSettings(secretManager SecretManager) (TLSRoundT
 }
 
 // getClientCertificate reads the pair of client cert and key and returns a tls.Certificate.
-func (c *TLSConfig) getClientCertificate(ctx context.Context, secretManager SecretManager) (*tls.Certificate, error) {
+func (c *TLSConfig) getClientCertificate(ctx context.Context, secretManager SecretManager, cacheTTL time.Duration) (*tls.Certificate, error) {
 	var (
 		certData, keyData string
 		err               error
 	)
 
-	certSecret, err := toSecret(secretManager, Secret(c.Cert), c.CertFile, c.CertRef)
+	certSecret, err := toSecret(secretManager, cacheTTL, Secret(c.Cert), c.CertFile, c.CertRef)
 	if err != nil {
 		return nil, fmt.Errorf("unable to use client cert: %w", err)
 	}
@@ -1441,7 +1470,7 @@ func (c *TLSConfig) getClientCertificate(ctx context.Context, secretManager Secr
 		}
 	}
 
-	keySecret, err := toSecret(secretManager, c.Key, c.KeyFile, c.KeyRef)
+	keySecret, err := toSecret(secretManager, cacheTTL, c.Key, c.KeyFile, c.KeyRef)
 	if err != nil {
 		return nil, fmt.Errorf("unable to use client key: %w", err)
 	}
