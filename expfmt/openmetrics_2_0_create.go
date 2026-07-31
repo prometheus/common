@@ -253,7 +253,7 @@ func writeOpenMetrics20Sample(w enhancedWriter, name string, metric *dto.Metric,
 		if err != nil {
 			return written, err
 		}
-		n, err = writeOpenMetrics20Timestamp(w, float64(ts.GetSeconds())+float64(ts.GetNanos())/1e9)
+		n, err = writeProtoTimestamp(w, ts)
 		written += n
 		if err != nil {
 			return written, err
