@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	dto "github.com/prometheus/client_model/go"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // MetricFamilyToOpenMetrics20 converts a MetricFamily proto message into the
@@ -383,4 +384,41 @@ func validateExemplar20(e *dto.Exemplar) error {
 		return err
 	}
 	return validateLabels20(e.Label)
+}
+
+func writeProtoTimestamp(w enhancedWriter, ts *timestamppb.Timestamp) (int, error) {
+	if err := ts.CheckValid(); err != nil {
+		return 0, err
+	}
+	n, err := writeInt(w, ts.Seconds)
+	if err != nil {
+		return n, err
+	}
+	if ts.Nanos == 0 {
+		return n, nil
+	}
+	err = w.WriteByte('.')
+	n++
+	if err != nil {
+		return n, err
+	}
+	bp := numBufPool.Get().(*[]byte)
+	*bp = strconv.AppendInt((*bp)[:0], int64(ts.Nanos), 10)
+	pad := 9 - len(*bp)
+	for range pad {
+		err = w.WriteByte('0')
+		n++
+		if err != nil {
+			numBufPool.Put(bp)
+			return n, err
+		}
+	}
+	val := *bp
+	for len(val) > 0 && val[len(val)-1] == '0' {
+		val = val[:len(val)-1]
+	}
+	n2, err := w.Write(val)
+	n += n2
+	numBufPool.Put(bp)
+	return n, err
 }
