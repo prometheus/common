@@ -75,7 +75,7 @@ http_requests_total{method="GET",code="200"} 1027 st@1234567890
 			},
 			out: `# HELP http_requests_total Total number of HTTP requests.
 # TYPE http_requests_total counter
-http_requests_total{method="GET",code="200"} 1027 st@1234567890.9876542
+http_requests_total{method="GET",code="200"} 1027 st@1234567890.987654321
 `,
 		},
 		{
