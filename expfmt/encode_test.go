@@ -200,6 +200,36 @@ func TestNegotiateIncludingOpenMetrics(t *testing.T) {
 	}
 }
 
+func TestNegotiateFormatsIncludingOpenMetrics(t *testing.T) {
+	oldDefault := model.NameEscapingScheme
+	model.NameEscapingScheme = model.ValueEncodingEscaping
+	defer func() {
+		model.NameEscapingScheme = oldDefault
+	}()
+
+	h := http.Header{}
+	h.Add(hdrAccept, "application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily;encoding=delimited;q=0.6,application/openmetrics-text;version=1.0.0;escaping=allow-utf-8;q=0.5,text/plain;version=0.0.4;q=0.2")
+
+	got := NegotiateFormatsIncludingOpenMetrics(h)
+	want := []Format{
+		FmtProtoDelim + "; escaping=values",
+		FmtOpenMetrics_1_0_0 + "; escaping=allow-utf-8",
+		FmtText + "; escaping=allow-utf-8",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("expected %d formats, got %d: %#v", len(want), len(got), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("format[%d]: want %q, got %q", i, want[i], got[i])
+		}
+	}
+	// First entry must match NegotiateIncludingOpenMetrics.
+	if NegotiateIncludingOpenMetrics(h) != got[0] {
+		t.Errorf("NegotiateIncludingOpenMetrics should return first negotiated format")
+	}
+}
+
 func TestEncode(t *testing.T) {
 	metric1 := &dto.MetricFamily{
 		Name: proto.String("foo_metric"),
