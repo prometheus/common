@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/munnerz/goautoneg"
 	dto "github.com/prometheus/client_model/go"
@@ -61,32 +62,17 @@ func (ec encoderCloser) Close() error {
 // as the support is still experimental. To include the option to negotiate
 // FmtOpenMetrics, use NegotiateIncludingOpenMetrics.
 func Negotiate(h http.Header) Format {
-	escapingScheme := Format(fmt.Sprintf("; escaping=%s", Format(model.NameEscapingScheme.String())))
-	for _, ac := range goautoneg.ParseAccept(h.Get(hdrAccept)) {
-		if escapeParam := ac.Params[model.EscapingKey]; escapeParam != "" {
-			switch Format(escapeParam) {
-			case model.AllowUTF8, model.EscapeUnderscores, model.EscapeDots, model.EscapeValues:
-				escapingScheme = Format("; escaping=" + escapeParam)
-			default:
-				// If the escaping parameter is unknown, ignore it.
-			}
-		}
-		ver := ac.Params["version"]
-		if ac.Type+"/"+ac.SubType == ProtoType && ac.Params["proto"] == ProtoProtocol {
-			switch ac.Params["encoding"] {
-			case "delimited":
-				return FmtProtoDelim + escapingScheme
-			case "text":
-				return FmtProtoText + escapingScheme
-			case "compact-text":
-				return FmtProtoCompact + escapingScheme
-			}
-		}
-		if ac.Type == "text" && ac.SubType == "plain" && (ver == TextVersion || ver == "") {
-			return FmtText + escapingScheme
-		}
-	}
-	return FmtText + escapingScheme
+	return NegotiateFormats(h)[0]
+}
+
+// NegotiateFormats works like Negotiate but returns all recognised formats
+// from the Accept header in descending preference order instead of stopping
+// at the first match. If no recognised formats are found, the slice contains
+// FmtText as the default fallback. This function will never include
+// FmtOpenMetrics in the result. To include OpenMetrics formats, use
+// NegotiateFormatsIncludingOpenMetrics.
+func NegotiateFormats(h http.Header) []Format {
+	return negotiateFormats(h, false)
 }
 
 // NegotiateIncludingOpenMetrics works like Negotiate but includes
@@ -94,8 +80,24 @@ func Negotiate(h http.Header) Format {
 // temporary and will disappear once FmtOpenMetrics is fully supported and as
 // such may be negotiated by the normal Negotiate function.
 func NegotiateIncludingOpenMetrics(h http.Header) Format {
-	escapingScheme := Format(fmt.Sprintf("; escaping=%s", Format(model.NameEscapingScheme.String())))
-	for _, ac := range goautoneg.ParseAccept(h.Get(hdrAccept)) {
+	return NegotiateFormatsIncludingOpenMetrics(h)[0]
+}
+
+// NegotiateFormatsIncludingOpenMetrics works like NegotiateIncludingOpenMetrics
+// but returns all recognised formats from the Accept header in descending
+// preference order instead of stopping at the first match. If no recognised
+// formats are found, the slice contains FmtText as the default fallback.
+// This allows a server that supports only a subset of formats to iterate
+// through the slice and pick the first format it can serve.
+func NegotiateFormatsIncludingOpenMetrics(h http.Header) []Format {
+	return negotiateFormats(h, true)
+}
+
+func negotiateFormats(h http.Header, includeOpenMetrics bool) []Format {
+	baseEscapingScheme := Format(fmt.Sprintf("; escaping=%s", Format(model.NameEscapingScheme.String())))
+	var formats []Format
+	for _, ac := range goautoneg.ParseAccept(strings.Join(h.Values(hdrAccept), ", ")) {
+		escapingScheme := baseEscapingScheme
 		if escapeParam := ac.Params[model.EscapingKey]; escapeParam != "" {
 			switch Format(escapeParam) {
 			case model.AllowUTF8, model.EscapeUnderscores, model.EscapeDots, model.EscapeValues:
@@ -108,26 +110,27 @@ func NegotiateIncludingOpenMetrics(h http.Header) Format {
 		if ac.Type+"/"+ac.SubType == ProtoType && ac.Params["proto"] == ProtoProtocol {
 			switch ac.Params["encoding"] {
 			case "delimited":
-				return FmtProtoDelim + escapingScheme
+				formats = append(formats, FmtProtoDelim+escapingScheme)
 			case "text":
-				return FmtProtoText + escapingScheme
+				formats = append(formats, FmtProtoText+escapingScheme)
 			case "compact-text":
-				return FmtProtoCompact + escapingScheme
+				formats = append(formats, FmtProtoCompact+escapingScheme)
 			}
-		}
-		if ac.Type == "text" && ac.SubType == "plain" && (ver == TextVersion || ver == "") {
-			return FmtText + escapingScheme
-		}
-		if ac.Type+"/"+ac.SubType == OpenMetricsType && (ver == OpenMetricsVersion_0_0_1 || ver == OpenMetricsVersion_1_0_0 || ver == "") {
+		} else if ac.Type == "text" && ac.SubType == "plain" && (ver == TextVersion || ver == "") {
+			formats = append(formats, FmtText+escapingScheme)
+		} else if includeOpenMetrics && ac.Type+"/"+ac.SubType == OpenMetricsType && (ver == OpenMetricsVersion_0_0_1 || ver == OpenMetricsVersion_1_0_0 || ver == "") {
 			switch ver {
 			case OpenMetricsVersion_1_0_0:
-				return FmtOpenMetrics_1_0_0 + escapingScheme
+				formats = append(formats, FmtOpenMetrics_1_0_0+escapingScheme)
 			default:
-				return FmtOpenMetrics_0_0_1 + escapingScheme
+				formats = append(formats, FmtOpenMetrics_0_0_1+escapingScheme)
 			}
 		}
 	}
-	return FmtText + escapingScheme
+	if len(formats) == 0 {
+		formats = append(formats, FmtText+baseEscapingScheme)
+	}
+	return formats
 }
 
 // NewEncoder returns a new encoder based on content type negotiation. All
