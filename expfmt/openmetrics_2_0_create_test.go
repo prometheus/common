@@ -492,6 +492,29 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "ExemplarInvalidTimestamp",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_counter_total"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Counter: &dto.Counter{
+							Value: proto.Float64(1.0),
+							Exemplar: &dto.Exemplar{
+								Label: []*dto.LabelPair{
+									{Name: proto.String("trace_id"), Value: proto.String("1234")},
+								},
+								Value: proto.Float64(1.0),
+								Timestamp: &timestamppb.Timestamp{
+									Nanos: -1,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range tests {
