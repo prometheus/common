@@ -268,12 +268,15 @@ http_requests_total 1027
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			_, err := MetricFamilyToOpenMetrics20(&buf, scenario.in)
+			n, err := MetricFamilyToOpenMetrics20(&buf, scenario.in)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if buf.String() != scenario.out {
 				t.Errorf("expected out:\n%s\ngot:\n%s", scenario.out, buf.String())
+			}
+			if n != len(scenario.out) {
+				t.Errorf("expected %d bytes written, got %d", len(scenario.out), n)
 			}
 		})
 	}
@@ -294,12 +297,15 @@ func TestWriteOpenMetrics20Timestamp_SpecialValues(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var buf bytes.Buffer
 			w := enhancedWriter(&buf)
-			_, err := writeOpenMetrics20Timestamp(w, tc.val)
+			n, err := writeOpenMetrics20Timestamp(w, tc.val)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if buf.String() != tc.out {
 				t.Errorf("expected %q, got %q", tc.out, buf.String())
+			}
+			if n != len(tc.out) {
+				t.Errorf("expected %d bytes written, got %d", len(tc.out), n)
 			}
 		})
 	}
@@ -486,13 +492,16 @@ func TestWriteOpenMetrics20Sample_UseIntValue(t *testing.T) {
 	var buf bytes.Buffer
 	w := enhancedWriter(&buf)
 	metric := &dto.Metric{}
-	_, err := writeOpenMetrics20Sample(w, "test_metric", metric, 0, 123, true, nil)
+	n, err := writeOpenMetrics20Sample(w, "test_metric", metric, 0, 123, true, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	expected := "test_metric 123\n"
 	if buf.String() != expected {
 		t.Errorf("expected %q, got %q", expected, buf.String())
+	}
+	if n != len(expected) {
+		t.Errorf("expected %d bytes written, got %d", len(expected), n)
 	}
 }
 
@@ -515,7 +524,7 @@ func TestCreateOpenMetrics20_SimpleWriter(t *testing.T) {
 		io.Writer
 	}{&buf}
 
-	_, err := MetricFamilyToOpenMetrics20(sw, in)
+	n, err := MetricFamilyToOpenMetrics20(sw, in)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -525,5 +534,8 @@ http_requests_total 1027
 `
 	if buf.String() != expected {
 		t.Errorf("expected %q, got %q", expected, buf.String())
+	}
+	if n != len(expected) {
+		t.Errorf("expected %d bytes written, got %d", len(expected), n)
 	}
 }
