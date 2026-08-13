@@ -205,41 +205,59 @@ func TestNegotiateIncludingOpenMetrics(t *testing.T) {
 	}
 }
 
-func TestNegotiateIncluding(t *testing.T) {
+func TestNegotiateAccept(t *testing.T) {
 	tests := []struct {
 		name              string
 		acceptHeaderValue string
-		additionalFormats []Format
+		acceptedFormats   []Format
 		expectedFmt       string
 	}{
 		{
-			name:              "requested OM 2.0, supported OM 2.0",
+			name:              "requested OM 2.0, accepted OM 2.0",
 			acceptHeaderValue: "application/openmetrics-text;version=2.0.0",
-			additionalFormats: []Format{FmtOpenMetrics_2_0_0},
+			acceptedFormats:   []Format{FmtOpenMetrics_2_0_0, FmtText},
 			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=values",
 		},
 		{
-			name:              "requested OM 2.0, not supported",
+			name:              "requested OM 2.0, not accepted, falls back to text",
 			acceptHeaderValue: "application/openmetrics-text;version=2.0.0",
-			additionalFormats: []Format{FmtOpenMetrics_1_0_0},
-			expectedFmt:       "text/plain; version=0.0.4; charset=utf-8; escaping=values", // falls back to text
+			acceptedFormats:   []Format{FmtOpenMetrics_1_0_0, FmtText},
+			expectedFmt:       "text/plain; version=0.0.4; charset=utf-8; escaping=values",
 		},
 		{
-			name:              "requested OM 1.0 and 2.0, supported both, prefers first in Accept",
-			acceptHeaderValue: "application/openmetrics-text;version=1.0.0, application/openmetrics-text;version=2.0.0;q=0.9",
-			additionalFormats: []Format{FmtOpenMetrics_2_0_0, FmtOpenMetrics_1_0_0},
-			expectedFmt:       "application/openmetrics-text; version=1.0.0; charset=utf-8; escaping=values",
+			name:              "requested OM 2.0, not accepted, falls back to first format when no text in accepted",
+			acceptHeaderValue: "application/openmetrics-text;version=2.0.0",
+			acceptedFormats:   []Format{FmtProtoDelim},
+			expectedFmt:       "application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited; escaping=values",
 		},
 		{
-			name:              "requested OM 1.0 and 2.0, supported both, prefers higher q",
-			acceptHeaderValue: "application/openmetrics-text;version=1.0.0;q=0.8, application/openmetrics-text;version=2.0.0",
-			additionalFormats: []Format{FmtOpenMetrics_2_0_0, FmtOpenMetrics_1_0_0},
+			name:              "requested OM 1.0 and 2.0, prefers higher q value",
+			acceptHeaderValue: "application/openmetrics-text;version=1.0.0;q=0.8, application/openmetrics-text;version=2.0.0;q=0.9",
+			acceptedFormats:   []Format{FmtOpenMetrics_1_0_0, FmtOpenMetrics_2_0_0, FmtText},
 			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=values",
 		},
 		{
-			name:              "fallback to default text",
+			name:              "wildcard */* matches first accepted format",
+			acceptHeaderValue: "*/*",
+			acceptedFormats:   []Format{FmtOpenMetrics_2_0_0, FmtProtoDelim, FmtText},
+			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=values",
+		},
+		{
+			name:              "wildcard */* with text first in accepted",
+			acceptHeaderValue: "*/*",
+			acceptedFormats:   []Format{FmtText, FmtProtoDelim},
+			expectedFmt:       "text/plain; version=0.0.4; charset=utf-8; escaping=values",
+		},
+		{
+			name:              "unversioned text/plain matches FmtText",
+			acceptHeaderValue: "text/plain",
+			acceptedFormats:   []Format{FmtProtoDelim, FmtText},
+			expectedFmt:       "text/plain; version=0.0.4; charset=utf-8; escaping=values",
+		},
+		{
+			name:              "empty accepted list defaults to FmtText",
 			acceptHeaderValue: "application/unknown",
-			additionalFormats: []Format{FmtOpenMetrics_2_0_0},
+			acceptedFormats:   nil,
 			expectedFmt:       "text/plain; version=0.0.4; charset=utf-8; escaping=values",
 		},
 	}
@@ -254,9 +272,9 @@ func TestNegotiateIncluding(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			h := http.Header{}
 			h.Add(hdrAccept, test.acceptHeaderValue)
-			actualFmt := string(NegotiateIncluding(h, test.additionalFormats...))
+			actualFmt := string(NegotiateAccept(h, test.acceptedFormats...))
 			if actualFmt != test.expectedFmt {
-				t.Errorf("case %d: expected NegotiateIncluding to return format %s, but got %s instead", i, test.expectedFmt, actualFmt)
+				t.Errorf("case %d: expected NegotiateAccept to return format %s, but got %s instead", i, test.expectedFmt, actualFmt)
 			}
 		})
 	}

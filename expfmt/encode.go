@@ -58,27 +58,29 @@ func (ec encoderCloser) Close() error {
 
 // Negotiate returns the Content-Type based on the given Accept header. If no
 // appropriate accepted type is found, FmtText is returned (which is the
-// Prometheus text format). This function will never negotiate FmtOpenMetrics,
-// as the support is still experimental. To include the option to negotiate
-// FmtOpenMetrics, use NegotiateIncludingOpenMetrics or NegotiateIncluding.
+// Prometheus text format).
+//
+// Deprecated: Use NegotiateAccept(h, FmtProtoDelim, FmtProtoText, FmtProtoCompact, FmtText)
+// or specify only the formats supported by your server.
 func Negotiate(h http.Header) Format {
-	return NegotiateIncluding(h)
+	return NegotiateAccept(h, FmtProtoDelim, FmtProtoText, FmtProtoCompact, FmtText)
 }
 
 // NegotiateIncludingOpenMetrics works like Negotiate but includes
-// FmtOpenMetrics as an option for the result. Note that this function is
-// temporary and will disappear once FmtOpenMetrics is fully supported and as
-// such may be negotiated by the normal Negotiate function.
+// FmtOpenMetrics as an option for the result.
+//
+// Deprecated: Use NegotiateAccept(h, FmtOpenMetrics_1_0_0, FmtOpenMetrics_0_0_1, FmtProtoDelim, FmtProtoText, FmtProtoCompact, FmtText)
+// or specify only the formats supported by your server.
 func NegotiateIncludingOpenMetrics(h http.Header) Format {
-	return NegotiateIncluding(h, FmtOpenMetrics_1_0_0, FmtOpenMetrics_0_0_1)
+	return NegotiateAccept(h, FmtOpenMetrics_1_0_0, FmtOpenMetrics_0_0_1, FmtProtoDelim, FmtProtoText, FmtProtoCompact, FmtText)
 }
 
-// NegotiateIncluding returns the Content-Type based on the given Accept header.
-// It automatically includes the default formats (Protobuf and Text) as options.
-// Additional formats provided in the arguments are also included as options,
-// and are checked in the order they are provided, respecting the preference
-// order in the Accept header.
-func NegotiateIncluding(h http.Header, additionalFormats ...Format) Format {
+// NegotiateAccept returns the Content-Type based on the given Accept header
+// and the list of accepted Formats provided by the caller, in order of preference.
+// If no accepted format matches the Accept header, it falls back to the text
+// format if present in the accepted list, or the first accepted format (or FmtText
+// if accepted is empty).
+func NegotiateAccept(h http.Header, accepted ...Format) Format {
 	escapingScheme := Format(fmt.Sprintf("; escaping=%s", Format(model.NameEscapingScheme.String())))
 	for _, ac := range goautoneg.ParseAccept(h.Get(hdrAccept)) {
 		if escapeParam := ac.Params[model.EscapingKey]; escapeParam != "" {
@@ -89,27 +91,20 @@ func NegotiateIncluding(h http.Header, additionalFormats ...Format) Format {
 				// If the escaping parameter is unknown, ignore it.
 			}
 		}
-		ver := ac.Params["version"]
 
-		for _, f := range additionalFormats {
+		for _, f := range accepted {
 			if matchFormat(ac, f) {
 				return f + escapingScheme
 			}
 		}
-
-		if ac.Type+"/"+ac.SubType == ProtoType && ac.Params["proto"] == ProtoProtocol {
-			switch ac.Params["encoding"] {
-			case "delimited":
-				return FmtProtoDelim + escapingScheme
-			case "text":
-				return FmtProtoText + escapingScheme
-			case "compact-text":
-				return FmtProtoCompact + escapingScheme
-			}
+	}
+	for _, f := range accepted {
+		if f.FormatType() == TypeTextPlain {
+			return f + escapingScheme
 		}
-		if ac.Type == "text" && ac.SubType == "plain" && (ver == TextVersion || ver == "") {
-			return FmtText + escapingScheme
-		}
+	}
+	if len(accepted) > 0 {
+		return accepted[0] + escapingScheme
 	}
 	return FmtText + escapingScheme
 }
@@ -122,14 +117,25 @@ func matchFormat(ac goautoneg.Accept, f Format) bool {
 	}
 	target := parsed[0]
 
-	if ac.Type != target.Type || ac.SubType != target.SubType {
+	if ac.Type != "*" && ac.Type != target.Type {
 		return false
+	}
+	if ac.SubType != "*" && ac.SubType != target.SubType {
+		return false
+	}
+
+	// If ac is */*, wildcard matches any target.
+	if ac.Type == "*" && ac.SubType == "*" {
+		return true
 	}
 
 	// Default OpenMetrics version to OpenMetricsVersion_0_0_1.
 	acVersion := ac.Params["version"]
 	if acVersion == "" && ac.Type+"/"+ac.SubType == OpenMetricsType {
 		acVersion = OpenMetricsVersion_0_0_1
+	}
+	if acVersion == "" && ac.Type == "text" && ac.SubType == "plain" {
+		acVersion = TextVersion
 	}
 
 	// General param matching.
