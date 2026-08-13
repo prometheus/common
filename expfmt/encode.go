@@ -126,13 +126,13 @@ func matchFormat(ac goautoneg.Accept, f Format) bool {
 		return false
 	}
 
-	// Default OpenMetrics version to OpenMetricsVersion_0_0_1
+	// Default OpenMetrics version to OpenMetricsVersion_0_0_1.
 	acVersion := ac.Params["version"]
 	if acVersion == "" && ac.Type+"/"+ac.SubType == OpenMetricsType {
 		acVersion = OpenMetricsVersion_0_0_1
 	}
 
-	// General param matching
+	// General param matching.
 	for k, v := range target.Params {
 		if k == "charset" {
 			continue
