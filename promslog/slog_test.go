@@ -275,7 +275,7 @@ func TestNewNopLogger(t *testing.T) {
 	// path stays free.
 	called := false
 	logger.Info("test", "expensive", expensiveValuer{called: &called})
-	require.False(t, called, "nop logger must not evaluate log arguments")
+	require.Falsef(t, called, "nop logger must not evaluate log arguments")
 }
 
 func BenchmarkNopLogger(b *testing.B) {
