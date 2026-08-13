@@ -62,7 +62,7 @@ const (
 	//nolint:revive // Allow for underscores.
 	FmtOpenMetrics_1_0_0 Format = OpenMetricsType + `; version=` + OpenMetricsVersion_1_0_0 + `; charset=utf-8`
 	//nolint:revive // Allow for underscores.
-	FmtOpenMetrics_2_0_0 Format = OpenMetricsType + `; version=` + OpenMetricsVersion_2_0_0 + `; charset=utf-8`
+	fmtOpenMetrics_2_0_0 Format = OpenMetricsType + `; version=` + OpenMetricsVersion_2_0_0 + `; charset=utf-8`
 	// Deprecated: Use expfmt.NewFormat(expfmt.TypeOpenMetrics) instead.
 	//nolint:revive // Allow for underscores.
 	FmtOpenMetrics_0_0_1 Format = OpenMetricsType + `; version=` + OpenMetricsVersion_0_0_1 + `; charset=utf-8`
@@ -119,7 +119,7 @@ func NewOpenMetricsFormat(version string) (Format, error) {
 		return FmtOpenMetrics_1_0_0, nil
 	}
 	if version == OpenMetricsVersion_2_0_0 {
-		return FmtOpenMetrics_2_0_0, nil
+		return fmtOpenMetrics_2_0_0, nil
 	}
 	return FmtUnknown, errors.New("unknown open metrics version string")
 }

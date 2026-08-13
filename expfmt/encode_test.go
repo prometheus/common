@@ -215,7 +215,7 @@ func TestNegotiateAccept(t *testing.T) {
 		{
 			name:              "requested OM 2.0, accepted OM 2.0",
 			acceptHeaderValue: "application/openmetrics-text;version=2.0.0",
-			acceptedFormats:   []Format{FmtOpenMetrics_2_0_0, FmtText},
+			acceptedFormats:   []Format{fmtOpenMetrics_2_0_0, FmtText},
 			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=values",
 		},
 		{
@@ -233,13 +233,13 @@ func TestNegotiateAccept(t *testing.T) {
 		{
 			name:              "requested OM 1.0 and 2.0, prefers higher q value",
 			acceptHeaderValue: "application/openmetrics-text;version=1.0.0;q=0.8, application/openmetrics-text;version=2.0.0;q=0.9",
-			acceptedFormats:   []Format{FmtOpenMetrics_1_0_0, FmtOpenMetrics_2_0_0, FmtText},
+			acceptedFormats:   []Format{FmtOpenMetrics_1_0_0, fmtOpenMetrics_2_0_0, FmtText},
 			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=values",
 		},
 		{
 			name:              "wildcard */* matches first accepted format",
 			acceptHeaderValue: "*/*",
-			acceptedFormats:   []Format{FmtOpenMetrics_2_0_0, FmtProtoDelim, FmtText},
+			acceptedFormats:   []Format{fmtOpenMetrics_2_0_0, FmtProtoDelim, FmtText},
 			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=values",
 		},
 		{
@@ -350,10 +350,10 @@ foo_metric 1.234
 foo_metric 1.234
 `,
 		},
-		// 8: Untyped FmtOpenMetrics_2_0_0
+		// 8: Untyped fmtOpenMetrics_2_0_0
 		{
 			metric: metric1,
-			format: FmtOpenMetrics_2_0_0,
+			format: fmtOpenMetrics_2_0_0,
 			expOut: `# TYPE foo_metric unknown
 # UNIT foo_metric seconds
 foo_metric 1.234
