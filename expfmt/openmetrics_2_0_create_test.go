@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"io"
 	"math"
+	"strings"
 	"testing"
 
 	dto "github.com/prometheus/client_model/go"
@@ -313,14 +314,16 @@ func TestWriteOpenMetrics20Timestamp_SpecialValues(t *testing.T) {
 
 func TestCreateOpenMetrics20_Errors(t *testing.T) {
 	tests := []struct {
-		name string
-		in   *dto.MetricFamily
+		name        string
+		in          *dto.MetricFamily
+		expectedErr string
 	}{
 		{
 			name: "NoName",
 			in: &dto.MetricFamily{
 				Type: dto.MetricType_COUNTER.Enum(),
 			},
+			expectedErr: "MetricFamily has no name",
 		},
 		{
 			name: "UnknownType",
@@ -328,6 +331,7 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 				Name: proto.String("test_metric"),
 				Type: dto.MetricType(100).Enum(),
 			},
+			expectedErr: "unknown metric type",
 		},
 		{
 			name: "MissingCounter",
@@ -338,6 +342,7 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 					{},
 				},
 			},
+			expectedErr: "expected counter in metric",
 		},
 		{
 			name: "MissingGauge",
@@ -348,6 +353,7 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 					{},
 				},
 			},
+			expectedErr: "expected gauge in metric",
 		},
 		{
 			name: "MissingUntyped",
@@ -358,6 +364,7 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 					{},
 				},
 			},
+			expectedErr: "expected untyped in metric",
 		},
 		{
 			name: "MissingSummary",
@@ -368,6 +375,7 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 					{},
 				},
 			},
+			expectedErr: "expected summary in metric",
 		},
 		{
 			name: "MissingHistogram",
@@ -378,6 +386,7 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 					{},
 				},
 			},
+			expectedErr: "expected histogram in metric",
 		},
 		{
 			name: "SummaryNotImplemented",
@@ -388,6 +397,7 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 					{Summary: &dto.Summary{}},
 				},
 			},
+			expectedErr: "summary not implemented yet",
 		},
 		{
 			name: "HistogramNotImplemented",
@@ -398,6 +408,7 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 					{Histogram: &dto.Histogram{}},
 				},
 			},
+			expectedErr: "histogram not implemented yet",
 		},
 		{
 			name: "GaugeHistogramNotImplemented",
@@ -408,6 +419,7 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 					{Histogram: &dto.Histogram{}},
 				},
 			},
+			expectedErr: "histogram not implemented yet",
 		},
 		{
 			name: "CounterValueNaN",
@@ -418,6 +430,7 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 					{Counter: &dto.Counter{Value: proto.Float64(math.NaN())}},
 				},
 			},
+			expectedErr: "counter value cannot be NaN",
 		},
 		{
 			name: "CounterValueNegative",
@@ -428,6 +441,7 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 					{Counter: &dto.Counter{Value: proto.Float64(-5.0)}},
 				},
 			},
+			expectedErr: "counter value cannot be negative",
 		},
 		{
 			name: "EmptyLabelName",
@@ -443,6 +457,7 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 					},
 				},
 			},
+			expectedErr: "label name cannot be empty",
 		},
 		{
 			name: "NewlineInMetricName",
@@ -453,6 +468,7 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 					{Counter: &dto.Counter{Value: proto.Float64(1.0)}},
 				},
 			},
+			expectedErr: "contains raw newlines",
 		},
 		{
 			name: "NilMetric",
@@ -461,6 +477,7 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 				Type:   dto.MetricType_COUNTER.Enum(),
 				Metric: []*dto.Metric{nil},
 			},
+			expectedErr: "expected non-nil metric",
 		},
 		{
 			name: "NilLabelPair",
@@ -474,6 +491,7 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 					},
 				},
 			},
+			expectedErr: "expected non-nil label pair",
 		},
 		{
 			name: "CounterInvalidCreatedTimestamp",
@@ -491,6 +509,7 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 					},
 				},
 			},
+			expectedErr: "invalid created timestamp in metric test_counter_total",
 		},
 		{
 			name: "ExemplarInvalidTimestamp",
@@ -514,6 +533,7 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 					},
 				},
 			},
+			expectedErr: "has out-of-range nanos",
 		},
 	}
 
@@ -523,6 +543,9 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 			_, err := MetricFamilyToOpenMetrics20(&buf, tc.in)
 			if err == nil {
 				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tc.expectedErr) {
+				t.Fatalf("expected error containing %q, got %q", tc.expectedErr, err.Error())
 			}
 		})
 	}
