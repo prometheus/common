@@ -254,3 +254,35 @@ func TestReservedKeys(t *testing.T) {
 		})
 	}
 }
+
+type expensiveValuer struct {
+	called *bool
+}
+
+func (v expensiveValuer) LogValue() slog.Value {
+	*v.called = true
+	return slog.StringValue("expensive")
+}
+
+func TestNewNopLogger(t *testing.T) {
+	logger := NewNopLogger()
+
+	for _, lvl := range []slog.Level{slog.LevelDebug, slog.LevelInfo, slog.LevelWarn, slog.LevelError} {
+		require.Falsef(t, logger.Enabled(context.Background(), lvl), "nop logger must be disabled for level %s", lvl)
+	}
+
+	// Arguments must never be evaluated, so that using a nop logger in a hot
+	// path stays free.
+	called := false
+	logger.Info("test", "expensive", expensiveValuer{called: &called})
+	require.Falsef(t, called, "nop logger must not evaluate log arguments")
+}
+
+func BenchmarkNopLogger(b *testing.B) {
+	logger := NewNopLogger()
+	value := struct{ Field string }{Field: "value"}
+
+	for b.Loop() {
+		logger.Info("test", "key", value)
+	}
+}
