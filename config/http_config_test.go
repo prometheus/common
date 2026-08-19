@@ -110,6 +110,10 @@ var invalidHTTPClientConfigs = []struct {
 		errMsg:               `authorization type cannot be set to "basic", use "basic_auth" instead`,
 	},
 	{
+		httpClientConfigFile: "testdata/http.conf.cf-access-with-credentials.bad.yaml",
+		errMsg:               `authorization credentials, credentials_file & credentials_ref must not be configured when authorization type is "cf-access"`,
+	},
+	{
 		httpClientConfigFile: "testdata/http.conf.oauth2-secret-and-file-set.bad.yml",
 		errMsg:               "at most one of oauth2 client_secret, client_secret_file & client_secret_ref must be configured",
 	},

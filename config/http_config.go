@@ -158,6 +158,11 @@ func (a *BasicAuth) SetDirectory(dir string) {
 
 // Authorization contains HTTP authorization credentials.
 type Authorization struct {
+	// Type sets the scheme used for the Authorization header, for example
+	// "Bearer" (the default). As a special case, setting Type to "cf-access"
+	// authenticates against Cloudflare Access instead of sending a literal
+	// Authorization header: Credentials, CredentialsFile and CredentialsRef
+	// must be left unset in that case.
 	Type            string `yaml:"type,omitempty" json:"type,omitempty"`
 	Credentials     Secret `yaml:"credentials,omitempty" json:"credentials,omitempty"`
 	CredentialsFile string `yaml:"credentials_file,omitempty" json:"credentials_file,omitempty"`
@@ -416,6 +421,9 @@ func (c *HTTPClientConfig) Validate() error {
 		if strings.ToLower(c.Authorization.Type) == "basic" {
 			return errors.New(`authorization type cannot be set to "basic", use "basic_auth" instead`)
 		}
+		if isCFAccessAuthType(c.Authorization.Type) && nonZeroCount(string(c.Authorization.Credentials) != "", c.Authorization.CredentialsFile != "", c.Authorization.CredentialsRef != "") > 0 {
+			return fmt.Errorf("authorization credentials, credentials_file & credentials_ref must not be configured when authorization type is %q", cfAccessAuthType)
+		}
 		if c.BasicAuth != nil || c.OAuth2 != nil {
 			return errors.New("at most one of basic_auth, oauth2 & authorization must be configured")
 		}
@@ -671,13 +679,20 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 		}
 
 		// If a authorization_credentials is provided, create a round tripper that will set the
-		// Authorization header correctly on each request.
+		// Authorization header correctly on each request. authorization.type: cf-access is a
+		// special case: it is not a real HTTP Authorization scheme, so instead of setting an
+		// Authorization header it authenticates against Cloudflare Access and attaches the
+		// resulting token as a Cf-Access-Token header.
 		if cfg.Authorization != nil {
-			credentialsSecret, err := toSecret(opts.secretManager, cfg.Authorization.Credentials, cfg.Authorization.CredentialsFile, cfg.Authorization.CredentialsRef)
-			if err != nil {
-				return nil, fmt.Errorf("unable to use credentials: %w", err)
+			if isCFAccessAuthType(cfg.Authorization.Type) {
+				rt = newCFAccessRoundTripper(rt, name)
+			} else {
+				credentialsSecret, err := toSecret(opts.secretManager, cfg.Authorization.Credentials, cfg.Authorization.CredentialsFile, cfg.Authorization.CredentialsRef)
+				if err != nil {
+					return nil, fmt.Errorf("unable to use credentials: %w", err)
+				}
+				rt = NewAuthorizationCredentialsRoundTripper(cfg.Authorization.Type, credentialsSecret, rt)
 			}
-			rt = NewAuthorizationCredentialsRoundTripper(cfg.Authorization.Type, credentialsSecret, rt)
 		}
 		// Backwards compatibility, be nice with importers who would not have
 		// called Validate().
