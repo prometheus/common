@@ -164,6 +164,27 @@ http_requests_total 1027 1234567891 st@1234567890 # {trace_id="1234"} 1 12345678
 `,
 		},
 		{
+			name: "CounterWithExemplarWithoutLabels",
+			in: &dto.MetricFamily{
+				Name: proto.String("http_requests_total"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Counter: &dto.Counter{
+							Value: proto.Float64(1027),
+							Exemplar: &dto.Exemplar{
+								Value:     proto.Float64(1),
+								Timestamp: &timestamppb.Timestamp{Seconds: 1234567890, Nanos: 500000000},
+							},
+						},
+					},
+				},
+			},
+			out: `# TYPE http_requests_total counter
+http_requests_total 1027 # {} 1 1234567890.5
+`,
+		},
+		{
 			name: "CounterWithExemplarWithoutTimestamp",
 			in: &dto.MetricFamily{
 				Name: proto.String("http_requests_total"),
