@@ -260,7 +260,7 @@ func writeOpenMetrics20Sample(w enhancedWriter, name string, metric *dto.Metric,
 		}
 	}
 
-	if exemplar != nil && len(exemplar.Label) > 0 && exemplar.Timestamp != nil {
+	if exemplar != nil && exemplar.Timestamp != nil {
 		n, err = writeExemplar20(w, exemplar)
 		written += n
 		if err != nil {
@@ -279,7 +279,7 @@ func writeOpenMetrics20Sample(w enhancedWriter, name string, metric *dto.Metric,
 // writeExemplar20 writes the provided exemplar in OpenMetrics 2.0 format to w.
 // In OpenMetrics 2.0, exemplars without a timestamp are dropped.
 func writeExemplar20(w enhancedWriter, e *dto.Exemplar) (int, error) {
-	if e == nil || len(e.Label) == 0 || e.Timestamp == nil {
+	if e == nil || e.Timestamp == nil {
 		return 0, nil
 	}
 	if err := validateExemplar20(e); err != nil {
@@ -291,7 +291,11 @@ func writeExemplar20(w enhancedWriter, e *dto.Exemplar) (int, error) {
 	if err != nil {
 		return written, err
 	}
-	n, err = writeOpenMetricsNameAndLabelPairs(w, "", e.Label, "", 0)
+	if len(e.Label) == 0 {
+		n, err = w.WriteString("{}")
+	} else {
+		n, err = writeOpenMetricsNameAndLabelPairs(w, "", e.Label, "", 0)
+	}
 	written += n
 	if err != nil {
 		return written, err
