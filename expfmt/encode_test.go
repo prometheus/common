@@ -121,6 +121,11 @@ func TestNegotiateIncludingOpenMetrics(t *testing.T) {
 			expectedFmt:       "application/openmetrics-text; version=1.0.0; charset=utf-8; escaping=values",
 		},
 		{
+			name:              "OM format, 2.0.0 version",
+			acceptHeaderValue: "application/openmetrics-text;version=2.0.0",
+			expectedFmt:       "text/plain; version=0.0.4; charset=utf-8; escaping=values",
+		},
+		{
 			name:              "OM format, 0.0.1 version with utf-8 is not valid, falls back",
 			acceptHeaderValue: "application/openmetrics-text;version=0.0.1",
 			expectedFmt:       "application/openmetrics-text; version=0.0.1; charset=utf-8; escaping=values",
@@ -200,6 +205,81 @@ func TestNegotiateIncludingOpenMetrics(t *testing.T) {
 	}
 }
 
+func TestNegotiateAccept(t *testing.T) {
+	tests := []struct {
+		name              string
+		acceptHeaderValue string
+		acceptedFormats   []Format
+		expectedFmt       string
+	}{
+		{
+			name:              "requested OM 2.0, accepted OM 2.0",
+			acceptHeaderValue: "application/openmetrics-text;version=2.0.0",
+			acceptedFormats:   []Format{fmtOpenMetrics_2_0_0, FmtText},
+			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=values",
+		},
+		{
+			name:              "requested OM 2.0, not accepted, falls back to text",
+			acceptHeaderValue: "application/openmetrics-text;version=2.0.0",
+			acceptedFormats:   []Format{FmtOpenMetrics_1_0_0, FmtText},
+			expectedFmt:       "text/plain; version=0.0.4; charset=utf-8; escaping=values",
+		},
+		{
+			name:              "requested OM 2.0, not accepted, falls back to first format when no text in accepted",
+			acceptHeaderValue: "application/openmetrics-text;version=2.0.0",
+			acceptedFormats:   []Format{FmtProtoDelim},
+			expectedFmt:       "application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited; escaping=values",
+		},
+		{
+			name:              "requested OM 1.0 and 2.0, prefers higher q value",
+			acceptHeaderValue: "application/openmetrics-text;version=1.0.0;q=0.8, application/openmetrics-text;version=2.0.0;q=0.9",
+			acceptedFormats:   []Format{FmtOpenMetrics_1_0_0, fmtOpenMetrics_2_0_0, FmtText},
+			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=values",
+		},
+		{
+			name:              "wildcard */* matches first accepted format",
+			acceptHeaderValue: "*/*",
+			acceptedFormats:   []Format{fmtOpenMetrics_2_0_0, FmtProtoDelim, FmtText},
+			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=values",
+		},
+		{
+			name:              "wildcard */* with text first in accepted",
+			acceptHeaderValue: "*/*",
+			acceptedFormats:   []Format{FmtText, FmtProtoDelim},
+			expectedFmt:       "text/plain; version=0.0.4; charset=utf-8; escaping=values",
+		},
+		{
+			name:              "unversioned text/plain matches FmtText",
+			acceptHeaderValue: "text/plain",
+			acceptedFormats:   []Format{FmtProtoDelim, FmtText},
+			expectedFmt:       "text/plain; version=0.0.4; charset=utf-8; escaping=values",
+		},
+		{
+			name:              "empty accepted list defaults to FmtText",
+			acceptHeaderValue: "application/unknown",
+			acceptedFormats:   nil,
+			expectedFmt:       "text/plain; version=0.0.4; charset=utf-8; escaping=values",
+		},
+	}
+
+	oldDefault := model.NameEscapingScheme
+	model.NameEscapingScheme = model.ValueEncodingEscaping
+	defer func() {
+		model.NameEscapingScheme = oldDefault
+	}()
+
+	for i, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			h := http.Header{}
+			h.Add(hdrAccept, test.acceptHeaderValue)
+			actualFmt := string(NegotiateAccept(h, test.acceptedFormats...))
+			if actualFmt != test.expectedFmt {
+				t.Errorf("case %d: expected NegotiateAccept to return format %s, but got %s instead", i, test.expectedFmt, actualFmt)
+			}
+		})
+	}
+}
+
 func TestEncode(t *testing.T) {
 	metric1 := &dto.MetricFamily{
 		Name: proto.String("foo_metric"),
@@ -265,6 +345,15 @@ foo_metric 1.234
 		{
 			metric: metric1,
 			format: FmtOpenMetrics_1_0_0,
+			expOut: `# TYPE foo_metric unknown
+# UNIT foo_metric seconds
+foo_metric 1.234
+`,
+		},
+		// 8: Untyped fmtOpenMetrics_2_0_0
+		{
+			metric: metric1,
+			format: fmtOpenMetrics_2_0_0,
 			expOut: `# TYPE foo_metric unknown
 # UNIT foo_metric seconds
 foo_metric 1.234
