@@ -476,6 +476,27 @@ request_duration_seconds {count:2,sum:1.5,bucket:[0.1:1,1:2,+Inf:2]}
 `,
 		},
 		{
+			name: "ClassicHistogram_LargeCount_ImplicitPosInf",
+			in: &dto.MetricFamily{
+				Name: proto.String("request_duration_seconds"),
+				Type: dto.MetricType_HISTOGRAM.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Histogram: &dto.Histogram{
+							SampleCount: proto.Uint64(9007199254740993),
+							SampleSum:   proto.Float64(1.5),
+							Bucket: []*dto.Bucket{
+								{UpperBound: proto.Float64(0.1), CumulativeCount: proto.Uint64(1)},
+							},
+						},
+					},
+				},
+			},
+			out: `# TYPE request_duration_seconds histogram
+request_duration_seconds {count:9007199254740993,sum:1.5,bucket:[0.1:1,+Inf:9007199254740993]}
+`,
+		},
+		{
 			name: "ClassicHistogram_NegativeThresholds",
 			in: &dto.MetricFamily{
 				Name: proto.String("temperature_deviation"),
