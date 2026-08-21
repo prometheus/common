@@ -454,7 +454,7 @@ func writeCompositeHistogram(w enhancedWriter, name string, metric *dto.Metric, 
 
 	var classicExemplars []*dto.Exemplar
 	if hasClassicBuckets {
-		n, err = writeClassicBuckets(w, name, h, sampleCountFloat, isFloatCount, isGauge, &classicExemplars)
+		n, err = writeClassicBuckets(w, name, h, sampleCountFloat, sampleCountUint, isFloatCount, isGauge, &classicExemplars)
 		written += n
 		if err != nil {
 			return written, err
@@ -752,6 +752,7 @@ func writeClassicBuckets(
 	name string,
 	h *dto.Histogram,
 	sampleCount float64,
+	sampleCountUint uint64,
 	isFloatCount bool,
 	isGauge bool,
 	collectedExemplars *[]*dto.Exemplar,
@@ -784,8 +785,16 @@ func writeClassicBuckets(
 				return 0, fmt.Errorf("+Inf bucket must be the last bucket in metric %s", name)
 			}
 			infSeen = true
-			if bCount != sampleCount {
-				return 0, fmt.Errorf("classic bucket +Inf count (%g) does not match sample count (%g) in metric %s", bCount, sampleCount, name)
+			if isFloatCount {
+				if bCount != sampleCount {
+					return 0, fmt.Errorf("classic bucket +Inf count (%g) does not match sample count (%g) in metric %s", bCount, sampleCount, name)
+				}
+			} else {
+				if b.CumulativeCount != nil && *b.CumulativeCount != sampleCountUint {
+					return 0, fmt.Errorf("classic bucket +Inf count (%d) does not match sample count (%d) in metric %s", *b.CumulativeCount, sampleCountUint, name)
+				} else if b.CumulativeCount == nil && bCount != sampleCount {
+					return 0, fmt.Errorf("classic bucket +Inf count (%g) does not match sample count (%g) in metric %s", bCount, sampleCount, name)
+				}
 			}
 		}
 
@@ -858,7 +867,7 @@ func writeClassicBuckets(
 		if isFloatCount {
 			n, err = writeFloat(w, sampleCount)
 		} else {
-			n, err = writeUint(w, uint64(sampleCount))
+			n, err = writeUint(w, sampleCountUint)
 		}
 		written += n
 		if err != nil {
