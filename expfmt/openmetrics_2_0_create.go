@@ -260,7 +260,7 @@ func writeOpenMetrics20Sample(w enhancedWriter, name string, metric *dto.Metric,
 		}
 	}
 
-	if exemplar != nil && len(exemplar.Label) > 0 && exemplar.Timestamp != nil {
+	if exemplar != nil && exemplar.Timestamp != nil {
 		n, err = writeExemplar20(w, exemplar)
 		written += n
 		if err != nil {
@@ -279,7 +279,7 @@ func writeOpenMetrics20Sample(w enhancedWriter, name string, metric *dto.Metric,
 // writeExemplar20 writes the provided exemplar in OpenMetrics 2.0 format to w.
 // In OpenMetrics 2.0, exemplars without a timestamp are dropped.
 func writeExemplar20(w enhancedWriter, e *dto.Exemplar) (int, error) {
-	if e == nil || len(e.Label) == 0 || e.Timestamp == nil {
+	if e == nil || e.Timestamp == nil {
 		return 0, nil
 	}
 	if err := validateExemplar20(e); err != nil {
@@ -291,7 +291,11 @@ func writeExemplar20(w enhancedWriter, e *dto.Exemplar) (int, error) {
 	if err != nil {
 		return written, err
 	}
-	n, err = writeOpenMetricsNameAndLabelPairs(w, "", e.Label, "", 0)
+	if len(e.Label) == 0 {
+		n, err = w.WriteString("{}")
+	} else {
+		n, err = writeOpenMetricsNameAndLabelPairs(w, "", e.Label, "", 0)
+	}
 	written += n
 	if err != nil {
 		return written, err
@@ -342,7 +346,7 @@ func writeOpenMetrics20Timestamp(w enhancedWriter, f float64) (int, error) {
 	}
 }
 
-// Stubs for Summary and Histogram
+// Stubs for Summary
 
 func writeCompositeSummary(w enhancedWriter, name string, metric *dto.Metric) (int, error) {
 	_ = w
@@ -352,11 +356,532 @@ func writeCompositeSummary(w enhancedWriter, name string, metric *dto.Metric) (i
 }
 
 func writeCompositeHistogram(w enhancedWriter, name string, metric *dto.Metric, isGauge bool) (int, error) {
-	_ = w
-	_ = name
-	_ = metric
-	_ = isGauge
-	return 0, errors.New("histogram not implemented yet")
+	h := metric.Histogram
+	if h == nil {
+		return 0, fmt.Errorf("expected histogram in metric %s", name)
+	}
+
+	isNative := h.Schema != nil
+	hasClassicBuckets := len(h.Bucket) > 0 || !isNative
+
+	if err := validateLabels20(metric.Label); err != nil {
+		return 0, err
+	}
+	if hasClassicBuckets {
+		for _, lp := range metric.Label {
+			if lp.GetName() == "le" {
+				return 0, fmt.Errorf("metric %s has classic buckets but label set contains %q label", name, "le")
+			}
+		}
+	}
+
+	var isFloatCount bool
+	var sampleCountFloat float64
+	var sampleCountUint uint64
+	switch {
+	case h.SampleCountFloat != nil && (*h.SampleCountFloat > 0 || h.SampleCount == nil || isGauge):
+		isFloatCount = true
+		sampleCountFloat = *h.SampleCountFloat
+		if math.IsNaN(sampleCountFloat) {
+			if isGauge {
+				return 0, fmt.Errorf("gaugehistogram count cannot be NaN in metric %s", name)
+			}
+			return 0, fmt.Errorf("histogram count cannot be NaN in metric %s", name)
+		}
+		if !isGauge && sampleCountFloat < 0 {
+			return 0, fmt.Errorf("histogram count cannot be negative (%g) in metric %s", sampleCountFloat, name)
+		}
+	case h.SampleCount != nil:
+		sampleCountUint = *h.SampleCount
+		sampleCountFloat = float64(sampleCountUint)
+	}
+
+	written := 0
+	n, err := writeOpenMetricsNameAndLabelPairs(w, name, metric.Label, "", 0)
+	written += n
+	if err != nil {
+		return written, err
+	}
+
+	n, err = w.WriteString(" {")
+	written += n
+	if err != nil {
+		return written, err
+	}
+
+	if isGauge {
+		n, err = w.WriteString("gcount:")
+	} else {
+		n, err = w.WriteString("count:")
+	}
+	written += n
+	if err != nil {
+		return written, err
+	}
+
+	if isFloatCount {
+		n, err = writeFloat(w, sampleCountFloat)
+	} else {
+		n, err = writeUint(w, sampleCountUint)
+	}
+	written += n
+	if err != nil {
+		return written, err
+	}
+
+	if isGauge {
+		n, err = w.WriteString(",gsum:")
+	} else {
+		n, err = w.WriteString(",sum:")
+	}
+	written += n
+	if err != nil {
+		return written, err
+	}
+	n, err = writeFloat(w, h.GetSampleSum())
+	written += n
+	if err != nil {
+		return written, err
+	}
+
+	if isNative {
+		n, err = writeNativeBuckets(w, name, h, isGauge)
+		written += n
+		if err != nil {
+			return written, err
+		}
+	}
+
+	var classicExemplars []*dto.Exemplar
+	if hasClassicBuckets {
+		n, err = writeClassicBuckets(w, name, h, sampleCountFloat, sampleCountUint, isFloatCount, isGauge, &classicExemplars)
+		written += n
+		if err != nil {
+			return written, err
+		}
+	}
+
+	err = w.WriteByte('}')
+	written++
+	if err != nil {
+		return written, err
+	}
+
+	if metric.TimestampMs != nil {
+		err = w.WriteByte(' ')
+		written++
+		if err != nil {
+			return written, err
+		}
+		n, err = writeOpenMetrics20Timestamp(w, float64(*metric.TimestampMs)/1000)
+		written += n
+		if err != nil {
+			return written, err
+		}
+	}
+
+	if !isGauge && h.CreatedTimestamp != nil {
+		ts := h.CreatedTimestamp
+		if err := ts.CheckValid(); err != nil {
+			return written, fmt.Errorf("invalid created timestamp in metric %s: %w", name, err)
+		}
+		n, err = w.WriteString(" st@")
+		written += n
+		if err != nil {
+			return written, err
+		}
+		n, err = writeProtoTimestamp(w, ts)
+		written += n
+		if err != nil {
+			return written, err
+		}
+	}
+
+	var exemplarsToEmit []*dto.Exemplar
+	if len(classicExemplars) > 0 {
+		exemplarsToEmit = classicExemplars
+	} else if len(h.Exemplars) > 0 {
+		exemplarsToEmit = h.Exemplars
+	}
+
+	for _, e := range exemplarsToEmit {
+		if e == nil || e.Timestamp == nil {
+			continue
+		}
+		n, err = writeExemplar20(w, e)
+		written += n
+		if err != nil {
+			return written, err
+		}
+	}
+
+	err = w.WriteByte('\n')
+	written++
+	if err != nil {
+		return written, err
+	}
+
+	return written, nil
+}
+
+func writeNativeBuckets(w enhancedWriter, name string, h *dto.Histogram, isGauge bool) (int, error) {
+	schema := *h.Schema
+	if schema < -4 || schema > 8 {
+		return 0, fmt.Errorf("native histogram schema %d is out of range [-4, 8] in metric %s", schema, name)
+	}
+
+	zeroThreshold := h.GetZeroThreshold()
+	if math.IsNaN(zeroThreshold) || math.IsInf(zeroThreshold, 0) || zeroThreshold < 0 {
+		return 0, fmt.Errorf("native histogram zero_threshold %g must be a non-negative, finite number in metric %s", zeroThreshold, name)
+	}
+
+	var isFloatZeroCount bool
+	var zeroCountFloat float64
+	var zeroCountUint uint64
+	switch {
+	case h.ZeroCountFloat != nil && (*h.ZeroCountFloat > 0 || h.ZeroCount == nil || isGauge):
+		isFloatZeroCount = true
+		zeroCountFloat = *h.ZeroCountFloat
+		if math.IsNaN(zeroCountFloat) {
+			return 0, fmt.Errorf("native histogram zero_count cannot be NaN in metric %s", name)
+		}
+		if !isGauge && zeroCountFloat < 0 {
+			return 0, fmt.Errorf("native histogram zero_count cannot be negative (%g) in metric %s", zeroCountFloat, name)
+		}
+	case h.ZeroCount != nil:
+		zeroCountUint = *h.ZeroCount
+		zeroCountFloat = float64(zeroCountUint)
+	}
+
+	written := 0
+	n, err := w.WriteString(",schema:")
+	written += n
+	if err != nil {
+		return written, err
+	}
+	n, err = writeInt(w, int64(schema))
+	written += n
+	if err != nil {
+		return written, err
+	}
+
+	n, err = w.WriteString(",zero_threshold:")
+	written += n
+	if err != nil {
+		return written, err
+	}
+	n, err = writeFloat(w, zeroThreshold)
+	written += n
+	if err != nil {
+		return written, err
+	}
+
+	n, err = w.WriteString(",zero_count:")
+	written += n
+	if err != nil {
+		return written, err
+	}
+	if isFloatZeroCount {
+		n, err = writeFloat(w, zeroCountFloat)
+	} else {
+		n, err = writeUint(w, zeroCountUint)
+	}
+	written += n
+	if err != nil {
+		return written, err
+	}
+
+	n, err = writeSpansAndBuckets(w, name, "negative", h.NegativeSpan, h.NegativeDelta, h.NegativeCount, isGauge)
+	written += n
+	if err != nil {
+		return written, err
+	}
+
+	n, err = writeSpansAndBuckets(w, name, "positive", h.PositiveSpan, h.PositiveDelta, h.PositiveCount, isGauge)
+	written += n
+	if err != nil {
+		return written, err
+	}
+
+	return written, nil
+}
+
+func writeSpansAndBuckets(
+	w enhancedWriter,
+	name string,
+	spanName string,
+	spans []*dto.BucketSpan,
+	deltas []int64,
+	floatCounts []float64,
+	isGauge bool,
+) (int, error) {
+	isFloatBuckets := len(floatCounts) > 0
+	var numBuckets int
+	if isFloatBuckets {
+		numBuckets = len(floatCounts)
+	} else {
+		numBuckets = len(deltas)
+	}
+
+	var totalLength uint64
+	for i, span := range spans {
+		if span == nil {
+			return 0, errors.New("expected non-nil bucket span")
+		}
+		if i > 0 && span.GetOffset() < 0 {
+			return 0, fmt.Errorf("subsequent %s span offset cannot be negative: %d in metric %s", spanName, span.GetOffset(), name)
+		}
+		totalLength += uint64(span.GetLength())
+	}
+
+	if numBuckets == 0 {
+		if totalLength == 0 {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("sum of %s span lengths (%d) does not match bucket count (0) in metric %s", spanName, totalLength, name)
+	}
+
+	if totalLength != uint64(numBuckets) {
+		return 0, fmt.Errorf("sum of %s span lengths (%d) does not match bucket count (%d) in metric %s", spanName, totalLength, numBuckets, name)
+	}
+
+	if isFloatBuckets {
+		for _, v := range floatCounts {
+			if math.IsNaN(v) {
+				return 0, fmt.Errorf("%s bucket count cannot be NaN in metric %s", spanName, name)
+			}
+			if !isGauge && v < 0 {
+				return 0, fmt.Errorf("%s bucket count cannot be negative (%g) in metric %s", spanName, v, name)
+			}
+		}
+	} else {
+		var current int64
+		for _, d := range deltas {
+			current += d
+			if !isGauge && current < 0 {
+				return 0, fmt.Errorf("%s bucket count cannot be negative (%d) in metric %s", spanName, current, name)
+			}
+		}
+	}
+
+	written := 0
+	n, err := w.WriteString("," + spanName + "_spans:[")
+	written += n
+	if err != nil {
+		return written, err
+	}
+	for i, span := range spans {
+		if i > 0 {
+			err = w.WriteByte(',')
+			written++
+			if err != nil {
+				return written, err
+			}
+		}
+		n, err = writeInt(w, int64(span.GetOffset()))
+		written += n
+		if err != nil {
+			return written, err
+		}
+		err = w.WriteByte(':')
+		written++
+		if err != nil {
+			return written, err
+		}
+		n, err = writeUint(w, uint64(span.GetLength()))
+		written += n
+		if err != nil {
+			return written, err
+		}
+	}
+	err = w.WriteByte(']')
+	written++
+	if err != nil {
+		return written, err
+	}
+
+	n, err = w.WriteString("," + spanName + "_buckets:[")
+	written += n
+	if err != nil {
+		return written, err
+	}
+	if isFloatBuckets {
+		for i, v := range floatCounts {
+			if i > 0 {
+				err = w.WriteByte(',')
+				written++
+				if err != nil {
+					return written, err
+				}
+			}
+			n, err = writeFloat(w, v)
+			written += n
+			if err != nil {
+				return written, err
+			}
+		}
+	} else {
+		var current int64
+		for i, d := range deltas {
+			if i > 0 {
+				err = w.WriteByte(',')
+				written++
+				if err != nil {
+					return written, err
+				}
+			}
+			current += d
+			n, err = writeInt(w, current)
+			written += n
+			if err != nil {
+				return written, err
+			}
+		}
+	}
+	err = w.WriteByte(']')
+	written++
+	if err != nil {
+		return written, err
+	}
+
+	return written, nil
+}
+
+func writeClassicBuckets(
+	w enhancedWriter,
+	name string,
+	h *dto.Histogram,
+	sampleCount float64,
+	sampleCountUint uint64,
+	isFloatCount bool,
+	isGauge bool,
+	collectedExemplars *[]*dto.Exemplar,
+) (int, error) {
+	var infSeen bool
+	var prevBound float64
+	for i, b := range h.Bucket {
+		if b == nil {
+			return 0, errors.New("expected non-nil bucket")
+		}
+		ub := b.GetUpperBound()
+		if math.IsNaN(ub) {
+			return 0, fmt.Errorf("classic bucket upper bound cannot be NaN in metric %s", name)
+		}
+		if i > 0 && ub <= prevBound {
+			return 0, fmt.Errorf("classic bucket upper bounds must be strictly increasing: %g <= %g in metric %s", ub, prevBound, name)
+		}
+		prevBound = ub
+
+		var bCount float64
+		switch {
+		case b.CumulativeCountFloat != nil && (*b.CumulativeCountFloat > 0 || b.CumulativeCount == nil || isGauge):
+			bCount = *b.CumulativeCountFloat
+		case b.CumulativeCount != nil:
+			bCount = float64(*b.CumulativeCount)
+		}
+
+		if math.IsInf(ub, +1) {
+			if i != len(h.Bucket)-1 {
+				return 0, fmt.Errorf("+Inf bucket must be the last bucket in metric %s", name)
+			}
+			infSeen = true
+			if isFloatCount {
+				if bCount != sampleCount {
+					return 0, fmt.Errorf("classic bucket +Inf count (%g) does not match sample count (%g) in metric %s", bCount, sampleCount, name)
+				}
+			} else {
+				if b.CumulativeCount != nil && *b.CumulativeCount != sampleCountUint {
+					return 0, fmt.Errorf("classic bucket +Inf count (%d) does not match sample count (%d) in metric %s", *b.CumulativeCount, sampleCountUint, name)
+				} else if b.CumulativeCount == nil && bCount != sampleCount {
+					return 0, fmt.Errorf("classic bucket +Inf count (%g) does not match sample count (%g) in metric %s", bCount, sampleCount, name)
+				}
+			}
+		}
+
+		if b.CumulativeCountFloat != nil {
+			c := *b.CumulativeCountFloat
+			if math.IsNaN(c) {
+				return 0, fmt.Errorf("classic bucket count cannot be NaN in metric %s", name)
+			}
+			if !isGauge && c < 0 {
+				return 0, fmt.Errorf("classic bucket count cannot be negative (%g) in metric %s", c, name)
+			}
+		}
+	}
+
+	written := 0
+	n, err := w.WriteString(",bucket:[")
+	written += n
+	if err != nil {
+		return written, err
+	}
+
+	for i, b := range h.Bucket {
+		if i > 0 {
+			err = w.WriteByte(',')
+			written++
+			if err != nil {
+				return written, err
+			}
+		}
+		n, err = writeFloat(w, b.GetUpperBound())
+		written += n
+		if err != nil {
+			return written, err
+		}
+		err = w.WriteByte(':')
+		written++
+		if err != nil {
+			return written, err
+		}
+		switch {
+		case b.CumulativeCountFloat != nil && (*b.CumulativeCountFloat > 0 || b.CumulativeCount == nil || isGauge):
+			n, err = writeFloat(w, *b.CumulativeCountFloat)
+		case b.CumulativeCount != nil:
+			n, err = writeUint(w, *b.CumulativeCount)
+		default:
+			n, err = writeUint(w, 0)
+		}
+		written += n
+		if err != nil {
+			return written, err
+		}
+		if b.Exemplar != nil && b.Exemplar.Timestamp != nil {
+			*collectedExemplars = append(*collectedExemplars, b.Exemplar)
+		}
+	}
+
+	if !infSeen {
+		if len(h.Bucket) > 0 {
+			err = w.WriteByte(',')
+			written++
+			if err != nil {
+				return written, err
+			}
+		}
+		n, err = w.WriteString("+Inf:")
+		written += n
+		if err != nil {
+			return written, err
+		}
+		if isFloatCount {
+			n, err = writeFloat(w, sampleCount)
+		} else {
+			n, err = writeUint(w, sampleCountUint)
+		}
+		written += n
+		if err != nil {
+			return written, err
+		}
+	}
+
+	err = w.WriteByte(']')
+	written++
+	if err != nil {
+		return written, err
+	}
+
+	return written, nil
 }
 
 func validateLabels20(labels []*dto.LabelPair) error {
