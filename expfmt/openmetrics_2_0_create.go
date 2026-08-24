@@ -679,13 +679,13 @@ func writeNativeBuckets(w enhancedWriter, name string, h *dto.Histogram, isGauge
 		return written, err
 	}
 
-	n, err = writeSpansAndBuckets(w, name, "negative", h.NegativeSpan, h.NegativeDelta, h.NegativeCount, isGauge)
+	n, err = writeSpansAndBuckets(w, ",negative_spans:[", ",negative_buckets:[", h.NegativeSpan, h.NegativeDelta, h.NegativeCount)
 	written += n
 	if err != nil {
 		return written, err
 	}
 
-	n, err = writeSpansAndBuckets(w, name, "positive", h.PositiveSpan, h.PositiveDelta, h.PositiveCount, isGauge)
+	n, err = writeSpansAndBuckets(w, ",positive_spans:[", ",positive_buckets:[", h.PositiveSpan, h.PositiveDelta, h.PositiveCount)
 	written += n
 	if err != nil {
 		return written, err
@@ -696,12 +696,11 @@ func writeNativeBuckets(w enhancedWriter, name string, h *dto.Histogram, isGauge
 
 func writeSpansAndBuckets(
 	w enhancedWriter,
-	name string,
-	spanName string,
+	spansPrefix string,
+	bucketsPrefix string,
 	spans []*dto.BucketSpan,
 	deltas []int64,
 	floatCounts []float64,
-	isGauge bool,
 ) (int, error) {
 	isFloatBuckets := len(floatCounts) > 0
 	var numBuckets int
@@ -716,7 +715,7 @@ func writeSpansAndBuckets(
 	}
 
 	written := 0
-	n, err := w.WriteString("," + spanName + "_spans:[")
+	n, err := w.WriteString(spansPrefix)
 	written += n
 	if err != nil {
 		return written, err
@@ -751,7 +750,7 @@ func writeSpansAndBuckets(
 		return written, err
 	}
 
-	n, err = w.WriteString("," + spanName + "_buckets:[")
+	n, err = w.WriteString(bucketsPrefix)
 	written += n
 	if err != nil {
 		return written, err
