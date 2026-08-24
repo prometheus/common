@@ -1777,3 +1777,30 @@ http_requests_total 1027.0
 		t.Errorf("expected %d bytes written, got %d", len(expected), n)
 	}
 }
+
+func TestCreateOpenMetrics20_HistogramError_NoPartialBytes(t *testing.T) {
+	in := &dto.MetricFamily{
+		Name: proto.String("test_histogram"),
+		Type: dto.MetricType_HISTOGRAM.Enum(),
+		Metric: []*dto.Metric{
+			{
+				Histogram: &dto.Histogram{
+					SampleCount: proto.Uint64(1),
+					SampleSum:   proto.Float64(1.0),
+					Schema:      proto.Int32(9), // invalid schema
+				},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	w := enhancedWriter(&buf)
+	_, err := writeCompositeHistogram(w, in.GetName(), in.Metric[0], false)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if buf.Len() != 0 {
+		t.Fatalf("expected 0 bytes written on validation error, got %q", buf.String())
+	}
+}
+
