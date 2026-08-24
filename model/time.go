@@ -187,23 +187,10 @@ const (
 	Week                 = 7 * Day
 )
 
-// Nanoseconds returns the duration as an integer nanosecond count.
-func (d Duration) Nanoseconds() int64 { return time.Duration(d).Nanoseconds() }
-
-// Microseconds returns the duration as an integer microsecond count.
-func (d Duration) Microseconds() int64 { return time.Duration(d).Microseconds() }
-
 // Milliseconds returns the duration as an integer millisecond count.
+// Prometheus stores timestamps in milliseconds; time.Duration already
+// covers the other units.
 func (d Duration) Milliseconds() int64 { return time.Duration(d).Milliseconds() }
-
-// Seconds returns the duration as a floating point number of seconds.
-func (d Duration) Seconds() float64 { return time.Duration(d).Seconds() }
-
-// Minutes returns the duration as a floating point number of minutes.
-func (d Duration) Minutes() float64 { return time.Duration(d).Minutes() }
-
-// Hours returns the duration as a floating point number of hours.
-func (d Duration) Hours() float64 { return time.Duration(d).Hours() }
 
 // Set implements pflag/flag.Value.
 func (d *Duration) Set(s string) error {

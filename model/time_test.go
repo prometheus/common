@@ -83,24 +83,11 @@ func TestDurationConstants(t *testing.T) {
 	require.Equal(t, 5000*Millisecond, Duration(5000*time.Millisecond))
 }
 
-func TestDurationMethods(t *testing.T) {
+func TestDurationMilliseconds(t *testing.T) {
 	d := 2*Hour + 30*Minute + 15*Second + 250*Millisecond
-	td := time.Duration(d)
-
-	require.Equal(t, td.Nanoseconds(), d.Nanoseconds())
-	require.Equal(t, td.Microseconds(), d.Microseconds())
-	require.Equal(t, td.Milliseconds(), d.Milliseconds())
-	require.Equal(t, td.Seconds(), d.Seconds())
-	require.Equal(t, td.Minutes(), d.Minutes())
-	require.Equal(t, td.Hours(), d.Hours())
-
+	require.Equal(t, time.Duration(d).Milliseconds(), d.Milliseconds())
 	require.Equal(t, int64(2*60*60*1000+30*60*1000+15*1000+250), d.Milliseconds())
-	require.Equal(t, int64(1500), (1500 * Microsecond).Microseconds())
-	require.Equal(t, int64(1500), (1500 * Nanosecond).Nanoseconds())
-
-	// Negative durations.
 	require.Equal(t, int64(-1500), (-1500 * Millisecond).Milliseconds())
-	require.Equal(t, -1.5, (-1500 * Millisecond).Seconds())
 }
 
 func TestParseDuration(t *testing.T) {
