@@ -1909,4 +1909,3 @@ func TestCreateOpenMetrics20_HistogramError_NoPartialBytes(t *testing.T) {
 		t.Fatalf("expected 0 bytes written on validation error, got %q", buf.String())
 	}
 }
-

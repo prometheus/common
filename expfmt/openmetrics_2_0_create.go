@@ -461,7 +461,7 @@ func writeCompositeHistogram(w enhancedWriter, name string, metric *dto.Metric, 
 	}
 
 	if isNative {
-		n, err = writeNativeBuckets(w, name, h, isGauge)
+		n, err = writeNativeBuckets(w, h, isGauge)
 		written += n
 		if err != nil {
 			return written, err
@@ -470,7 +470,7 @@ func writeCompositeHistogram(w enhancedWriter, name string, metric *dto.Metric, 
 
 	var classicExemplars []*dto.Exemplar
 	if hasClassicBuckets {
-		n, err = writeClassicBuckets(w, name, h, sampleCountFloat, sampleCountUint, isFloatCount, isGauge, &classicExemplars)
+		n, err = writeClassicBuckets(w, h, sampleCountFloat, sampleCountUint, isFloatCount, isGauge, &classicExemplars)
 		written += n
 		if err != nil {
 			return written, err
@@ -625,7 +625,7 @@ func validateSpansAndBuckets(
 	return nil
 }
 
-func writeNativeBuckets(w enhancedWriter, name string, h *dto.Histogram, isGauge bool) (int, error) {
+func writeNativeBuckets(w enhancedWriter, h *dto.Histogram, isGauge bool) (int, error) {
 	schema := *h.Schema
 	zeroThreshold := h.GetZeroThreshold()
 
@@ -877,7 +877,6 @@ func validateClassicBuckets(
 
 func writeClassicBuckets(
 	w enhancedWriter,
-	name string,
 	h *dto.Histogram,
 	sampleCount float64,
 	sampleCountUint uint64,
