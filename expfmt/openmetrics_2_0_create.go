@@ -995,20 +995,40 @@ func writeProtoTimestamp(w enhancedWriter, ts *timestamppb.Timestamp) (int, erro
 	if err := ts.CheckValid(); err != nil {
 		return 0, err
 	}
-	n, err := writeInt(w, ts.Seconds)
+	if ts.Nanos == 0 {
+		return writeInt(w, ts.Seconds)
+	}
+	sec := ts.Seconds
+	nanos := int64(ts.Nanos)
+	if sec < 0 {
+		sec++
+		nanos = 1_000_000_000 - nanos
+		if sec == 0 {
+			n, err := w.WriteString("-0")
+			if err != nil {
+				return n, err
+			}
+			n2, err := writeNanos(w, nanos)
+			return n + n2, err
+		}
+	}
+
+	n, err := writeInt(w, sec)
 	if err != nil {
 		return n, err
 	}
-	if ts.Nanos == 0 {
-		return n, nil
-	}
-	err = w.WriteByte('.')
-	written := n + 1
+	n2, err := writeNanos(w, nanos)
+	return n + n2, err
+}
+
+func writeNanos(w enhancedWriter, nanos int64) (int, error) {
+	err := w.WriteByte('.')
 	if err != nil {
-		return written, err
+		return 0, err
 	}
+	written := 1
 	bp := numBufPool.Get().(*[]byte)
-	*bp = strconv.AppendInt((*bp)[:0], int64(ts.Nanos), 10)
+	*bp = strconv.AppendInt((*bp)[:0], nanos, 10)
 	pad := 9 - len(*bp)
 	for range pad {
 		err = w.WriteByte('0')

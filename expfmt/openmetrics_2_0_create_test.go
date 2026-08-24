@@ -329,6 +329,31 @@ http_requests_total 1027.0 # {trace_id="1234"} NaN 1234567890
 `,
 		},
 		{
+			name: "CounterWithPreEpochTimestamps",
+			in: &dto.MetricFamily{
+				Name: proto.String("http_requests_total"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Counter: &dto.Counter{
+							Value:            proto.Float64(1027),
+							CreatedTimestamp: &timestamppb.Timestamp{Seconds: -1, Nanos: 500000000},
+							Exemplar: &dto.Exemplar{
+								Label: []*dto.LabelPair{
+									{Name: proto.String("trace_id"), Value: proto.String("1234")},
+								},
+								Value:     proto.Float64(1),
+								Timestamp: &timestamppb.Timestamp{Seconds: -2, Nanos: 250000000},
+							},
+						},
+					},
+				},
+			},
+			out: `# TYPE http_requests_total counter
+http_requests_total 1027.0 st@-0.5 # {trace_id="1234"} 1.0 -1.75
+`,
+		},
+		{
 			name: "Untyped",
 			in: &dto.MetricFamily{
 				Name: proto.String("test_metric"),
@@ -876,6 +901,28 @@ empty_histogram {count:0,sum:0,bucket:[+Inf:0]}
 			},
 			out: `# TYPE "http.latency" histogram
 {"http.latency","service.name"="my-service"} {count:1,sum:0.05,bucket:[0.1:1,+Inf:1]}
+`,
+		},
+		{
+			name: "ClassicHistogram_WithPreEpochCreatedTimestamp",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_histogram"),
+				Type: dto.MetricType_HISTOGRAM.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Histogram: &dto.Histogram{
+							SampleCount:      proto.Uint64(1),
+							SampleSum:        proto.Float64(0.1),
+							CreatedTimestamp: &timestamppb.Timestamp{Seconds: -1, Nanos: 500000000},
+							Bucket: []*dto.Bucket{
+								{UpperBound: proto.Float64(0.1), CumulativeCount: proto.Uint64(1)},
+							},
+						},
+					},
+				},
+			},
+			out: `# TYPE test_histogram histogram
+test_histogram {count:1,sum:0.1,bucket:[0.1:1,+Inf:1]} st@-0.5
 `,
 		},
 	}
