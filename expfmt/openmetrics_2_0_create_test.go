@@ -1399,6 +1399,46 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 			expectedErr: "native histogram zero_count cannot be negative",
 		},
 		{
+			name: "NativeHistogramZeroCountNegative_BothFieldsSet",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_histogram"),
+				Type: dto.MetricType_HISTOGRAM.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Histogram: &dto.Histogram{
+							SampleCount:    proto.Uint64(0),
+							SampleSum:      proto.Float64(0),
+							Schema:         proto.Int32(0),
+							ZeroThreshold:  proto.Float64(0.001),
+							ZeroCount:      proto.Uint64(10),
+							ZeroCountFloat: proto.Float64(-1.0),
+						},
+					},
+				},
+			},
+			expectedErr: "native histogram zero_count cannot be negative",
+		},
+		{
+			name: "NativeHistogramZeroCountNaN_BothFieldsSet",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_histogram"),
+				Type: dto.MetricType_HISTOGRAM.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Histogram: &dto.Histogram{
+							SampleCount:    proto.Uint64(0),
+							SampleSum:      proto.Float64(0),
+							Schema:         proto.Int32(0),
+							ZeroThreshold:  proto.Float64(0.001),
+							ZeroCount:      proto.Uint64(10),
+							ZeroCountFloat: proto.Float64(math.NaN()),
+						},
+					},
+				},
+			},
+			expectedErr: "native histogram zero_count cannot be NaN",
+		},
+		{
 			name: "NativeHistogramSubsequentSpanNegativeOffset",
 			in: &dto.MetricFamily{
 				Name: proto.String("test_histogram"),

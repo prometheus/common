@@ -535,6 +535,16 @@ func writeNativeBuckets(w enhancedWriter, name string, h *dto.Histogram, isGauge
 		return 0, fmt.Errorf("native histogram zero_threshold %g must be a non-negative, finite number in metric %s", zeroThreshold, name)
 	}
 
+	if h.ZeroCountFloat != nil {
+		c := *h.ZeroCountFloat
+		if math.IsNaN(c) {
+			return 0, fmt.Errorf("native histogram zero_count cannot be NaN in metric %s", name)
+		}
+		if !isGauge && c < 0 {
+			return 0, fmt.Errorf("native histogram zero_count cannot be negative (%g) in metric %s", c, name)
+		}
+	}
+
 	var isFloatZeroCount bool
 	var zeroCountFloat float64
 	var zeroCountUint uint64
@@ -542,12 +552,6 @@ func writeNativeBuckets(w enhancedWriter, name string, h *dto.Histogram, isGauge
 	case h.ZeroCountFloat != nil && (*h.ZeroCountFloat > 0 || h.ZeroCount == nil || isGauge):
 		isFloatZeroCount = true
 		zeroCountFloat = *h.ZeroCountFloat
-		if math.IsNaN(zeroCountFloat) {
-			return 0, fmt.Errorf("native histogram zero_count cannot be NaN in metric %s", name)
-		}
-		if !isGauge && zeroCountFloat < 0 {
-			return 0, fmt.Errorf("native histogram zero_count cannot be negative (%g) in metric %s", zeroCountFloat, name)
-		}
 	case h.ZeroCount != nil:
 		zeroCountUint = *h.ZeroCount
 		zeroCountFloat = float64(zeroCountUint)
