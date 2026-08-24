@@ -263,7 +263,7 @@ func writeOpenMetrics20Sample(w enhancedWriter, name string, metric *dto.Metric,
 		}
 	}
 
-	if exemplar != nil && exemplar.Timestamp != nil {
+	if exemplar != nil {
 		n, err = writeExemplar20(w, exemplar)
 		written += n
 		if err != nil {
@@ -280,13 +280,13 @@ func writeOpenMetrics20Sample(w enhancedWriter, name string, metric *dto.Metric,
 }
 
 // writeExemplar20 writes the provided exemplar in OpenMetrics 2.0 format to w.
-// In OpenMetrics 2.0, exemplars without a timestamp are dropped.
+// In OpenMetrics 2.0, invalid exemplars or exemplars without a timestamp are dropped.
 func writeExemplar20(w enhancedWriter, e *dto.Exemplar) (int, error) {
-	if e == nil || e.Timestamp == nil {
+	if e == nil {
 		return 0, nil
 	}
 	if err := validateExemplar20(e); err != nil {
-		return 0, err
+		return 0, nil
 	}
 	written := 0
 	n, err := w.WriteString(" # ")
@@ -315,10 +315,6 @@ func writeExemplar20(w enhancedWriter, e *dto.Exemplar) (int, error) {
 	}
 	err = w.WriteByte(' ')
 	written++
-	if err != nil {
-		return written, err
-	}
-	err = e.Timestamp.CheckValid()
 	if err != nil {
 		return written, err
 	}
@@ -387,6 +383,9 @@ func containsRawNewline(s string) bool {
 }
 
 func validateExemplar20(e *dto.Exemplar) error {
+	if e.Timestamp == nil {
+		return errors.New("exemplar timestamp is required")
+	}
 	if err := e.Timestamp.CheckValid(); err != nil {
 		return err
 	}
