@@ -1293,6 +1293,25 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 			expectedErr: "classic bucket count cannot be NaN",
 		},
 		{
+			name: "ClassicHistogram_LargeCount_PosInfMismatch",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_histogram"),
+				Type: dto.MetricType_HISTOGRAM.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Histogram: &dto.Histogram{
+							SampleCount: proto.Uint64(9007199254740993),
+							SampleSum:   proto.Float64(0.1),
+							Bucket: []*dto.Bucket{
+								{UpperBound: proto.Float64(math.Inf(+1)), CumulativeCountFloat: proto.Float64(9007199254740992)},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "classic bucket +Inf count (9.007199254740992e+15) does not match sample count (9007199254740993)",
+		},
+		{
 			name: "ClassicBucketCountNegative",
 			in: &dto.MetricFamily{
 				Name: proto.String("test_histogram"),

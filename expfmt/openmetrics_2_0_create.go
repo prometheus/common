@@ -855,10 +855,14 @@ func validateClassicBuckets(
 					return fmt.Errorf("classic bucket +Inf count (%g) does not match sample count (%g) in metric %s", bCount, sampleCount, name)
 				}
 			} else {
-				if b.CumulativeCount != nil && *b.CumulativeCount != sampleCountUint {
-					return fmt.Errorf("classic bucket +Inf count (%d) does not match sample count (%d) in metric %s", *b.CumulativeCount, sampleCountUint, name)
-				} else if b.CumulativeCount == nil && bCount != sampleCount {
-					return fmt.Errorf("classic bucket +Inf count (%g) does not match sample count (%g) in metric %s", bCount, sampleCount, name)
+				if b.CumulativeCount != nil {
+					if *b.CumulativeCount != sampleCountUint {
+						return fmt.Errorf("classic bucket +Inf count (%d) does not match sample count (%d) in metric %s", *b.CumulativeCount, sampleCountUint, name)
+					}
+				} else {
+					if bCount < 0 || bCount > math.MaxUint64 || uint64(bCount) != sampleCountUint || float64(uint64(bCount)) != bCount {
+						return fmt.Errorf("classic bucket +Inf count (%g) does not match sample count (%d) in metric %s", bCount, sampleCountUint, name)
+					}
 				}
 			}
 		}
