@@ -30,7 +30,7 @@ import (
 // OpenMetrics text format version 2.0.0 and writes the resulting lines to 'out'.
 // It returns the number of bytes written and any error encountered.
 //
-// NOTE: This method implements OpenMetrics 2.0-rc.0 which is experimental and
+// NOTE: This method targets OpenMetrics 2.0.0 (currently aligned with 2.0-rc.0) which is experimental and
 // encode-only (currently supporting counter, gauge, and untyped metric types).
 // Breaking changes might happen in the future. This implementation is still a
 // work-in-progress, and does not yet support all features of the format.
