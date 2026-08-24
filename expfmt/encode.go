@@ -124,11 +124,6 @@ func matchFormat(ac goautoneg.Accept, f Format) bool {
 		return false
 	}
 
-	// If ac is */*, wildcard matches any target.
-	if ac.Type == "*" && ac.SubType == "*" {
-		return true
-	}
-
 	// Default OpenMetrics version to OpenMetricsVersion_0_0_1.
 	acVersion := ac.Params["version"]
 	if acVersion == "" && ac.Type+"/"+ac.SubType == OpenMetricsType {

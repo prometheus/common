@@ -78,6 +78,21 @@ func TestNegotiate(t *testing.T) {
 			acceptHeaderValue: "text/plain;version=0.0.4; escaping=values;",
 			expectedFmt:       "text/plain; version=0.0.4; charset=utf-8; escaping=values",
 		},
+		{
+			name:              "wildcard */*",
+			acceptHeaderValue: "*/*",
+			expectedFmt:       "text/plain; version=0.0.4; charset=utf-8; escaping=underscores",
+		},
+		{
+			name:              "browser Accept header with wildcard",
+			acceptHeaderValue: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+			expectedFmt:       "text/plain; version=0.0.4; charset=utf-8; escaping=underscores",
+		},
+		{
+			name:              "json with wildcard fallback",
+			acceptHeaderValue: "application/json, */*",
+			expectedFmt:       "text/plain; version=0.0.4; charset=utf-8; escaping=underscores",
+		},
 	}
 
 	oldDefault := model.NameEscapingScheme
@@ -185,6 +200,21 @@ func TestNegotiateIncludingOpenMetrics(t *testing.T) {
 			acceptHeaderValue: acceptValuePrefix + ";encoding=compact-text; escaping=underscores;",
 			expectedFmt:       "application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=compact-text; escaping=underscores",
 		},
+		{
+			name:              "wildcard */*",
+			acceptHeaderValue: "*/*",
+			expectedFmt:       "text/plain; version=0.0.4; charset=utf-8; escaping=values",
+		},
+		{
+			name:              "browser Accept header with wildcard",
+			acceptHeaderValue: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+			expectedFmt:       "text/plain; version=0.0.4; charset=utf-8; escaping=values",
+		},
+		{
+			name:              "json with wildcard fallback",
+			acceptHeaderValue: "application/json, */*",
+			expectedFmt:       "text/plain; version=0.0.4; charset=utf-8; escaping=values",
+		},
 	}
 
 	oldDefault := model.NameEscapingScheme
@@ -237,16 +267,22 @@ func TestNegotiateAccept(t *testing.T) {
 			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=values",
 		},
 		{
-			name:              "wildcard */* matches first accepted format",
+			name:              "wildcard */* matches text format if present",
 			acceptHeaderValue: "*/*",
 			acceptedFormats:   []Format{fmtOpenMetrics_2_0_0, FmtProtoDelim, FmtText},
-			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=values",
+			expectedFmt:       "text/plain; version=0.0.4; charset=utf-8; escaping=values",
 		},
 		{
 			name:              "wildcard */* with text first in accepted",
 			acceptHeaderValue: "*/*",
 			acceptedFormats:   []Format{FmtText, FmtProtoDelim},
 			expectedFmt:       "text/plain; version=0.0.4; charset=utf-8; escaping=values",
+		},
+		{
+			name:              "wildcard */* falls back to first format when no text in accepted",
+			acceptHeaderValue: "*/*",
+			acceptedFormats:   []Format{fmtOpenMetrics_2_0_0, FmtProtoDelim},
+			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=values",
 		},
 		{
 			name:              "unversioned text/plain matches FmtText",
