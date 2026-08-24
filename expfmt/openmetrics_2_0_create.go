@@ -493,6 +493,8 @@ func writeCompositeHistogram(w enhancedWriter, name string, metric *dto.Metric, 
 
 	var exemplarsToEmit []*dto.Exemplar
 	if len(classicExemplars) > 0 {
+	   // We follow the spec suggestion and prefer classic histogram
+	   // exemplars in dual mode.
 		exemplarsToEmit = classicExemplars
 	} else if len(h.Exemplars) > 0 {
 		exemplarsToEmit = h.Exemplars
