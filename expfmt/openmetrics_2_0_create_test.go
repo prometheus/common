@@ -230,7 +230,7 @@ http_requests_total 1027.0
 				},
 			},
 			out: `# TYPE http_requests_total counter
-http_requests_total 1027
+http_requests_total 1027.0
 `,
 		},
 		{
@@ -254,7 +254,7 @@ http_requests_total 1027
 				},
 			},
 			out: `# TYPE http_requests_total counter
-http_requests_total 1027
+http_requests_total 1027.0
 `,
 		},
 		{
@@ -278,7 +278,7 @@ http_requests_total 1027
 				},
 			},
 			out: `# TYPE http_requests_total counter
-http_requests_total 1027
+http_requests_total 1027.0
 `,
 		},
 		{
@@ -300,7 +300,7 @@ http_requests_total 1027
 				},
 			},
 			out: `# TYPE http_requests_total counter
-http_requests_total 1027
+http_requests_total 1027.0
 `,
 		},
 		{

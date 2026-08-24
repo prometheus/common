@@ -285,6 +285,7 @@ func writeExemplar20(w enhancedWriter, e *dto.Exemplar) (int, error) {
 	if e == nil {
 		return 0, nil
 	}
+	// In OpenMetrics 2.0, invalid exemplars are dropped rather than failing the entire exposition.
 	if err := validateExemplar20(e); err != nil {
 		return 0, nil
 	}
