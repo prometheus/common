@@ -583,3 +583,34 @@ func TestDottedEncode(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkNegotiate(b *testing.B) {
+	h := http.Header{}
+	h.Set(hdrAccept, "application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily;encoding=delimited;q=0.7,text/plain;version=0.0.4;q=0.3,application/json;q=0.1,*/*;q=0.01")
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		_ = Negotiate(h)
+	}
+}
+
+func BenchmarkNegotiateIncludingOpenMetrics(b *testing.B) {
+	h := http.Header{}
+	h.Set(hdrAccept, "application/openmetrics-text;version=1.0.0;q=0.8,application/openmetrics-text;version=0.0.1;q=0.5,text/plain;version=0.0.4;q=0.3,*/*;q=0.1")
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		_ = NegotiateIncludingOpenMetrics(h)
+	}
+}
+
+func BenchmarkNegotiateAccept(b *testing.B) {
+	h := http.Header{}
+	h.Set(hdrAccept, "application/openmetrics-text;version=1.0.0;q=0.8,text/plain;version=0.0.4;q=0.3,*/*;q=0.1")
+	accepted := []Format{FmtOpenMetrics_1_0_0, FmtOpenMetrics_0_0_1, FmtProtoDelim, FmtProtoText, FmtProtoCompact, FmtText}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		_ = NegotiateAccept(h, accepted...)
+	}
+}

@@ -27,6 +27,24 @@ import (
 	"github.com/prometheus/common/model"
 )
 
+var formatToAccept = map[Format]goautoneg.Accept{}
+
+func init() {
+	for _, f := range []Format{
+		FmtText,
+		FmtProtoDelim,
+		FmtProtoText,
+		FmtProtoCompact,
+		FmtOpenMetrics_1_0_0,
+		fmtOpenMetrics_2_0_0,
+		FmtOpenMetrics_0_0_1,
+	} {
+		if parsed := goautoneg.ParseAccept(string(f)); len(parsed) > 0 {
+			formatToAccept[f] = parsed[0]
+		}
+	}
+}
+
 // Encoder types encode metric families into an underlying wire protocol.
 type Encoder interface {
 	Encode(*dto.MetricFamily) error
@@ -81,7 +99,7 @@ func NegotiateIncludingOpenMetrics(h http.Header) Format {
 // format if present in the accepted list, or the first accepted format (or FmtText
 // if accepted is empty).
 func NegotiateAccept(h http.Header, accepted ...Format) Format {
-	escapingScheme := Format(fmt.Sprintf("; escaping=%s", Format(model.NameEscapingScheme.String())))
+	escapingScheme := Format("; escaping=" + model.NameEscapingScheme.String())
 	for _, ac := range goautoneg.ParseAccept(h.Get(hdrAccept)) {
 		if escapeParam := ac.Params[model.EscapingKey]; escapeParam != "" {
 			switch Format(escapeParam) {
@@ -111,11 +129,14 @@ func NegotiateAccept(h http.Header, accepted ...Format) Format {
 
 // matchFormat checks if a parsed accept clause matches a given Format.
 func matchFormat(ac goautoneg.Accept, f Format) bool {
-	parsed := goautoneg.ParseAccept(string(f))
-	if len(parsed) == 0 {
-		return false
+	target, ok := formatToAccept[f]
+	if !ok {
+		parsed := goautoneg.ParseAccept(string(f))
+		if len(parsed) == 0 {
+			return false
+		}
+		target = parsed[0]
 	}
-	target := parsed[0]
 
 	if ac.Type != "*" && ac.Type != target.Type {
 		return false
