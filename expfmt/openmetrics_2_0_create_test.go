@@ -1049,6 +1049,40 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 			expectedErr: "histogram count cannot be NaN",
 		},
 		{
+			name: "HistogramCountNegative_BothFieldsSet",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_histogram"),
+				Type: dto.MetricType_HISTOGRAM.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Histogram: &dto.Histogram{
+							SampleCount:      proto.Uint64(10),
+							SampleCountFloat: proto.Float64(-1.0),
+							SampleSum:        proto.Float64(0.0),
+						},
+					},
+				},
+			},
+			expectedErr: "histogram count cannot be negative",
+		},
+		{
+			name: "HistogramCountNaN_BothFieldsSet",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_histogram"),
+				Type: dto.MetricType_HISTOGRAM.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Histogram: &dto.Histogram{
+							SampleCount:      proto.Uint64(10),
+							SampleCountFloat: proto.Float64(math.NaN()),
+							SampleSum:        proto.Float64(0.0),
+						},
+					},
+				},
+			},
+			expectedErr: "histogram count cannot be NaN",
+		},
+		{
 			name: "GaugeHistogramCountNaN",
 			in: &dto.MetricFamily{
 				Name: proto.String("test_gauge_histogram"),

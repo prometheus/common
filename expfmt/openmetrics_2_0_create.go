@@ -369,6 +369,19 @@ func writeCompositeHistogram(w enhancedWriter, name string, metric *dto.Metric, 
 		}
 	}
 
+	if h.SampleCountFloat != nil {
+		c := *h.SampleCountFloat
+		if math.IsNaN(c) {
+			if isGauge {
+				return 0, fmt.Errorf("gaugehistogram count cannot be NaN in metric %s", name)
+			}
+			return 0, fmt.Errorf("histogram count cannot be NaN in metric %s", name)
+		}
+		if !isGauge && c < 0 {
+			return 0, fmt.Errorf("histogram count cannot be negative (%g) in metric %s", c, name)
+		}
+	}
+
 	var isFloatCount bool
 	var sampleCountFloat float64
 	var sampleCountUint uint64
@@ -376,15 +389,6 @@ func writeCompositeHistogram(w enhancedWriter, name string, metric *dto.Metric, 
 	case h.SampleCountFloat != nil && (*h.SampleCountFloat > 0 || h.SampleCount == nil || isGauge):
 		isFloatCount = true
 		sampleCountFloat = *h.SampleCountFloat
-		if math.IsNaN(sampleCountFloat) {
-			if isGauge {
-				return 0, fmt.Errorf("gaugehistogram count cannot be NaN in metric %s", name)
-			}
-			return 0, fmt.Errorf("histogram count cannot be NaN in metric %s", name)
-		}
-		if !isGauge && sampleCountFloat < 0 {
-			return 0, fmt.Errorf("histogram count cannot be negative (%g) in metric %s", sampleCountFloat, name)
-		}
 	case h.SampleCount != nil:
 		sampleCountUint = *h.SampleCount
 		sampleCountFloat = float64(sampleCountUint)
