@@ -42,6 +42,9 @@ func MetricFamilyToOpenMetrics20(out io.Writer, in *dto.MetricFamily, options ..
 	if containsRawNewline(name) {
 		return 0, fmt.Errorf("MetricFamily name %q contains raw newlines", name)
 	}
+	if in.Unit != nil && containsRawNewline(*in.Unit) {
+		return 0, fmt.Errorf("MetricFamily unit %q contains raw newlines", *in.Unit)
+	}
 
 	// Try the interface upgrade. If it doesn't work, we'll use a
 	// bufio.Writer from the sync.Pool.
@@ -222,7 +225,7 @@ func writeOpenMetrics20Sample(w enhancedWriter, name string, metric *dto.Metric,
 	if useIntValue {
 		n, err = writeUint(w, intValue)
 	} else {
-		n, err = writeFloat(w, floatValue)
+		n, err = writeOpenMetricsFloat(w, floatValue)
 	}
 	written += n
 	if err != nil {
@@ -305,7 +308,7 @@ func writeExemplar20(w enhancedWriter, e *dto.Exemplar) (int, error) {
 	if err != nil {
 		return written, err
 	}
-	n, err = writeFloat(w, e.GetValue())
+	n, err = writeOpenMetricsFloat(w, e.GetValue())
 	written += n
 	if err != nil {
 		return written, err

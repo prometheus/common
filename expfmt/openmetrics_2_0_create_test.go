@@ -52,7 +52,7 @@ func TestCreateOpenMetrics20(t *testing.T) {
 			},
 			out: `# HELP http_requests_total Total number of HTTP requests.
 # TYPE http_requests_total counter
-http_requests_total{method="GET",code="200"} 1027 st@1234567890
+http_requests_total{method="GET",code="200"} 1027.0 st@1234567890
 `,
 		},
 		{
@@ -76,7 +76,7 @@ http_requests_total{method="GET",code="200"} 1027 st@1234567890
 			},
 			out: `# HELP http_requests_total Total number of HTTP requests.
 # TYPE http_requests_total counter
-http_requests_total{method="GET",code="200"} 1027 st@1234567890.987654321
+http_requests_total{method="GET",code="200"} 1027.0 st@1234567890.987654321
 `,
 		},
 		{
@@ -160,7 +160,7 @@ node_memory_active_bytes 1.2345e+09 1234567890
 				},
 			},
 			out: `# TYPE http_requests_total counter
-http_requests_total 1027 1234567891 st@1234567890 # {trace_id="1234"} 1 1234567890.5
+http_requests_total 1027.0 1234567891 st@1234567890 # {trace_id="1234"} 1.0 1234567890.5
 `,
 		},
 		{
@@ -181,7 +181,7 @@ http_requests_total 1027 1234567891 st@1234567890 # {trace_id="1234"} 1 12345678
 				},
 			},
 			out: `# TYPE http_requests_total counter
-http_requests_total 1027 # {} 1 1234567890.5
+http_requests_total 1027.0 # {} 1.0 1234567890.5
 `,
 		},
 		{
@@ -204,7 +204,7 @@ http_requests_total 1027 # {} 1 1234567890.5
 				},
 			},
 			out: `# TYPE http_requests_total counter
-http_requests_total 1027
+http_requests_total 1027.0
 `,
 		},
 		{
@@ -228,7 +228,7 @@ http_requests_total 1027
 				},
 			},
 			out: `# TYPE http_requests_total counter
-http_requests_total 1027 # {trace_id="1234"} NaN 1234567890
+http_requests_total 1027.0 # {trace_id="1234"} NaN 1234567890
 `,
 		},
 		{
@@ -262,7 +262,7 @@ test_metric 1.23
 				},
 			},
 			out: `# TYPE http_requests_total counter
-http_requests_total 1027
+http_requests_total 1027.0
 `,
 		},
 		{
@@ -282,7 +282,7 @@ http_requests_total 1027
 				},
 			},
 			out: `# TYPE "你好_total" counter
-{"你好_total","🌎"="🌍"} 1027
+{"你好_total","🌎"="🌍"} 1027.0
 `,
 		},
 	}
@@ -492,6 +492,30 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 			expectedErr: "contains raw newlines",
 		},
 		{
+			name: "NewlineInUnit",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_counter_total"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Unit: proto.String("seconds\n"),
+				Metric: []*dto.Metric{
+					{Counter: &dto.Counter{Value: proto.Float64(1.0)}},
+				},
+			},
+			expectedErr: "contains raw newlines",
+		},
+		{
+			name: "CarriageReturnInUnit",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_counter_total"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Unit: proto.String("seconds\r"),
+				Metric: []*dto.Metric{
+					{Counter: &dto.Counter{Value: proto.Float64(1.0)}},
+				},
+			},
+			expectedErr: "contains raw newlines",
+		},
+		{
 			name: "NilMetric",
 			in: &dto.MetricFamily{
 				Name:   proto.String("test_counter_total"),
@@ -614,7 +638,7 @@ func TestCreateOpenMetrics20_SimpleWriter(t *testing.T) {
 	}
 
 	expected := `# TYPE http_requests_total counter
-http_requests_total 1027
+http_requests_total 1027.0
 `
 	if buf.String() != expected {
 		t.Errorf("expected %q, got %q", expected, buf.String())
