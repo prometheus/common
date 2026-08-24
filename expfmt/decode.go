@@ -90,6 +90,11 @@ func NewDecoder(r io.Reader, format Format) Decoder {
 		return &protoDecoder{r: bufio.NewReader(r), s: scheme}
 	case TypeProtoText, TypeProtoCompact:
 		return &errDecoder{err: fmt.Errorf("format %s not supported for decoding", format)}
+	case TypeOpenMetrics:
+		_, params, err := mime.ParseMediaType(string(format))
+		if err == nil && params["version"] == OpenMetricsVersion_2_0_0 {
+			return &errDecoder{err: fmt.Errorf("format %s not supported for decoding", format)}
+		}
 	}
 	return &textDecoder{r: r, s: scheme}
 }

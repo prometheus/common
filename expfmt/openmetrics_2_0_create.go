@@ -30,10 +30,14 @@ import (
 // OpenMetrics text format version 2.0.0 and writes the resulting lines to 'out'.
 // It returns the number of bytes written and any error encountered.
 //
-// NOTE: This method implements OpenMetrics 2.0-rc.0 which is experimental.
+// NOTE: This method implements OpenMetrics 2.0-rc.0 which is experimental and
+// encode-only (currently supporting counter, gauge, and untyped metric types).
 // Breaking changes might happen in the future. This implementation is still a
 // work-in-progress, and does not yet support all features of the format.
+// EncoderOptions are accepted for signature compatibility with
+// MetricFamilyToOpenMetrics and are currently ignored.
 func MetricFamilyToOpenMetrics20(out io.Writer, in *dto.MetricFamily, options ...EncoderOption) (written int, err error) {
+	// Options are accepted for signature compatibility and ignored.
 	_ = options
 	name := in.GetName()
 	if name == "" {
