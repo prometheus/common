@@ -808,6 +808,7 @@ func validateClassicBuckets(
 ) error {
 	var infSeen bool
 	var prevBound float64
+	var prevCount float64
 	for i, b := range h.Bucket {
 		if b == nil {
 			return errors.New("expected non-nil bucket")
@@ -821,6 +822,16 @@ func validateClassicBuckets(
 		}
 		prevBound = ub
 
+		if b.CumulativeCountFloat != nil {
+			c := *b.CumulativeCountFloat
+			if math.IsNaN(c) {
+				return fmt.Errorf("classic bucket count cannot be NaN in metric %s", name)
+			}
+			if !isGauge && c < 0 {
+				return fmt.Errorf("classic bucket count cannot be negative (%g) in metric %s", c, name)
+			}
+		}
+
 		var bCount float64
 		switch {
 		case b.CumulativeCountFloat != nil && (*b.CumulativeCountFloat > 0 || b.CumulativeCount == nil || isGauge):
@@ -828,6 +839,11 @@ func validateClassicBuckets(
 		case b.CumulativeCount != nil:
 			bCount = float64(*b.CumulativeCount)
 		}
+
+		if !isGauge && i > 0 && bCount < prevCount {
+			return fmt.Errorf("classic bucket counts must be monotonically increasing: %g < %g in metric %s", bCount, prevCount, name)
+		}
+		prevCount = bCount
 
 		if math.IsInf(ub, +1) {
 			if i != len(h.Bucket)-1 {
@@ -846,18 +862,13 @@ func validateClassicBuckets(
 				}
 			}
 		}
+	}
 
-		if b.CumulativeCountFloat != nil {
-			c := *b.CumulativeCountFloat
-			if math.IsNaN(c) {
-				return fmt.Errorf("classic bucket count cannot be NaN in metric %s", name)
-			}
-			if !isGauge && c < 0 {
-				return fmt.Errorf("classic bucket count cannot be negative (%g) in metric %s", c, name)
-			}
+	if !infSeen && len(h.Bucket) > 0 && !isGauge {
+		if sampleCount < prevCount {
+			return fmt.Errorf("sample count (%g) is less than highest bucket count (%g) in metric %s", sampleCount, prevCount, name)
 		}
 	}
-	_ = infSeen
 	return nil
 }
 

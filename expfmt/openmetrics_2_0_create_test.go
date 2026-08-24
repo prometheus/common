@@ -1266,6 +1266,46 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 			expectedErr: "classic bucket count cannot be negative",
 		},
 		{
+			name: "ClassicBucketCountNonMonotonic",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_histogram"),
+				Type: dto.MetricType_HISTOGRAM.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Histogram: &dto.Histogram{
+							SampleCount: proto.Uint64(5),
+							SampleSum:   proto.Float64(0.1),
+							Bucket: []*dto.Bucket{
+								{UpperBound: proto.Float64(0.1), CumulativeCount: proto.Uint64(5)},
+								{UpperBound: proto.Float64(1.0), CumulativeCount: proto.Uint64(2)},
+								{UpperBound: proto.Float64(math.Inf(+1)), CumulativeCount: proto.Uint64(5)},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "classic bucket counts must be monotonically increasing",
+		},
+		{
+			name: "ClassicBucketCountSynthesizedPosInfMismatch",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_histogram"),
+				Type: dto.MetricType_HISTOGRAM.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Histogram: &dto.Histogram{
+							SampleCount: proto.Uint64(3),
+							SampleSum:   proto.Float64(0.1),
+							Bucket: []*dto.Bucket{
+								{UpperBound: proto.Float64(1.0), CumulativeCount: proto.Uint64(7)},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "sample count (3) is less than highest bucket count (7)",
+		},
+		{
 			name: "NativeHistogramSchemaOutOfRange_Low",
 			in: &dto.MetricFamily{
 				Name: proto.String("test_histogram"),
