@@ -208,6 +208,102 @@ http_requests_total 1027.0
 `,
 		},
 		{
+			name: "CounterWithInvalidExemplarTimestamp",
+			in: &dto.MetricFamily{
+				Name: proto.String("http_requests_total"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Counter: &dto.Counter{
+							Value: proto.Float64(1027),
+							Exemplar: &dto.Exemplar{
+								Label: []*dto.LabelPair{
+									{Name: proto.String("trace_id"), Value: proto.String("1234")},
+								},
+								Value: proto.Float64(1),
+								Timestamp: &timestamppb.Timestamp{
+									Nanos: -1,
+								},
+							},
+						},
+					},
+				},
+			},
+			out: `# TYPE http_requests_total counter
+http_requests_total 1027.0
+`,
+		},
+		{
+			name: "CounterWithInvalidExemplarLabel",
+			in: &dto.MetricFamily{
+				Name: proto.String("http_requests_total"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Counter: &dto.Counter{
+							Value: proto.Float64(1027),
+							Exemplar: &dto.Exemplar{
+								Label: []*dto.LabelPair{
+									{Name: proto.String(""), Value: proto.String("1234")},
+								},
+								Value:     proto.Float64(1),
+								Timestamp: &timestamppb.Timestamp{Seconds: 1234567890},
+							},
+						},
+					},
+				},
+			},
+			out: `# TYPE http_requests_total counter
+http_requests_total 1027.0
+`,
+		},
+		{
+			name: "CounterWithNewlineInExemplarLabelName",
+			in: &dto.MetricFamily{
+				Name: proto.String("http_requests_total"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Counter: &dto.Counter{
+							Value: proto.Float64(1027),
+							Exemplar: &dto.Exemplar{
+								Label: []*dto.LabelPair{
+									{Name: proto.String("trace\nid"), Value: proto.String("1234")},
+								},
+								Value:     proto.Float64(1),
+								Timestamp: &timestamppb.Timestamp{Seconds: 1234567890},
+							},
+						},
+					},
+				},
+			},
+			out: `# TYPE http_requests_total counter
+http_requests_total 1027.0
+`,
+		},
+		{
+			name: "CounterWithNilExemplarLabelPair",
+			in: &dto.MetricFamily{
+				Name: proto.String("http_requests_total"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Counter: &dto.Counter{
+							Value: proto.Float64(1027),
+							Exemplar: &dto.Exemplar{
+								Label:     []*dto.LabelPair{nil},
+								Value:     proto.Float64(1),
+								Timestamp: &timestamppb.Timestamp{Seconds: 1234567890},
+							},
+						},
+					},
+				},
+			},
+			out: `# TYPE http_requests_total counter
+http_requests_total 1027.0
+`,
+		},
+		{
 			name: "CounterWithNaNExemplar",
 			in: &dto.MetricFamily{
 				Name: proto.String("http_requests_total"),
@@ -555,30 +651,6 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 				},
 			},
 			expectedErr: "invalid created timestamp in metric test_counter_total",
-		},
-		{
-			name: "ExemplarInvalidTimestamp",
-			in: &dto.MetricFamily{
-				Name: proto.String("test_counter_total"),
-				Type: dto.MetricType_COUNTER.Enum(),
-				Metric: []*dto.Metric{
-					{
-						Counter: &dto.Counter{
-							Value: proto.Float64(1.0),
-							Exemplar: &dto.Exemplar{
-								Label: []*dto.LabelPair{
-									{Name: proto.String("trace_id"), Value: proto.String("1234")},
-								},
-								Value: proto.Float64(1.0),
-								Timestamp: &timestamppb.Timestamp{
-									Nanos: -1,
-								},
-							},
-						},
-					},
-				},
-			},
-			expectedErr: "has out-of-range nanos",
 		},
 	}
 
