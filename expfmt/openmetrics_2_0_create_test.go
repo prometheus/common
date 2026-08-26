@@ -362,6 +362,48 @@ http_requests_total 1027.0
 `,
 		},
 		{
+			name: "GaugeWithAccidentalCounterCreatedTimestamp",
+			in: &dto.MetricFamily{
+				Name: proto.String("node_memory_active_bytes"),
+				Help: proto.String("Active memory in bytes."),
+				Type: dto.MetricType_GAUGE.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Gauge: &dto.Gauge{
+							Value: proto.Float64(1.2345e+09),
+						},
+						Counter: &dto.Counter{
+							CreatedTimestamp: &timestamppb.Timestamp{Seconds: 1234567890},
+						},
+					},
+				},
+			},
+			out: `# HELP node_memory_active_bytes Active memory in bytes.
+# TYPE node_memory_active_bytes gauge
+node_memory_active_bytes 1.2345e+09
+`,
+		},
+		{
+			name: "UntypedWithAccidentalCounterCreatedTimestamp",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_metric"),
+				Type: dto.MetricType_UNTYPED.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Untyped: &dto.Untyped{
+							Value: proto.Float64(1.23),
+						},
+						Counter: &dto.Counter{
+							CreatedTimestamp: &timestamppb.Timestamp{Seconds: 1234567890},
+						},
+					},
+				},
+			},
+			out: `# TYPE test_metric unknown
+test_metric 1.23
+`,
+		},
+		{
 			name: "UTF8Support",
 			in: &dto.MetricFamily{
 				Name: proto.String("你好_total"),
@@ -400,12 +442,15 @@ http_requests_total 1027.0
 	}
 }
 
-func TestWriteOpenMetrics20Timestamp_SpecialValues(t *testing.T) {
+func TestWriteOpenMetrics20Timestamp(t *testing.T) {
 	tests := []struct {
 		name string
 		val  float64
 		out  string
 	}{
+		{"Integer", 1234567890, "1234567890"},
+		{"Subsecond", 1234567890.123, "1234567890.123"},
+		{"Zero", 0, "0"},
 		{"NaN", math.NaN(), "NaN"},
 		{"+Inf", math.Inf(+1), "+Inf"},
 		{"-Inf", math.Inf(-1), "-Inf"},
@@ -672,7 +717,7 @@ func TestWriteOpenMetrics20Sample_UseIntValue(t *testing.T) {
 	var buf bytes.Buffer
 	w := enhancedWriter(&buf)
 	metric := &dto.Metric{}
-	n, err := writeOpenMetrics20Sample(w, "test_metric", metric, 0, 123, true, nil)
+	n, err := writeOpenMetrics20Sample(w, "test_metric", metric, 0, 123, true, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -682,6 +727,52 @@ func TestWriteOpenMetrics20Sample_UseIntValue(t *testing.T) {
 	}
 	if n != len(expected) {
 		t.Errorf("expected %d bytes written, got %d", len(expected), n)
+	}
+}
+
+func TestWriteProtoTimestamp(t *testing.T) {
+	tests := []struct {
+		name string
+		ts   *timestamppb.Timestamp
+		out  string
+	}{
+		{
+			name: "WholeSecondsPositive",
+			ts:   &timestamppb.Timestamp{Seconds: 1234567890},
+			out:  "1234567890",
+		},
+		{
+			name: "SubsecondPositive",
+			ts:   &timestamppb.Timestamp{Seconds: 1234567890, Nanos: 500000000},
+			out:  "1234567890.5",
+		},
+		{
+			name: "SubsecondPositiveFullPrecision",
+			ts:   &timestamppb.Timestamp{Seconds: 1234567890, Nanos: 987654321},
+			out:  "1234567890.987654321",
+		},
+		{
+			name: "ZeroSecondsSubsecond",
+			ts:   &timestamppb.Timestamp{Seconds: 0, Nanos: 500000000},
+			out:  "0.5",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			w := enhancedWriter(&buf)
+			n, err := writeProtoTimestamp(w, tc.ts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if buf.String() != tc.out {
+				t.Errorf("expected %q, got %q", tc.out, buf.String())
+			}
+			if n != len(tc.out) {
+				t.Errorf("expected %d bytes written, got %d", len(tc.out), n)
+			}
+		})
 	}
 }
 

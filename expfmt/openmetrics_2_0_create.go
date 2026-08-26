@@ -173,17 +173,17 @@ func MetricFamilyToOpenMetrics20(out io.Writer, in *dto.MetricFamily, options ..
 			if val < 0 {
 				return written, fmt.Errorf("counter value cannot be negative (%g) in metric %s", val, name)
 			}
-			n, err = writeOpenMetrics20Sample(w, name, metric, val, 0, false, metric.Counter.Exemplar)
+			n, err = writeOpenMetrics20Sample(w, name, metric, val, 0, false, metric.Counter.CreatedTimestamp, metric.Counter.Exemplar)
 		case dto.MetricType_GAUGE:
 			if metric.Gauge == nil {
 				return written, fmt.Errorf("expected gauge in metric %s %s", name, metric)
 			}
-			n, err = writeOpenMetrics20Sample(w, name, metric, metric.Gauge.GetValue(), 0, false, nil)
+			n, err = writeOpenMetrics20Sample(w, name, metric, metric.Gauge.GetValue(), 0, false, nil, nil)
 		case dto.MetricType_UNTYPED:
 			if metric.Untyped == nil {
 				return written, fmt.Errorf("expected untyped in metric %s %s", name, metric)
 			}
-			n, err = writeOpenMetrics20Sample(w, name, metric, metric.Untyped.GetValue(), 0, false, nil)
+			n, err = writeOpenMetrics20Sample(w, name, metric, metric.Untyped.GetValue(), 0, false, nil, nil)
 		case dto.MetricType_SUMMARY:
 			if metric.Summary == nil {
 				return written, fmt.Errorf("expected summary in metric %s %s", name, metric)
@@ -206,7 +206,7 @@ func MetricFamilyToOpenMetrics20(out io.Writer, in *dto.MetricFamily, options ..
 }
 
 // writeOpenMetrics20Sample writes a single sample for simple types (Counter, Gauge, Untyped).
-func writeOpenMetrics20Sample(w enhancedWriter, name string, metric *dto.Metric, floatValue float64, intValue uint64, useIntValue bool, exemplar *dto.Exemplar) (int, error) {
+func writeOpenMetrics20Sample(w enhancedWriter, name string, metric *dto.Metric, floatValue float64, intValue uint64, useIntValue bool, startTimestamp *timestamppb.Timestamp, exemplar *dto.Exemplar) (int, error) {
 	if err := validateLabels20(metric.Label); err != nil {
 		return 0, err
 	}
@@ -245,10 +245,9 @@ func writeOpenMetrics20Sample(w enhancedWriter, name string, metric *dto.Metric,
 		}
 	}
 
-	// Start Timestamp for Counter
-	if metric.Counter != nil && metric.Counter.CreatedTimestamp != nil {
-		ts := metric.Counter.CreatedTimestamp
-		if err := ts.CheckValid(); err != nil {
+	// Start Timestamp
+	if startTimestamp != nil {
+		if err := startTimestamp.CheckValid(); err != nil {
 			return written, fmt.Errorf("invalid created timestamp in metric %s: %w", name, err)
 		}
 		n, err = w.WriteString(" st@")
@@ -256,7 +255,7 @@ func writeOpenMetrics20Sample(w enhancedWriter, name string, metric *dto.Metric,
 		if err != nil {
 			return written, err
 		}
-		n, err = writeProtoTimestamp(w, ts)
+		n, err = writeProtoTimestamp(w, startTimestamp)
 		written += n
 		if err != nil {
 			return written, err
@@ -330,20 +329,11 @@ func writeExemplar20(w enhancedWriter, e *dto.Exemplar) (int, error) {
 
 // writeOpenMetrics20Timestamp writes a float64 as a timestamp without scientific notation.
 func writeOpenMetrics20Timestamp(w enhancedWriter, f float64) (int, error) {
-	switch {
-	case math.IsNaN(f):
-		return w.WriteString("NaN")
-	case math.IsInf(f, +1):
-		return w.WriteString("+Inf")
-	case math.IsInf(f, -1):
-		return w.WriteString("-Inf")
-	default:
-		bp := numBufPool.Get().(*[]byte)
-		*bp = strconv.AppendFloat((*bp)[:0], f, 'f', -1, 64)
-		written, err := w.Write(*bp)
-		numBufPool.Put(bp)
-		return written, err
-	}
+	bp := numBufPool.Get().(*[]byte)
+	*bp = strconv.AppendFloat((*bp)[:0], f, 'f', -1, 64)
+	written, err := w.Write(*bp)
+	numBufPool.Put(bp)
+	return written, err
 }
 
 // Stubs for Summary and Histogram
@@ -405,19 +395,19 @@ func writeProtoTimestamp(w enhancedWriter, ts *timestamppb.Timestamp) (int, erro
 		return n, nil
 	}
 	err = w.WriteByte('.')
-	n++
+	written := n + 1
 	if err != nil {
-		return n, err
+		return written, err
 	}
 	bp := numBufPool.Get().(*[]byte)
 	*bp = strconv.AppendInt((*bp)[:0], int64(ts.Nanos), 10)
 	pad := 9 - len(*bp)
 	for range pad {
 		err = w.WriteByte('0')
-		n++
+		written++
 		if err != nil {
 			numBufPool.Put(bp)
-			return n, err
+			return written, err
 		}
 	}
 	val := *bp
@@ -425,7 +415,7 @@ func writeProtoTimestamp(w enhancedWriter, ts *timestamppb.Timestamp) (int, erro
 		val = val[:len(val)-1]
 	}
 	n2, err := w.Write(val)
-	n += n2
+	written += n2
 	numBufPool.Put(bp)
-	return n, err
+	return written, err
 }
