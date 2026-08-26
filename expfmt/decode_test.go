@@ -17,6 +17,7 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"net/http"
@@ -576,4 +577,70 @@ func TestTextDecoderWithBufioReader(t *testing.T) {
 		decoded = true
 	}
 	require.Truef(t, decoded, "Metric foo not decoded")
+}
+
+func TestNewDecoder(t *testing.T) {
+	om20Format, err := NewOpenMetricsFormat(OpenMetricsVersion_2_0_0)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name        string
+		format      Format
+		expectError bool
+	}{
+		{
+			name:        "Text format",
+			format:      FmtText,
+			expectError: false,
+		},
+		{
+			name:        "ProtoDelim format",
+			format:      FmtProtoDelim,
+			expectError: false,
+		},
+		{
+			name:        "ProtoText format",
+			format:      FmtProtoText,
+			expectError: true,
+		},
+		{
+			name:        "ProtoCompact format",
+			format:      FmtProtoCompact,
+			expectError: true,
+		},
+		{
+			name:        "OpenMetrics 0.0.1",
+			format:      FmtOpenMetrics_0_0_1,
+			expectError: false,
+		},
+		{
+			name:        "OpenMetrics 1.0.0",
+			format:      FmtOpenMetrics_1_0_0,
+			expectError: false,
+		},
+		{
+			name:        "OpenMetrics 2.0.0",
+			format:      om20Format,
+			expectError: true,
+		},
+		{
+			name:        "OpenMetrics 2.0.0 with escaping",
+			format:      om20Format.WithEscapingScheme(model.ValueEncodingEscaping),
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dec := NewDecoder(strings.NewReader(""), tt.format)
+			var mf dto.MetricFamily
+			err := dec.Decode(&mf)
+			if tt.expectError {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), fmt.Sprintf("format %s not supported for decoding", tt.format))
+			} else if err != nil {
+				require.ErrorIs(t, err, io.EOF)
+			}
+		})
+	}
 }

@@ -16,12 +16,14 @@ package expfmt
 import (
 	"bytes"
 	"net/http"
+	"strings"
 	"testing"
 
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/prometheus/common/model"
 )
@@ -612,5 +614,77 @@ func BenchmarkNegotiateAccept(b *testing.B) {
 	b.ResetTimer()
 	for b.Loop() {
 		_ = NegotiateAccept(h, accepted...)
+	}
+}
+
+func TestNewEncoder_OpenMetricsVersionDispatch(t *testing.T) {
+	counterMetric := &dto.MetricFamily{
+		Name: proto.String("test_counter"),
+		Type: dto.MetricType_COUNTER.Enum(),
+		Metric: []*dto.Metric{
+			{
+				Counter: &dto.Counter{
+					Value: proto.Float64(42),
+					CreatedTimestamp: &timestamppb.Timestamp{
+						Seconds: 1234567890,
+						Nanos:   0,
+					},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name         string
+		format       Format
+		expectedLine string
+	}{
+		{
+			name:         "OpenMetrics 1.0.0",
+			format:       FmtOpenMetrics_1_0_0,
+			expectedLine: "# TYPE test_counter unknown\ntest_counter 42.0\n",
+		},
+		{
+			name:         "OpenMetrics 0.0.1",
+			format:       FmtOpenMetrics_0_0_1,
+			expectedLine: "# TYPE test_counter unknown\ntest_counter 42.0\n",
+		},
+		{
+			name:         "OpenMetrics 2.0.0 standard",
+			format:       fmtOpenMetrics_2_0_0,
+			expectedLine: "# TYPE test_counter counter\ntest_counter 42.0 st@1234567890\n",
+		},
+		{
+			name:         "OpenMetrics 2.0.0 reordered parameters",
+			format:       Format("application/openmetrics-text; charset=utf-8; version=2.0.0"),
+			expectedLine: "# TYPE test_counter counter\ntest_counter 42.0 st@1234567890\n",
+		},
+		{
+			name:         "OpenMetrics 2.0.0 quoted version parameter",
+			format:       Format(`application/openmetrics-text; version="2.0.0"; charset=utf-8`),
+			expectedLine: "# TYPE test_counter counter\ntest_counter 42.0 st@1234567890\n",
+		},
+		{
+			name:         "OpenMetrics 2.0.0 with escaping scheme",
+			format:       Format("application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=values"),
+			expectedLine: "# TYPE test_counter counter\ntest_counter 42.0 st@1234567890\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			enc := NewEncoder(&buf, tt.format)
+			err := enc.Encode(counterMetric)
+			require.NoError(t, err)
+			closer, ok := enc.(Closer)
+			require.True(t, ok)
+			err = closer.Close()
+			require.NoError(t, err)
+
+			output := buf.String()
+			require.Contains(t, output, tt.expectedLine)
+			require.True(t, strings.HasSuffix(output, "# EOF\n"))
+		})
 	}
 }
