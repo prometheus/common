@@ -1,10 +1,12 @@
 ###
-# This file is synced from https://github.com/prometheus/prometheus
+# Avoid syncing from prometheus/prometheus: no_prometheus_repo_sync
 ###
 version: 2
 updates:
   - package-ecosystem: "gomod"
-    directory: "/"
+    directories:
+      - /
+      - /assets
     schedule:
       interval: "monthly"
     groups:
