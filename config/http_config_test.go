@@ -2749,3 +2749,27 @@ func TestLoadHTTPConfigFileResolvesPathsRelativeToConfigFile(t *testing.T) {
 	_, err = client.Get(ts.URL)
 	require.NoErrorf(t, err, "can't fetch URL: %v", err)
 }
+
+func TestCloneRequest(t *testing.T) {
+	t.Run("clone does not share the caller's header", func(t *testing.T) {
+		r, err := http.NewRequest(http.MethodGet, "http://example.com", nil)
+		require.NoError(t, err)
+		r.Header.Set("X-Original", "value")
+
+		r2 := cloneRequest(r)
+		r2.Header.Add("X-Added", "value")
+
+		require.Equal(t, "value", r2.Header.Get("X-Original"), "existing headers must be carried over")
+		require.Empty(t, r.Header.Values("X-Added"), "the original request must not be modified")
+	})
+
+	t.Run("clone of a request without a header is usable", func(t *testing.T) {
+		r, err := http.NewRequest(http.MethodGet, "http://example.com", nil)
+		require.NoError(t, err)
+		r.Header = nil
+
+		r2 := cloneRequest(r)
+		require.NotPanics(t, func() { r2.Header.Set("X-Added", "value") })
+		require.Nil(t, r.Header, "the original request must not be modified")
+	})
+}
