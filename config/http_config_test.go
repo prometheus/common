@@ -2759,8 +2759,8 @@ func TestCloneRequest(t *testing.T) {
 		r2 := cloneRequest(r)
 		r2.Header.Add("X-Added", "value")
 
-		require.Equal(t, "value", r2.Header.Get("X-Original"), "existing headers must be carried over")
-		require.Empty(t, r.Header.Values("X-Added"), "the original request must not be modified")
+		require.Equalf(t, "value", r2.Header.Get("X-Original"), "existing headers must be carried over")
+		require.Emptyf(t, r.Header.Values("X-Added"), "the original request must not be modified")
 	})
 
 	t.Run("clone of a request without a header is usable", func(t *testing.T) {
@@ -2770,6 +2770,6 @@ func TestCloneRequest(t *testing.T) {
 
 		r2 := cloneRequest(r)
 		require.NotPanics(t, func() { r2.Header.Set("X-Added", "value") })
-		require.Nil(t, r.Header, "the original request must not be modified")
+		require.Nilf(t, r.Header, "the original request must not be modified")
 	})
 }

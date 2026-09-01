@@ -94,7 +94,7 @@ func TestHeadersRoundTripperReusedRequest(t *testing.T) {
 		require.NoError(t, err)
 		resp.Body.Close()
 		require.Equalf(t, []string{"testvalue"}, received, "header duplicated on request %d", i+1)
-		require.Empty(t, req.Header.Values("X-Custom-Header"), "the caller's request was modified")
+		require.Emptyf(t, req.Header.Values("X-Custom-Header"), "the caller's request was modified")
 	}
 }
 
