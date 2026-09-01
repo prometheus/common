@@ -69,6 +69,35 @@ func TestHeadersRoundTripperSameHost(t *testing.T) {
 	}
 }
 
+func TestHeadersRoundTripperReusedRequest(t *testing.T) {
+	// The round tripper must not mutate the request it is given: reusing the
+	// same request must not accumulate another copy of every header.
+	var received []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		received = r.Header.Values("X-Custom-Header")
+		fmt.Fprint(w, "ok")
+	}))
+	t.Cleanup(server.Close)
+
+	headers := &Headers{
+		Headers: map[string]Header{
+			"X-Custom-Header": {Values: []string{"testvalue"}},
+		},
+	}
+	rt := NewHeadersRoundTripper(headers, http.DefaultTransport)
+
+	req, err := http.NewRequest(http.MethodGet, server.URL, nil)
+	require.NoError(t, err)
+
+	for i := range 3 {
+		resp, err := rt.RoundTrip(req)
+		require.NoError(t, err)
+		resp.Body.Close()
+		require.Equalf(t, []string{"testvalue"}, received, "header duplicated on request %d", i+1)
+		require.Empty(t, req.Header.Values("X-Custom-Header"), "the caller's request was modified")
+	}
+}
+
 func TestHeadersRoundTripperCrossHostRedirect(t *testing.T) {
 	// Cookie must be set on the initial request but stripped on cross-host redirects.
 	cookieOnRedirect := ""
