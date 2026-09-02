@@ -925,6 +925,244 @@ empty_histogram {count:0,sum:0,bucket:[+Inf:0]}
 test_histogram {count:1,sum:0.1,bucket:[0.1:1,+Inf:1]} st@-0.5
 `,
 		},
+		{
+			name: "Summary",
+			in: &dto.MetricFamily{
+				Name: proto.String("rpc_duration_seconds"),
+				Help: proto.String("RPC latency in seconds."),
+				Type: dto.MetricType_SUMMARY.Enum(),
+				Unit: proto.String("seconds"),
+				Metric: []*dto.Metric{
+					{
+						Label: []*dto.LabelPair{
+							{Name: proto.String("service"), Value: proto.String("auth")},
+						},
+						Summary: &dto.Summary{
+							SampleCount: proto.Uint64(100),
+							SampleSum:   proto.Float64(25.5),
+							Quantile: []*dto.Quantile{
+								{Quantile: proto.Float64(0.5), Value: proto.Float64(0.12)},
+								{Quantile: proto.Float64(0.9), Value: proto.Float64(0.45)},
+								{Quantile: proto.Float64(0.99), Value: proto.Float64(0.89)},
+							},
+						},
+					},
+				},
+			},
+			out: `# HELP rpc_duration_seconds RPC latency in seconds.
+# TYPE rpc_duration_seconds summary
+# UNIT rpc_duration_seconds seconds
+rpc_duration_seconds{service="auth"} {count:100,sum:25.5,quantile:[0.5:0.12,0.9:0.45,0.99:0.89]}
+`,
+		},
+		{
+			name: "Summary_EmptyQuantiles",
+			in: &dto.MetricFamily{
+				Name: proto.String("foo"),
+				Type: dto.MetricType_SUMMARY.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Summary: &dto.Summary{
+							SampleCount: proto.Uint64(17),
+							SampleSum:   proto.Float64(324789.3),
+						},
+					},
+				},
+			},
+			out: `# TYPE foo summary
+foo {count:17,sum:324789.3,quantile:[]}
+`,
+		},
+		{
+			name: "Summary_ZeroCountAndSum",
+			in: &dto.MetricFamily{
+				Name: proto.String("foo"),
+				Type: dto.MetricType_SUMMARY.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Summary: &dto.Summary{
+							SampleCount: proto.Uint64(0),
+							SampleSum:   proto.Float64(0),
+							Quantile: []*dto.Quantile{
+								{Quantile: proto.Float64(0.95), Value: proto.Float64(123.7)},
+								{Quantile: proto.Float64(0.99), Value: proto.Float64(150)},
+							},
+						},
+					},
+				},
+			},
+			out: `# TYPE foo summary
+foo {count:0,sum:0,quantile:[0.95:123.7,0.99:150]}
+`,
+		},
+		{
+			name: "Summary_WithCreatedTimestamp",
+			in: &dto.MetricFamily{
+				Name: proto.String("foo"),
+				Type: dto.MetricType_SUMMARY.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Summary: &dto.Summary{
+							SampleCount:      proto.Uint64(17),
+							SampleSum:        proto.Float64(324789.3),
+							CreatedTimestamp: &timestamppb.Timestamp{Seconds: 1234567890},
+						},
+					},
+				},
+			},
+			out: `# TYPE foo summary
+foo {count:17,sum:324789.3,quantile:[]} st@1234567890
+`,
+		},
+		{
+			name: "Summary_WithSubsecondCreatedTimestamp",
+			in: &dto.MetricFamily{
+				Name: proto.String("foo"),
+				Type: dto.MetricType_SUMMARY.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Summary: &dto.Summary{
+							SampleCount:      proto.Uint64(17),
+							SampleSum:        proto.Float64(324789.3),
+							CreatedTimestamp: &timestamppb.Timestamp{Seconds: 1234567890, Nanos: 987654321},
+						},
+					},
+				},
+			},
+			out: `# TYPE foo summary
+foo {count:17,sum:324789.3,quantile:[]} st@1234567890.987654321
+`,
+		},
+		{
+			name: "Summary_WithTimestamp",
+			in: &dto.MetricFamily{
+				Name: proto.String("foo"),
+				Type: dto.MetricType_SUMMARY.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Summary: &dto.Summary{
+							SampleCount: proto.Uint64(17),
+							SampleSum:   proto.Float64(324789.3),
+						},
+						TimestampMs: proto.Int64(1234567891000),
+					},
+				},
+			},
+			out: `# TYPE foo summary
+foo {count:17,sum:324789.3,quantile:[]} 1234567891
+`,
+		},
+		{
+			name: "Summary_WithTimestampAndCreatedTimestamp",
+			in: &dto.MetricFamily{
+				Name: proto.String("foo"),
+				Type: dto.MetricType_SUMMARY.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Summary: &dto.Summary{
+							SampleCount:      proto.Uint64(17),
+							SampleSum:        proto.Float64(324789.3),
+							CreatedTimestamp: &timestamppb.Timestamp{Seconds: 1234567890},
+						},
+						TimestampMs: proto.Int64(1234567891000),
+					},
+				},
+			},
+			out: `# TYPE foo summary
+foo {count:17,sum:324789.3,quantile:[]} 1234567891 st@1234567890
+`,
+		},
+		{
+			name: "Summary_NaNAndInfQuantileValues",
+			in: &dto.MetricFamily{
+				Name: proto.String("foo"),
+				Type: dto.MetricType_SUMMARY.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Summary: &dto.Summary{
+							SampleCount: proto.Uint64(5),
+							SampleSum:   proto.Float64(10),
+							Quantile: []*dto.Quantile{
+								{Quantile: proto.Float64(0.5), Value: proto.Float64(math.NaN())},
+								{Quantile: proto.Float64(0.99), Value: proto.Float64(math.Inf(+1))},
+							},
+						},
+					},
+				},
+			},
+			out: `# TYPE foo summary
+foo {count:5,sum:10,quantile:[0.5:NaN,0.99:+Inf]}
+`,
+		},
+		{
+			name: "Summary_UTF8",
+			in: &dto.MetricFamily{
+				Name: proto.String("my.app/duration"),
+				Type: dto.MetricType_SUMMARY.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Label: []*dto.LabelPair{
+							{Name: proto.String("service.name"), Value: proto.String("my_service")},
+						},
+						Summary: &dto.Summary{
+							SampleCount: proto.Uint64(2),
+							SampleSum:   proto.Float64(3.4),
+							Quantile: []*dto.Quantile{
+								{Quantile: proto.Float64(0.95), Value: proto.Float64(1.7)},
+							},
+						},
+					},
+				},
+			},
+			out: `# TYPE "my.app/duration" summary
+{"my.app/duration","service.name"="my_service"} {count:2,sum:3.4,quantile:[0.95:1.7]}
+`,
+		},
+		{
+			name: "Summary_MultipleMetrics",
+			in: &dto.MetricFamily{
+				Name: proto.String("acme_http_router_request_seconds"),
+				Help: proto.String("Latency though all of ACME's HTTP request router."),
+				Type: dto.MetricType_SUMMARY.Enum(),
+				Unit: proto.String("seconds"),
+				Metric: []*dto.Metric{
+					{
+						Label: []*dto.LabelPair{
+							{Name: proto.String("path"), Value: proto.String("/api/v1")},
+							{Name: proto.String("method"), Value: proto.String("GET")},
+						},
+						Summary: &dto.Summary{
+							SampleCount: proto.Uint64(807283),
+							SampleSum:   proto.Float64(9036.32),
+							Quantile: []*dto.Quantile{
+								{Quantile: proto.Float64(0.95), Value: proto.Float64(2)},
+								{Quantile: proto.Float64(0.99), Value: proto.Float64(20)},
+							},
+						},
+					},
+					{
+						Label: []*dto.LabelPair{
+							{Name: proto.String("path"), Value: proto.String("/api/v2")},
+							{Name: proto.String("method"), Value: proto.String("GET")},
+						},
+						Summary: &dto.Summary{
+							SampleCount: proto.Uint64(34),
+							SampleSum:   proto.Float64(479.3),
+							Quantile: []*dto.Quantile{
+								{Quantile: proto.Float64(0.95), Value: proto.Float64(2.5)},
+								{Quantile: proto.Float64(0.99), Value: proto.Float64(2.9)},
+							},
+						},
+					},
+				},
+			},
+			out: `# HELP acme_http_router_request_seconds Latency though all of ACME's HTTP request router.
+# TYPE acme_http_router_request_seconds summary
+# UNIT acme_http_router_request_seconds seconds
+acme_http_router_request_seconds{path="/api/v1",method="GET"} {count:807283,sum:9036.32,quantile:[0.95:2,0.99:20]}
+acme_http_router_request_seconds{path="/api/v2",method="GET"} {count:34,sum:479.3,quantile:[0.95:2.5,0.99:2.9]}
+`,
+		},
 	}
 
 	for _, scenario := range scenarios {
@@ -1053,15 +1291,201 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 			expectedErr: "expected histogram in metric",
 		},
 		{
-			name: "SummaryNotImplemented",
+			name: "Summary_LabelContainsQuantile",
 			in: &dto.MetricFamily{
-				Name: proto.String("test_metric"),
+				Name: proto.String("test_summary"),
 				Type: dto.MetricType_SUMMARY.Enum(),
 				Metric: []*dto.Metric{
-					{Summary: &dto.Summary{}},
+					{
+						Label: []*dto.LabelPair{
+							{Name: proto.String("quantile"), Value: proto.String("0.9")},
+						},
+						Summary: &dto.Summary{},
+					},
 				},
 			},
-			expectedErr: "summary not implemented yet",
+			expectedErr: `metric test_summary is a summary but label set contains "quantile" label`,
+		},
+		{
+			name: "Summary_SumNaN",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_summary"),
+				Type: dto.MetricType_SUMMARY.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Summary: &dto.Summary{
+							SampleSum: proto.Float64(math.NaN()),
+						},
+					},
+				},
+			},
+			expectedErr: "summary sum cannot be NaN",
+		},
+		{
+			name: "Summary_SumNegative",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_summary"),
+				Type: dto.MetricType_SUMMARY.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Summary: &dto.Summary{
+							SampleSum: proto.Float64(-1.0),
+						},
+					},
+				},
+			},
+			expectedErr: "summary sum cannot be negative",
+		},
+		{
+			name: "Summary_NilQuantile",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_summary"),
+				Type: dto.MetricType_SUMMARY.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Summary: &dto.Summary{
+							Quantile: []*dto.Quantile{nil},
+						},
+					},
+				},
+			},
+			expectedErr: "expected non-nil quantile",
+		},
+		{
+			name: "Summary_QuantileNaN",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_summary"),
+				Type: dto.MetricType_SUMMARY.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Summary: &dto.Summary{
+							Quantile: []*dto.Quantile{
+								{Quantile: proto.Float64(math.NaN()), Value: proto.Float64(1.0)},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "summary quantile cannot be NaN",
+		},
+		{
+			name: "Summary_QuantileNegative",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_summary"),
+				Type: dto.MetricType_SUMMARY.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Summary: &dto.Summary{
+							Quantile: []*dto.Quantile{
+								{Quantile: proto.Float64(-0.1), Value: proto.Float64(1.0)},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "must be between 0 and 1",
+		},
+		{
+			name: "Summary_QuantileGreaterThanOne",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_summary"),
+				Type: dto.MetricType_SUMMARY.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Summary: &dto.Summary{
+							Quantile: []*dto.Quantile{
+								{Quantile: proto.Float64(1.1), Value: proto.Float64(1.0)},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "must be between 0 and 1",
+		},
+		{
+			name: "Summary_QuantilePosInf",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_summary"),
+				Type: dto.MetricType_SUMMARY.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Summary: &dto.Summary{
+							Quantile: []*dto.Quantile{
+								{Quantile: proto.Float64(math.Inf(+1)), Value: proto.Float64(1.0)},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "must be between 0 and 1",
+		},
+		{
+			name: "Summary_QuantilesUnsorted",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_summary"),
+				Type: dto.MetricType_SUMMARY.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Summary: &dto.Summary{
+							Quantile: []*dto.Quantile{
+								{Quantile: proto.Float64(0.9), Value: proto.Float64(1.0)},
+								{Quantile: proto.Float64(0.5), Value: proto.Float64(0.5)},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "summary quantiles must be strictly increasing",
+		},
+		{
+			name: "Summary_QuantilesDuplicate",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_summary"),
+				Type: dto.MetricType_SUMMARY.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Summary: &dto.Summary{
+							Quantile: []*dto.Quantile{
+								{Quantile: proto.Float64(0.5), Value: proto.Float64(1.0)},
+								{Quantile: proto.Float64(0.5), Value: proto.Float64(2.0)},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "summary quantiles must be strictly increasing",
+		},
+		{
+			name: "Summary_QuantileValueNegative",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_summary"),
+				Type: dto.MetricType_SUMMARY.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Summary: &dto.Summary{
+							Quantile: []*dto.Quantile{
+								{Quantile: proto.Float64(0.5), Value: proto.Float64(-1.0)},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "summary quantile value cannot be negative",
+		},
+		{
+			name: "Summary_InvalidCreatedTimestamp",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_summary"),
+				Type: dto.MetricType_SUMMARY.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Summary: &dto.Summary{
+							CreatedTimestamp: &timestamppb.Timestamp{Nanos: -1},
+						},
+					},
+				},
+			},
+			expectedErr: "invalid created timestamp in metric test_summary",
 		},
 		{
 			name: "HistogramCountNegative",
@@ -1902,6 +2326,31 @@ func TestCreateOpenMetrics20_HistogramError_NoPartialBytes(t *testing.T) {
 	var buf bytes.Buffer
 	w := enhancedWriter(&buf)
 	_, err := writeCompositeHistogram(w, in.GetName(), in.Metric[0], false)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if buf.Len() != 0 {
+		t.Fatalf("expected 0 bytes written on validation error, got %q", buf.String())
+	}
+}
+
+func TestCreateOpenMetrics20_SummaryError_NoPartialBytes(t *testing.T) {
+	in := &dto.MetricFamily{
+		Name: proto.String("test_summary"),
+		Type: dto.MetricType_SUMMARY.Enum(),
+		Metric: []*dto.Metric{
+			{
+				Summary: &dto.Summary{
+					SampleCount: proto.Uint64(1),
+					SampleSum:   proto.Float64(-1.0), // invalid sum
+				},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	w := enhancedWriter(&buf)
+	_, err := writeCompositeSummary(w, in.GetName(), in.Metric[0])
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
