@@ -31,7 +31,7 @@ import (
 // It returns the number of bytes written and any error encountered.
 //
 // NOTE: This method targets OpenMetrics 2.0.0 (currently aligned with 2.0-rc.0) which is experimental and
-// encode-only (currently supporting counter, gauge, and untyped metric types).
+// encode-only (currently supporting counter, gauge, summary, untyped, histogram, and gaugehistogram metric types).
 // Breaking changes might happen in the future. This implementation is still a
 // work-in-progress, and does not yet support all features of the format.
 // EncoderOptions are accepted for signature compatibility with
@@ -340,13 +340,159 @@ func writeOpenMetrics20Timestamp(w enhancedWriter, f float64) (int, error) {
 	return written, err
 }
 
-// Stubs for Summary
-
 func writeCompositeSummary(w enhancedWriter, name string, metric *dto.Metric) (int, error) {
-	_ = w
-	_ = name
-	_ = metric
-	return 0, errors.New("summary not implemented yet")
+	s := metric.Summary
+	if s == nil {
+		return 0, fmt.Errorf("expected summary in metric %s", name)
+	}
+
+	if err := validateLabels20(metric.Label); err != nil {
+		return 0, err
+	}
+	for _, lp := range metric.Label {
+		if lp.GetName() == "quantile" {
+			return 0, fmt.Errorf("metric %s is a summary but label set contains %q label", name, "quantile")
+		}
+	}
+
+	sum := s.GetSampleSum()
+	if math.IsNaN(sum) {
+		return 0, fmt.Errorf("summary sum cannot be NaN in metric %s", name)
+	}
+	if sum < 0 {
+		return 0, fmt.Errorf("summary sum cannot be negative (%g) in metric %s", sum, name)
+	}
+
+	var prevQuantile float64
+	for i, q := range s.Quantile {
+		if q == nil {
+			return 0, fmt.Errorf("expected non-nil quantile in metric %s", name)
+		}
+		qv := q.GetQuantile()
+		if math.IsNaN(qv) {
+			return 0, fmt.Errorf("summary quantile cannot be NaN in metric %s", name)
+		}
+		if math.IsInf(qv, 0) || qv < 0 || qv > 1 {
+			return 0, fmt.Errorf("summary quantile %g must be between 0 and 1 in metric %s", qv, name)
+		}
+		if i > 0 && qv <= prevQuantile {
+			return 0, fmt.Errorf("summary quantiles must be strictly increasing: %g <= %g in metric %s", qv, prevQuantile, name)
+		}
+		prevQuantile = qv
+
+		v := q.GetValue()
+		if !math.IsNaN(v) && v < 0 {
+			return 0, fmt.Errorf("summary quantile value cannot be negative (%g) in metric %s", v, name)
+		}
+	}
+
+	if s.CreatedTimestamp != nil {
+		if err := s.CreatedTimestamp.CheckValid(); err != nil {
+			return 0, fmt.Errorf("invalid created timestamp in metric %s: %w", name, err)
+		}
+	}
+
+	written := 0
+	n, err := writeOpenMetricsNameAndLabelPairs(w, name, metric.Label, "", 0)
+	written += n
+	if err != nil {
+		return written, err
+	}
+
+	n, err = w.WriteString(" {count:")
+	written += n
+	if err != nil {
+		return written, err
+	}
+
+	n, err = writeUint(w, s.GetSampleCount())
+	written += n
+	if err != nil {
+		return written, err
+	}
+
+	n, err = w.WriteString(",sum:")
+	written += n
+	if err != nil {
+		return written, err
+	}
+
+	n, err = writeFloat(w, sum)
+	written += n
+	if err != nil {
+		return written, err
+	}
+
+	n, err = w.WriteString(",quantile:[")
+	written += n
+	if err != nil {
+		return written, err
+	}
+
+	for i, q := range s.Quantile {
+		if i > 0 {
+			err = w.WriteByte(',')
+			written++
+			if err != nil {
+				return written, err
+			}
+		}
+		n, err = writeFloat(w, q.GetQuantile())
+		written += n
+		if err != nil {
+			return written, err
+		}
+		err = w.WriteByte(':')
+		written++
+		if err != nil {
+			return written, err
+		}
+		n, err = writeFloat(w, q.GetValue())
+		written += n
+		if err != nil {
+			return written, err
+		}
+	}
+
+	n, err = w.WriteString("]}")
+	written += n
+	if err != nil {
+		return written, err
+	}
+
+	if metric.TimestampMs != nil {
+		err = w.WriteByte(' ')
+		written++
+		if err != nil {
+			return written, err
+		}
+		n, err = writeOpenMetrics20Timestamp(w, float64(*metric.TimestampMs)/1000)
+		written += n
+		if err != nil {
+			return written, err
+		}
+	}
+
+	if s.CreatedTimestamp != nil {
+		n, err = w.WriteString(" st@")
+		written += n
+		if err != nil {
+			return written, err
+		}
+		n, err = writeProtoTimestamp(w, s.CreatedTimestamp)
+		written += n
+		if err != nil {
+			return written, err
+		}
+	}
+
+	err = w.WriteByte('\n')
+	written++
+	if err != nil {
+		return written, err
+	}
+
+	return written, nil
 }
 
 func writeCompositeHistogram(w enhancedWriter, name string, metric *dto.Metric, isGauge bool) (int, error) {
