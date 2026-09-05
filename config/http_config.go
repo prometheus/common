@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"net"
 	"net/http"
@@ -35,7 +36,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/mwitkow/go-conntrack"
-	"go.yaml.in/yaml/v2"
+	"go.yaml.in/yaml/v3"
 	"golang.org/x/net/http/httpproxy"
 	"golang.org/x/net/http2"
 	"golang.org/x/oauth2"
@@ -308,8 +309,9 @@ func (o *OAuth2) SetDirectory(dir string) {
 // LoadHTTPConfig parses the YAML input s into a HTTPClientConfig.
 func LoadHTTPConfig(s string) (*HTTPClientConfig, error) {
 	cfg := &HTTPClientConfig{}
-	err := yaml.UnmarshalStrict([]byte(s), cfg)
-	if err != nil {
+	decoder := yaml.NewDecoder(strings.NewReader(s))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(cfg); err != nil && !errors.Is(err, io.EOF) {
 		return nil, err
 	}
 	return cfg, nil
