@@ -38,6 +38,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.yaml.in/yaml/v2"
+
+	"github.com/prometheus/common/model"
 )
 
 const (
@@ -2046,7 +2048,7 @@ endpoint_params:
 	require.NoErrorf(t, err, "Expected no error unmarshalling yaml, got %v", err)
 	require.Truef(t, reflect.DeepEqual(unmarshalledConfig, expectedConfig), "Got unmarshalled config %v, expected %v", unmarshalledConfig, expectedConfig)
 
-	secret := NewFileSecret(expectedConfig.ClientSecretFile)
+	secret := NewFileSecret(expectedConfig.ClientSecretFile, 0)
 	rt := NewOAuth2RoundTripper(secret, &expectedConfig, http.DefaultTransport)
 
 	client := http.Client{
@@ -2160,7 +2162,7 @@ endpoint_params:
 	require.NoErrorf(t, err, "Expected no error unmarshalling yaml, got %v", err)
 	require.Truef(t, reflect.DeepEqual(unmarshalledConfig, expectedConfig), "Got unmarshalled config %v, expected %v", unmarshalledConfig, expectedConfig)
 
-	clientCertificateKey := NewFileSecret(expectedConfig.ClientCertificateKeyFile)
+	clientCertificateKey := NewFileSecret(expectedConfig.ClientCertificateKeyFile, 0)
 	rt := NewOAuth2RoundTripper(clientCertificateKey, &expectedConfig, http.DefaultTransport)
 
 	client := http.Client{
@@ -2283,6 +2285,7 @@ func TestHTTPClientConfig_Marshal(t *testing.T) {
 proxy_url: "http://localhost:8080"
 follow_redirects: false
 enable_http2: false
+cache_ttl: "0s"
 `, string(actualYAML))
 
 			// Unmarshalling the YAML should get the same struct in input.
@@ -2299,7 +2302,8 @@ enable_http2: false
 				"proxy_url":"http://localhost:8080",
 				"tls_config":{"insecure_skip_verify":false},
 				"follow_redirects":false,
-				"enable_http2":false
+				"enable_http2":false,
+				"cache_ttl":"0s"
 			}`, string(actualJSON))
 
 			// Unmarshalling the JSON should get the same struct in input.
@@ -2329,6 +2333,7 @@ enable_http2: false
 proxy_url: "http://localhost:8080"
 follow_redirects: false
 enable_http2: false
+cache_ttl: "0s"
 http_headers:
   X-Test:
     values:
@@ -2343,6 +2348,7 @@ http_headers:
 			"tls_config":{"insecure_skip_verify":false},
 			"follow_redirects":false,
 			"enable_http2":false,
+			"cache_ttl":"0s",
 			"http_headers":{"X-Test":{"values":["Value-1","Value-2"]}}
 		}`, string(actualJSON))
 	})
@@ -2748,4 +2754,152 @@ func TestLoadHTTPConfigFileResolvesPathsRelativeToConfigFile(t *testing.T) {
 
 	_, err = client.Get(ts.URL)
 	require.NoErrorf(t, err, "can't fetch URL: %v", err)
+}
+
+func TestFileSecretFetchCache(t *testing.T) {
+	writeFile := func(t *testing.T, path, content string) {
+		t.Helper()
+		require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
+	}
+
+	tests := []struct {
+		description string
+		ttl         time.Duration
+		run         func(t *testing.T, s *FileSecret, path string)
+	}{
+		{
+			description: "every fetch re-reads the file when caching is disabled",
+			ttl:         0,
+			run: func(t *testing.T, s *FileSecret, path string) {
+				writeFile(t, path, "first")
+				got, err := s.Fetch(context.Background())
+				require.NoError(t, err)
+				require.Equal(t, "first", got)
+
+				writeFile(t, path, "second")
+				got, err = s.Fetch(context.Background())
+				require.NoError(t, err)
+				require.Equal(t, "second", got)
+			},
+		},
+		{
+			description: "cached value is returned while the ttl has not elapsed",
+			ttl:         time.Minute,
+			run: func(t *testing.T, s *FileSecret, path string) {
+				writeFile(t, path, "first")
+				got, err := s.Fetch(context.Background())
+				require.NoError(t, err)
+				require.Equal(t, "first", got)
+
+				writeFile(t, path, "second")
+				got, err = s.Fetch(context.Background())
+				require.NoError(t, err)
+				require.Equal(t, "first", got)
+			},
+		},
+		{
+			description: "file is re-read once the ttl has elapsed",
+			ttl:         time.Minute,
+			run: func(t *testing.T, s *FileSecret, path string) {
+				writeFile(t, path, "first")
+				got, err := s.Fetch(context.Background())
+				require.NoError(t, err)
+				require.Equal(t, "first", got)
+
+				writeFile(t, path, "second")
+				s.lastFetch = time.Now().Add(-2 * time.Minute)
+				got, err = s.Fetch(context.Background())
+				require.NoError(t, err)
+				require.Equal(t, "second", got)
+			},
+		},
+		{
+			description: "a failed read is not cached and a later fetch succeeds",
+			ttl:         time.Minute,
+			run: func(t *testing.T, s *FileSecret, path string) {
+				_, err := s.Fetch(context.Background())
+				require.EqualError(
+					t,
+					err,
+					"unable to read file "+path+": open "+path+": no such file or directory",
+				)
+
+				writeFile(t, path, "first")
+				got, err := s.Fetch(context.Background())
+				require.NoError(t, err)
+				require.Equal(t, "first", got)
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "secret")
+			tc.run(t, NewFileSecret(path, tc.ttl), path)
+		})
+	}
+}
+
+func TestCacheTTLFromConfig(t *testing.T) {
+	var got []string
+	ts := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		got = append(got, r.Header.Get("Authorization"))
+	}))
+	t.Cleanup(ts.Close)
+
+	tests := []struct {
+		description string
+		yamlTTL     string
+		wantTTL     model.Duration
+		want        []string
+	}{
+		{
+			description: "token file is re-read on every request when caching is disabled",
+			yamlTTL:     "cache_ttl: 0s\n",
+			wantTTL:     model.Duration(0),
+			want:        []string{"Bearer first", "Bearer second"},
+		},
+		{
+			description: "token file is cached with the default ttl when none is configured",
+			yamlTTL:     "",
+			wantTTL:     model.Duration(defaultCacheTTL),
+			want:        []string{"Bearer first", "Bearer first"},
+		},
+		{
+			description: "token file is cached within the configured ttl",
+			yamlTTL:     "cache_ttl: 1m\n",
+			wantTTL:     model.Duration(time.Minute),
+			want:        []string{"Bearer first", "Bearer first"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			got = nil
+			tokenFile := filepath.Join(t.TempDir(), "token")
+			require.NoError(t, os.WriteFile(tokenFile, []byte("first"), 0o644))
+
+			var cfg HTTPClientConfig
+			require.NoError(
+				t,
+				yaml.Unmarshal([]byte(tc.yamlTTL+"bearer_token_file: "+tokenFile+"\n"), &cfg),
+			)
+			require.Equal(t, tc.wantTTL, cfg.CacheTTL)
+
+			client, err := NewClientFromConfig(cfg, "test")
+			require.NoError(t, err)
+
+			resp, err := client.Get(ts.URL)
+			require.NoError(t, err)
+			resp.Body.Close()
+
+			require.NoError(t, os.WriteFile(tokenFile, []byte("second"), 0o644))
+
+			resp, err = client.Get(ts.URL)
+			require.NoError(t, err)
+			resp.Body.Close()
+
+			require.Equal(t, tc.want, got)
+		})
+	}
 }
