@@ -36,6 +36,11 @@ import (
 // work-in-progress, and does not yet support all features of the format.
 // EncoderOptions are accepted for signature compatibility with
 // MetricFamilyToOpenMetrics and are currently ignored.
+//
+// OpenMetrics 2.0 enforces stricter validation rules defined in the specification
+// than Prometheus text or OpenMetrics 1.0 formats (such as requiring non-negative
+// count and sum, and non-negative quantile values for summaries). Consequently,
+// MetricFamilyToOpenMetrics20 may reject metric families that the other encoders accept.
 func MetricFamilyToOpenMetrics20(out io.Writer, in *dto.MetricFamily, options ...EncoderOption) (written int, err error) {
 	// Options are accepted for signature compatibility and ignored.
 	_ = options
