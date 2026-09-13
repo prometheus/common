@@ -177,6 +177,7 @@ formatters:
         - default
         - prefix(github.com/prometheus/common)
     gofumpt:
+      module-path: github.com/prometheus/common
       extra-rules: true
     goimports:
       local-prefixes:

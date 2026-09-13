@@ -159,17 +159,20 @@ func TestInstrumentations(t *testing.T) {
 					func(handlerName string, handler http.HandlerFunc) http.HandlerFunc {
 						got = append(got, "1"+handlerName)
 						return handler
-					}).
+					},
+				).
 				WithInstrumentation(
 					func(handlerName string, handler http.HandlerFunc) http.HandlerFunc {
 						got = append(got, "2"+handlerName)
 						return handler
-					}).
+					},
+				).
 				WithInstrumentation(
 					func(handlerName string, handler http.HandlerFunc) http.HandlerFunc {
 						got = append(got, "3"+handlerName)
 						return handler
-					}),
+					},
+				),
 			want: []string{"1/foo", "2/foo", "3/foo"},
 		},
 	}

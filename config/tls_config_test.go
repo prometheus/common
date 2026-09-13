@@ -133,7 +133,7 @@ func TestInvalidTLSConfig(t *testing.T) {
 }
 
 func TestTLSVersionStringer(t *testing.T) {
-	s := (TLSVersion)(tls.VersionTLS13)
+	s := TLSVersion(tls.VersionTLS13)
 	require.Equalf(t, "TLS13", s.String(), "tls.VersionTLS13 string should be TLS13, got %s", s.String())
 }
 
