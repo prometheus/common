@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.yaml.in/yaml/v2"
+	"go.yaml.in/yaml/v3"
 )
 
 func TestJSONMarshalSecret(t *testing.T) {
@@ -158,11 +158,11 @@ func TestHeaderYamlMarshal(t *testing.T) {
 		},
 		"simple": {
 			input:    ProxyHeader{"single": []Secret{"a"}},
-			expected: []byte("single:\n- <secret>\n"),
+			expected: []byte("single:\n    - <secret>\n"),
 		},
 		"multi": {
 			input:    ProxyHeader{"multi": []Secret{"a", "b"}},
-			expected: []byte("multi:\n- <secret>\n- <secret>\n"),
+			expected: []byte("multi:\n    - <secret>\n    - <secret>\n"),
 		},
 		"empty": {
 			input:    ProxyHeader{"empty": nil},
@@ -173,8 +173,8 @@ func TestHeaderYamlMarshal(t *testing.T) {
 	for name, tc := range testcases {
 		t.Run(name, func(t *testing.T) {
 			actual, err := yaml.Marshal(tc.input)
-			require.NoErrorf(t, err, "error unmarshaling %#v: %s", tc.input, err)
-			require.Truef(t, bytes.Equal(actual, tc.expected), "expecting: %q, actual: %q", tc.expected, actual)
+			require.NoErrorf(t, err, "error marshaling %#v: %s", tc.input, err)
+			require.Equal(t, tc.expected, actual)
 		})
 	}
 }

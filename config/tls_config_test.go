@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -26,7 +27,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.yaml.in/yaml/v2"
+	"go.yaml.in/yaml/v3"
 )
 
 // LoadTLSConfig parses the given file into a tls.Config.
@@ -38,7 +39,9 @@ func LoadTLSConfig(filename string) (*tls.Config, error) {
 	cfg := TLSConfig{}
 	switch filepath.Ext(filename) {
 	case ".yml":
-		if err = yaml.UnmarshalStrict(content, &cfg); err != nil {
+		decoder := yaml.NewDecoder(bytes.NewReader(content))
+		decoder.KnownFields(true)
+		if err := decoder.Decode(&cfg); err != nil && !errors.Is(err, io.EOF) {
 			return nil, err
 		}
 	case ".json":
@@ -101,11 +104,13 @@ var expectedTLSConfigs = []struct {
 
 func TestValidTLSConfig(t *testing.T) {
 	for _, cfg := range expectedTLSConfigs {
-		got, err := LoadTLSConfig("testdata/" + cfg.filename)
-		require.NoErrorf(t, err, "Error parsing %s: %s", cfg.filename, err)
-		// non-nil functions are never equal.
-		got.GetClientCertificate = nil
-		require.Truef(t, reflect.DeepEqual(got, cfg.config), "%v: unexpected config result: \n\n%v\n expected\n\n%v", cfg.filename, got, cfg.config)
+		t.Run(cfg.filename, func(t *testing.T) {
+			got, err := LoadTLSConfig("testdata/" + cfg.filename)
+			require.NoErrorf(t, err, "Error parsing %s: %s", cfg.filename, err)
+			// non-nil functions are never equal.
+			got.GetClientCertificate = nil
+			require.Truef(t, reflect.DeepEqual(got, cfg.config), "%v: unexpected config result: \n\n%v\n expected\n\n%v", cfg.filename, got, cfg.config)
+		})
 	}
 }
 
