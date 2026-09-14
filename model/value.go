@@ -16,7 +16,7 @@ package model
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -132,29 +132,24 @@ func (s *Sample) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// Samples is a sortable Sample slice. It implements sort.Interface.
+// Samples is a sortable Sample slice.
 type Samples []*Sample
 
-func (s Samples) Len() int {
-	return len(s)
-}
-
-// Less compares first the metrics, then the timestamp.
-func (s Samples) Less(i, j int) bool {
+// Compare implements the cmp.Comparator interface for Sample pointers.
+// It compares first the metrics, then the timestamp.
+func (s *Sample) Compare(o *Sample) int {
 	switch {
-	case s[i].Metric.Before(s[j].Metric):
-		return true
-	case s[j].Metric.Before(s[i].Metric):
-		return false
-	case s[i].Timestamp.Before(s[j].Timestamp):
-		return true
+	case s.Metric.Before(o.Metric):
+		return -1
+	case o.Metric.Before(s.Metric):
+		return 1
+	case s.Timestamp.Before(o.Timestamp):
+		return -1
+	case o.Timestamp.Before(s.Timestamp):
+		return 1
 	default:
-		return false
+		return 0
 	}
-}
-
-func (s Samples) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
 }
 
 // Equal compares two sets of samples and returns true if they are equal.
@@ -176,6 +171,18 @@ type SampleStream struct {
 	Metric     Metric                `json:"metric"`
 	Values     []SamplePair          `json:"values"`
 	Histograms []SampleHistogramPair `json:"histograms"`
+}
+
+// Compare implements the cmp.Comparator interface for SampleStream pointers.
+func (ss *SampleStream) Compare(o *SampleStream) int {
+	switch {
+	case ss.Metric.Before(o.Metric):
+		return -1
+	case o.Metric.Before(ss.Metric):
+		return 1
+	default:
+		return 0
+	}
 }
 
 func (ss SampleStream) String() string {
@@ -312,23 +319,6 @@ func (vec Vector) String() string {
 	return strings.Join(entries, "\n")
 }
 
-func (vec Vector) Len() int      { return len(vec) }
-func (vec Vector) Swap(i, j int) { vec[i], vec[j] = vec[j], vec[i] }
-
-// Less compares first the metrics, then the timestamp.
-func (vec Vector) Less(i, j int) bool {
-	switch {
-	case vec[i].Metric.Before(vec[j].Metric):
-		return true
-	case vec[j].Metric.Before(vec[i].Metric):
-		return false
-	case vec[i].Timestamp.Before(vec[j].Timestamp):
-		return true
-	default:
-		return false
-	}
-}
-
 // Equal compares two sets of samples and returns true if they are equal.
 func (vec Vector) Equal(o Vector) bool {
 	if len(vec) != len(o) {
@@ -346,14 +336,10 @@ func (vec Vector) Equal(o Vector) bool {
 // Matrix is a list of time series.
 type Matrix []*SampleStream
 
-func (m Matrix) Len() int           { return len(m) }
-func (m Matrix) Less(i, j int) bool { return m[i].Metric.Before(m[j].Metric) }
-func (m Matrix) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
-
 func (m Matrix) String() string {
 	matCp := make(Matrix, len(m))
 	copy(matCp, m)
-	sort.Sort(matCp)
+	slices.SortFunc(matCp, (*SampleStream).Compare)
 
 	strs := make([]string, len(matCp))
 

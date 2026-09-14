@@ -110,17 +110,25 @@ func (a *Alert) Validate() error {
 // Alert is a list of alerts that can be sorted in chronological order.
 type Alerts []*Alert
 
-func (as Alerts) Len() int      { return len(as) }
-func (as Alerts) Swap(i, j int) { as[i], as[j] = as[j], as[i] }
-
-func (as Alerts) Less(i, j int) bool {
-	if as[i].StartsAt.Before(as[j].StartsAt) {
-		return true
+// Compare implements the cmp.Comparator interface for Alert pointers.
+// It compares by StartsAt, then EndsAt, then Fingerprint.
+func (a *Alert) Compare(o *Alert) int {
+	switch {
+	case a.StartsAt.Before(o.StartsAt):
+		return -1
+	case o.StartsAt.Before(a.StartsAt):
+		return 1
+	case a.EndsAt.Before(o.EndsAt):
+		return -1
+	case o.EndsAt.Before(a.EndsAt):
+		return 1
+	case a.Fingerprint() < o.Fingerprint():
+		return -1
+	case a.Fingerprint() > o.Fingerprint():
+		return 1
+	default:
+		return 0
 	}
-	if as[i].EndsAt.Before(as[j].EndsAt) {
-		return true
-	}
-	return as[i].Fingerprint() < as[j].Fingerprint()
 }
 
 // HasFiring returns true iff one of the alerts is not resolved.
