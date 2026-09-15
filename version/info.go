@@ -123,13 +123,14 @@ func init() {
 func computeRevision() (string, string) {
 	var (
 		rev      = "unknown"
-		tags     = "unknown"
+		tags     string
 		modified bool
+		race     bool
 	)
 
 	buildInfo, ok := debug.ReadBuildInfo()
 	if !ok {
-		return rev, tags
+		return rev, "unknown"
 	}
 	for _, v := range buildInfo.Settings {
 		if v.Key == "vcs.revision" {
@@ -143,7 +144,22 @@ func computeRevision() (string, string) {
 		if v.Key == "-tags" {
 			tags = v.Value
 		}
+		if !race && v.Key == "-race" && v.Value == "true" {
+			race = true
+		}
 	}
+
+	if race {
+		if tags == "" {
+			tags = "race"
+		} else {
+			tags += ",race"
+		}
+	}
+	if tags == "" {
+		tags = "unknown"
+	}
+
 	if modified {
 		return rev + "-modified", tags
 	}
