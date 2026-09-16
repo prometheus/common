@@ -1378,6 +1378,38 @@ func TestTextParseError(t *testing.T) {
 	testTextParseError(t)
 }
 
+func TestTextParseMissingMetricName(t *testing.T) {
+	for _, scheme := range []model.ValidationScheme{model.LegacyValidation, model.UTF8Validation} {
+		t.Run(scheme.String(), func(t *testing.T) {
+			for _, prefix := range []string{
+				"",
+				"#TYPE A000000 summArY\n",
+				"# TYPE metric histogram\n",
+				"# HELP metric Help text.\n",
+				"metric 1\n",
+				"{\"metric\"} 1\n",
+			} {
+				for _, sample := range []string{"{}", "{} 2\n", "{label=\"value\"} 2\n", "{label=\"value\",} 2\n"} {
+					t.Run(prefix+sample, func(t *testing.T) {
+						p := NewTextParser(scheme)
+						for range 2 {
+							_, err := p.TextToMetricFamilies(strings.NewReader(prefix + sample))
+							var parseErr ParseError
+							if !errors.As(err, &parseErr) || parseErr.Msg != "invalid metric name" || parseErr.Line != strings.Count(prefix, "\n")+1 {
+								t.Fatalf("expected invalid metric name on the sample line, got %v", err)
+							}
+							// Exercise reuse after both malformed input and a valid sample.
+							if _, err := p.TextToMetricFamilies(strings.NewReader("valid 1\n")); err != nil {
+								t.Fatalf("parsing valid sample after malformed input: %v", err)
+							}
+						}
+					})
+				}
+			}
+		})
+	}
+}
+
 func BenchmarkParseError(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		testTextParseError(b)
