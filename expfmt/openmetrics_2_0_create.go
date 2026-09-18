@@ -377,7 +377,7 @@ func writeCompositeSummary(w enhancedWriter, name string, metric *dto.Metric) (i
 		if math.IsNaN(qv) {
 			return 0, fmt.Errorf("summary quantile cannot be NaN in metric %s", name)
 		}
-		if math.IsInf(qv, 0) || qv < 0 || qv > 1 {
+		if qv < 0 || qv > 1 {
 			return 0, fmt.Errorf("summary quantile %g must be between 0 and 1 in metric %s", qv, name)
 		}
 		if i > 0 && qv <= prevQuantile {
