@@ -2337,26 +2337,48 @@ func TestCreateOpenMetrics20_HistogramError_NoPartialBytes(t *testing.T) {
 }
 
 func TestCreateOpenMetrics20_SummaryError_NoPartialBytes(t *testing.T) {
-	in := &dto.MetricFamily{
-		Name: proto.String("test_summary"),
-		Type: dto.MetricType_SUMMARY.Enum(),
-		Metric: []*dto.Metric{
-			{
+	tests := []struct {
+		name   string
+		metric *dto.Metric
+	}{
+		{
+			name: "invalid sum",
+			metric: &dto.Metric{
 				Summary: &dto.Summary{
 					SampleCount: proto.Uint64(1),
-					SampleSum:   proto.Float64(-1.0), // invalid sum
+					SampleSum:   proto.Float64(-1.0),
+				},
+			},
+		},
+		{
+			name: "invalid created timestamp",
+			metric: &dto.Metric{
+				Summary: &dto.Summary{
+					SampleCount: proto.Uint64(1),
+					SampleSum:   proto.Float64(1.0),
+					Quantile: []*dto.Quantile{
+						{Quantile: proto.Float64(0.5), Value: proto.Float64(0.5)},
+					},
+					CreatedTimestamp: &timestamppb.Timestamp{Nanos: -1},
 				},
 			},
 		},
 	}
 
-	var buf bytes.Buffer
-	w := enhancedWriter(&buf)
-	_, err := writeCompositeSummary(w, in.GetName(), in.Metric[0])
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if buf.Len() != 0 {
-		t.Fatalf("expected 0 bytes written on validation error, got %q", buf.String())
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			w := enhancedWriter(&buf)
+			n, err := writeCompositeSummary(w, "test_summary", tc.metric)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if n != 0 {
+				t.Fatalf("expected 0 returned bytes on validation error, got %d", n)
+			}
+			if buf.Len() != 0 {
+				t.Fatalf("expected 0 bytes written on validation error, got %q", buf.String())
+			}
+		})
 	}
 }
