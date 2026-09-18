@@ -112,8 +112,8 @@ func NewFormat(t FormatType) Format {
 // NewOpenMetricsFormat generates a new OpenMetrics format matching the
 // specified version number.
 //
-// Note: OpenMetrics version 2.0.0 is experimental and encode-only (currently
-// supporting counter, gauge, and untyped metric types).
+// Note: OpenMetrics version 2.0.0 is experimental and encode-only (supporting
+// counter, gauge, summary, untyped, histogram, and gaugehistogram metric types).
 func NewOpenMetricsFormat(version string) (Format, error) {
 	if version == OpenMetricsVersion_0_0_1 {
 		return FmtOpenMetrics_0_0_1, nil
@@ -122,7 +122,7 @@ func NewOpenMetricsFormat(version string) (Format, error) {
 		return FmtOpenMetrics_1_0_0, nil
 	}
 	if version == OpenMetricsVersion_2_0_0 {
-		// OpenMetrics 2.0.0 is experimental and encode-only (counter/gauge/untyped).
+		// OpenMetrics 2.0.0 is experimental and encode-only.
 		return fmtOpenMetrics_2_0_0, nil
 	}
 	return FmtUnknown, errors.New("unknown open metrics version string")
