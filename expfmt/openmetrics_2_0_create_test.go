@@ -984,15 +984,17 @@ foo {count:17,sum:324789.3,quantile:[]}
 							SampleCount: proto.Uint64(0),
 							SampleSum:   proto.Float64(0),
 							Quantile: []*dto.Quantile{
+								{Quantile: proto.Float64(0), Value: proto.Float64(0)},
 								{Quantile: proto.Float64(0.95), Value: proto.Float64(123.7)},
 								{Quantile: proto.Float64(0.99), Value: proto.Float64(150)},
+								{Quantile: proto.Float64(1), Value: proto.Float64(160)},
 							},
 						},
 					},
 				},
 			},
 			out: `# TYPE foo summary
-foo {count:0,sum:0,quantile:[0.95:123.7,0.99:150]}
+foo {count:0,sum:0,quantile:[0:0,0.95:123.7,0.99:150,1:160]}
 `,
 		},
 		{
