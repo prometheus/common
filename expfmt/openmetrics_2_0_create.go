@@ -31,9 +31,9 @@ import (
 // It returns the number of bytes written and any error encountered.
 //
 // NOTE: This method targets OpenMetrics 2.0.0 (currently aligned with 2.0-rc.0) which is experimental and
-// encode-only (currently supporting counter, gauge, summary, untyped, histogram, and gaugehistogram metric types).
-// Breaking changes might happen in the future. This implementation is still a
-// work-in-progress, and does not yet support all features of the format.
+// encode-only. All metric types defined in client_model (counter, gauge, summary, untyped, histogram,
+// and gaugehistogram) are supported; info and stateset are not supported as they are not present in
+// client_model. Breaking changes might happen in the future.
 // EncoderOptions are accepted for signature compatibility with
 // MetricFamilyToOpenMetrics and are currently ignored.
 //
