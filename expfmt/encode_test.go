@@ -247,7 +247,7 @@ func TestNegotiateAccept(t *testing.T) {
 		{
 			name:              "requested OM 2.0, accepted OM 2.0",
 			acceptHeaderValue: "application/openmetrics-text;version=2.0.0",
-			acceptedFormats:   []Format{fmtOpenMetrics_2_0_0, FmtText},
+			acceptedFormats:   []Format{FmtOpenMetrics_2_0_0, FmtText},
 			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=values",
 		},
 		{
@@ -265,13 +265,13 @@ func TestNegotiateAccept(t *testing.T) {
 		{
 			name:              "requested OM 1.0 and 2.0, prefers higher q value",
 			acceptHeaderValue: "application/openmetrics-text;version=1.0.0;q=0.8, application/openmetrics-text;version=2.0.0;q=0.9",
-			acceptedFormats:   []Format{FmtOpenMetrics_1_0_0, fmtOpenMetrics_2_0_0, FmtText},
+			acceptedFormats:   []Format{FmtOpenMetrics_1_0_0, FmtOpenMetrics_2_0_0, FmtText},
 			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=values",
 		},
 		{
 			name:              "wildcard */* matches text format if present",
 			acceptHeaderValue: "*/*",
-			acceptedFormats:   []Format{fmtOpenMetrics_2_0_0, FmtProtoDelim, FmtText},
+			acceptedFormats:   []Format{FmtOpenMetrics_2_0_0, FmtProtoDelim, FmtText},
 			expectedFmt:       "text/plain; version=0.0.4; charset=utf-8; escaping=values",
 		},
 		{
@@ -283,7 +283,7 @@ func TestNegotiateAccept(t *testing.T) {
 		{
 			name:              "wildcard */* falls back to first format when no text in accepted",
 			acceptHeaderValue: "*/*",
-			acceptedFormats:   []Format{fmtOpenMetrics_2_0_0, FmtProtoDelim},
+			acceptedFormats:   []Format{FmtOpenMetrics_2_0_0, FmtProtoDelim},
 			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=values",
 		},
 		{
@@ -315,6 +315,43 @@ func TestNegotiateAccept(t *testing.T) {
 				t.Errorf("case %d: expected NegotiateAccept to return format %s, but got %s instead", i, test.expectedFmt, actualFmt)
 			}
 		})
+	}
+}
+
+func TestDefaultAcceptedFormats(t *testing.T) {
+	require.Equal(t, []Format{
+		FmtProtoDelim,
+		FmtProtoText,
+		FmtProtoCompact,
+		FmtText,
+	}, DefaultAcceptedFormats())
+
+	require.Equal(t, []Format{
+		FmtOpenMetrics_1_0_0,
+		FmtOpenMetrics_0_0_1,
+		FmtProtoDelim,
+		FmtProtoText,
+		FmtProtoCompact,
+		FmtText,
+	}, DefaultOpenMetricsAcceptedFormats())
+
+	// Verify slices are cloned and mutating the returned slice doesn't alter subsequent calls.
+	cloned := DefaultAcceptedFormats()
+	cloned[0] = FmtUnknown
+	require.NotEqual(t, cloned[0], DefaultAcceptedFormats()[0])
+
+	for _, accept := range []string{
+		"application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily;encoding=delimited",
+		"application/openmetrics-text;version=1.0.0",
+		"application/openmetrics-text;version=2.0.0",
+		"text/plain",
+		"*/*",
+		"unknown/format",
+	} {
+		h := http.Header{}
+		h.Set(hdrAccept, accept)
+		require.Equal(t, NegotiateAccept(h, DefaultAcceptedFormats()...), Negotiate(h))
+		require.Equal(t, NegotiateAccept(h, DefaultOpenMetricsAcceptedFormats()...), NegotiateIncludingOpenMetrics(h))
 	}
 }
 
@@ -388,10 +425,10 @@ foo_metric 1.234
 foo_metric 1.234
 `,
 		},
-		// 8: Untyped fmtOpenMetrics_2_0_0
+		// 8: Untyped FmtOpenMetrics_2_0_0
 		{
 			metric: metric1,
-			format: fmtOpenMetrics_2_0_0,
+			format: FmtOpenMetrics_2_0_0,
 			expOut: `# TYPE foo_metric unknown
 # UNIT foo_metric seconds
 foo_metric 1.234
@@ -651,7 +688,7 @@ func TestNewEncoder_OpenMetricsVersionDispatch(t *testing.T) {
 		},
 		{
 			name:         "OpenMetrics 2.0.0 standard",
-			format:       fmtOpenMetrics_2_0_0,
+			format:       FmtOpenMetrics_2_0_0,
 			expectedLine: "# TYPE test_counter counter\ntest_counter 42.0 st@1234567890\n",
 		},
 		{
