@@ -305,6 +305,18 @@ http_requests_total 1027.0
 `,
 		},
 		{
+			name: "CarriageReturnInsideHelp",
+			in: &dto.MetricFamily{
+				Name: proto.String("http_requests_total"),
+				Help: proto.String("a\rb"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{Counter: &dto.Counter{Value: proto.Float64(1027)}},
+				},
+			},
+			out: "# HELP http_requests_total a\rb\n# TYPE http_requests_total counter\nhttp_requests_total 1027.0\n",
+		},
+		{
 			name: "CounterWithNaNExemplar",
 			in: &dto.MetricFamily{
 				Name: proto.String("http_requests_total"),
@@ -2154,6 +2166,53 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 				},
 			},
 			expectedErr: "contains raw newlines",
+		},
+		{
+			name: "InvalidUTF8InMetricName",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_counter\xff"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{Counter: &dto.Counter{Value: proto.Float64(1.0)}},
+				},
+			},
+			expectedErr: "is not valid UTF-8",
+		},
+		{
+			name: "InvalidUTF8InHelp",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_counter_total"),
+				Help: proto.String("help \xff"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{Counter: &dto.Counter{Value: proto.Float64(1.0)}},
+				},
+			},
+			expectedErr: "is not valid UTF-8",
+		},
+		{
+			name: "CarriageReturnAtEndOfHelp",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_counter_total"),
+				Help: proto.String("help\r"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{Counter: &dto.Counter{Value: proto.Float64(1.0)}},
+				},
+			},
+			expectedErr: "ends with a carriage return",
+		},
+		{
+			name: "InvalidUTF8InUnit",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_counter_total"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Unit: proto.String("seconds\xff"),
+				Metric: []*dto.Metric{
+					{Counter: &dto.Counter{Value: proto.Float64(1.0)}},
+				},
+			},
+			expectedErr: "is not valid UTF-8",
 		},
 		{
 			name: "NilMetric",
