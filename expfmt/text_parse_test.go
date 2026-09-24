@@ -1340,7 +1340,6 @@ request_duration_microseconds_count 2693
 		},
 	}
 	for i, scenario := range scenarios {
-		parser.scheme = model.UTF8Validation
 		_, err := parser.TextToMetricFamilies(strings.NewReader(scenario.in))
 		if err == nil {
 			if scenario.errUTF8 != "" {
@@ -1353,8 +1352,7 @@ request_duration_microseconds_count 2693
 			)
 		}
 
-		parser.scheme = model.LegacyValidation
-		_, err = parser.TextToMetricFamilies(strings.NewReader(scenario.in))
+		_, err = legacyParser.TextToMetricFamilies(strings.NewReader(scenario.in))
 		if err == nil {
 			if scenario.errLegacy != "" {
 				t.Errorf("%d. expected error, got nil", i)
