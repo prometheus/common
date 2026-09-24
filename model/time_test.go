@@ -460,6 +460,9 @@ func TestTimeJSON(t *testing.T) {
 		{Time(123000), `123`},
 		{Time(123100), `123.1`},
 		{Time(123010), `123.01`},
+		{Time(1758650400123), `1758650400.123`},
+		{Latest, `9223372036854775.807`},
+		{Earliest, `-9223372036854775.808`},
 	}
 
 	for i, test := range tests {
@@ -476,6 +479,37 @@ func TestTimeJSON(t *testing.T) {
 			require.NoErrorf(t, err, "Error Unmarshaling time: %v", err)
 
 			require.Truef(t, test.in.Equal(tm), "Mismatch after Unmarshal expected=%v actual=%v", test.in, tm)
+		})
+	}
+}
+
+func TestTimeUnmarshalJSONEdges(t *testing.T) {
+	for _, test := range []struct {
+		in      string
+		want    Time
+		wantErr bool
+	}{
+		// Latest and Earliest as older versions wrote them.
+		{in: `9223372036854776`, want: Latest},
+		{in: `-9223372036854776`, want: Earliest},
+		// Out of range, which used to wrap around to the opposite sign.
+		{in: `9223372036854775.808`, wantErr: true},
+		{in: `9223372036854776.5`, wantErr: true},
+		{in: `9223372036854777`, wantErr: true},
+		{in: `-9223372036854775.809`, wantErr: true},
+		{in: `-9223372036854776.5`, wantErr: true},
+		{in: `-9223372036854777`, wantErr: true},
+		{in: `9223372036854775808`, wantErr: true},
+	} {
+		t.Run(test.in, func(t *testing.T) {
+			var tm Time
+			err := tm.UnmarshalJSON([]byte(test.in))
+			if test.wantErr {
+				require.Errorf(t, err, "expected an error, got %v", tm)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, test.want, tm)
 		})
 	}
 }
