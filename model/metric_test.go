@@ -24,13 +24,23 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
-	"go.yaml.in/yaml/v2"
+	"go.yaml.in/yaml/v3"
 	"google.golang.org/protobuf/proto"
 )
 
+// obsoleteUnmarshaler matches yaml.v3's unexported compatibility interface
+// for the callback-based UnmarshalYAML method used by yaml.v2. Keeping this
+// method preserves compatibility with both yaml.v2 and yaml.v3.
+//
+// See https://github.com/yaml/go-yaml/blob/v3.0.5/yaml.go#L39-L41
+// And https://github.com/yaml/go-yaml/blob/v3.0.5/decode.go#L422-L429
+type obsoleteUnmarshaler interface {
+	UnmarshalYAML(unmarshal func(any) error) error
+}
+
 var _ interface {
 	yaml.Marshaler
-	yaml.Unmarshaler
+	obsoleteUnmarshaler
 	json.Marshaler
 	json.Unmarshaler
 	fmt.Stringer
