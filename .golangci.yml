@@ -65,6 +65,8 @@ linters:
               desc: "Use github.com/klauspost/compress instead of zlib"
             - pkg: "golang.org/x/exp/slices"
               desc: "Use 'slices' instead."
+            - pkg: "sort"
+              desc: "Use 'slices' instead."
     errcheck:
       exclude-functions:
         # Don't flag lines such as "io.Copy(io.Discard, resp.Body)".
