@@ -205,7 +205,7 @@ func (f Format) WithEscapingScheme(s model.EscapingScheme) Format {
 	return Format(strings.Join(terms, "; "))
 }
 
-// ToEscapingScheme returns an EscapingScheme depending on the Format. If the
+// ToEscapingScheme returns an EscapingScheme depending on the Format. IFF the
 // Format contains an escaping=allow-utf-8 term, it will select NoEscaping. If a valid
 // "escaping" term exists, that will be used. Otherwise, the global default will
 // be returned.
