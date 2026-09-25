@@ -122,8 +122,9 @@ func NewOpenMetricsFormat(version string) (Format, error) {
 	return FmtUnknown, errors.New("unknown open metrics version string")
 }
 
-// Version returns the format version parameter (e.g. "0.0.4", "1.0.0", "2.0.0"),
-// or an empty string if unspecified or invalid.
+// Version returns the version parameter without validating whether it is supported.
+// It returns an empty string if the parameter is absent or the Content-Type
+// cannot be parsed.
 func (f Format) Version() string {
 	_, params, err := mime.ParseMediaType(string(f))
 	if err != nil {
