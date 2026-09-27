@@ -42,23 +42,8 @@ func (f Fingerprint) String() string {
 }
 
 // Fingerprints represents a collection of Fingerprint subject to a given
-// natural sorting scheme. It implements sort.Interface.
+// natural sorting scheme.
 type Fingerprints []Fingerprint
-
-// Len implements sort.Interface.
-func (f Fingerprints) Len() int {
-	return len(f)
-}
-
-// Less implements sort.Interface.
-func (f Fingerprints) Less(i, j int) bool {
-	return f[i] < f[j]
-}
-
-// Swap implements sort.Interface.
-func (f Fingerprints) Swap(i, j int) {
-	f[i], f[j] = f[j], f[i]
-}
 
 // FingerprintSet is a set of Fingerprints.
 type FingerprintSet map[Fingerprint]struct{}
