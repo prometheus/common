@@ -246,5 +246,5 @@ func NewEncoder(w io.Writer, format Format, options ...EncoderOption) Encoder {
 			},
 		}
 	}
-	panic(fmt.Errorf("expfmt.NewEncoder: unknown format %q", format))
+	panic(fmt.Errorf("expfmt.NewEncoder: unknown format %q, use a valid Format or NewFormat with a known FormatType", format))
 }
