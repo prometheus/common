@@ -13,8 +13,7 @@ linters:
     - misspell
     - modernize
     - nilnesserr
-    # TODO(bwplotka): Enable once https://github.com/golangci/golangci-lint/issues/3228 is fixed.
-    # - nolintlint
+    - nolintlint
     - perfsprint
     - predeclared
     - revive
@@ -178,7 +177,8 @@ formatters:
         - prefix(github.com/prometheus/common)
     gofumpt:
       module-path: github.com/prometheus/common
-      extra-rules: true
+      extra:
+        group-params: true
     goimports:
       local-prefixes:
         - github.com/prometheus/common
