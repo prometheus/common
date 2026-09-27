@@ -21,6 +21,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	dto "github.com/prometheus/client_model/go"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -51,8 +52,26 @@ func MetricFamilyToOpenMetrics20(out io.Writer, in *dto.MetricFamily, options ..
 	if containsRawNewline(name) {
 		return 0, fmt.Errorf("MetricFamily name %q contains raw newlines", name)
 	}
-	if in.Unit != nil && containsRawNewline(*in.Unit) {
-		return 0, fmt.Errorf("MetricFamily unit %q contains raw newlines", *in.Unit)
+	if !utf8.ValidString(name) {
+		return 0, fmt.Errorf("MetricFamily name %q is not valid UTF-8", name)
+	}
+	if in.Help != nil {
+		if !utf8.ValidString(*in.Help) {
+			return 0, fmt.Errorf("MetricFamily help %q is not valid UTF-8", *in.Help)
+		}
+		// A carriage return may appear in HELP, but not at the end, where it
+		// would make the line end in "\r\n".
+		if strings.HasSuffix(*in.Help, "\r") {
+			return 0, fmt.Errorf("MetricFamily help %q ends with a carriage return", *in.Help)
+		}
+	}
+	if in.Unit != nil {
+		if containsRawNewline(*in.Unit) {
+			return 0, fmt.Errorf("MetricFamily unit %q contains raw newlines", *in.Unit)
+		}
+		if !utf8.ValidString(*in.Unit) {
+			return 0, fmt.Errorf("MetricFamily unit %q is not valid UTF-8", *in.Unit)
+		}
 	}
 
 	// Try the interface upgrade. If it doesn't work, we'll use a
