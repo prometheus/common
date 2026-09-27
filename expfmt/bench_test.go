@@ -29,7 +29,11 @@ import (
 	"github.com/prometheus/common/model"
 )
 
-var parser = TextParser{scheme: model.UTF8Validation}
+// The shared parsers are only read by tests; never change their scheme.
+var (
+	parser       = TextParser{scheme: model.UTF8Validation}
+	legacyParser = TextParser{scheme: model.LegacyValidation}
+)
 
 // Benchmarks to show how much penalty text format parsing actually inflicts.
 //
