@@ -37,7 +37,6 @@ import (
 	"github.com/mwitkow/go-conntrack"
 	"go.yaml.in/yaml/v2"
 	"golang.org/x/net/http/httpproxy"
-	"golang.org/x/net/http2"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 )
@@ -665,11 +664,10 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 			DialContext:           dialContext,
 		}
 		if opts.http2Enabled && cfg.EnableHTTP2 {
-			http2t, err := http2.ConfigureTransports(rt.(*http.Transport))
-			if err != nil {
-				return nil, err
-			}
-			http2t.ReadIdleTimeout = time.Minute
+			rt.(*http.Transport).Protocols = &http.Protocols{}
+			rt.(*http.Transport).Protocols.SetHTTP1(true)
+			rt.(*http.Transport).Protocols.SetHTTP2(true)
+			rt.(*http.Transport).HTTP2 = &http.HTTP2Config{SendPingTimeout: time.Minute}
 		}
 
 		// If a authorization_credentials is provided, create a round tripper that will set the
