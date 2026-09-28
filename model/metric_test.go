@@ -535,6 +535,22 @@ func TestEscapeName(t *testing.T) {
 			expectedUnescapedDots: "label_with__",
 			expectedValue:         "U__label_20_with_20__100_",
 		},
+		{
+			name:                  "name with a rune that needs 6 hex digits",
+			input:                 "a\U00100000",
+			expectedUnderscores:   "a_",
+			expectedDots:          "a__",
+			expectedUnescapedDots: "a_",
+			expectedValue:         "U__a_100000_",
+		},
+		{
+			name:                  "name with the highest rune",
+			input:                 "a\U0010FFFFb",
+			expectedUnderscores:   "a_b",
+			expectedDots:          "a__b",
+			expectedUnescapedDots: "a_b",
+			expectedValue:         "U__a_10ffff_b",
+		},
 	}
 
 	for _, scenario := range scenarios {
@@ -624,6 +640,31 @@ func TestValueUnescapeErrors(t *testing.T) {
 			name:     "surrogate utf-8 value",
 			input:    "U__bad__utf_D900_",
 			expected: "U__bad__utf_D900_",
+		},
+		{
+			name:     "7-digit utf-8 value",
+			input:    "U__a_1000000_",
+			expected: "U__a_1000000_",
+		},
+		{
+			name:     "7-digit utf-8 value with leading zero",
+			input:    "U__a_0100000_",
+			expected: "U__a_0100000_",
+		},
+		{
+			name:     "6-digit utf-8 value above max rune",
+			input:    "U__a_110000_",
+			expected: "U__a_110000_",
+		},
+		{
+			name:     "lowest surrogate utf-8 value",
+			input:    "U__a_d800_",
+			expected: "U__a_d800_",
+		},
+		{
+			name:     "unterminated 6-digit utf-8 value",
+			input:    "U__a_10ffff",
+			expected: "U__a_10ffff",
 		},
 	}
 
