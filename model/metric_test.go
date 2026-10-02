@@ -571,6 +571,67 @@ func TestEscapeName(t *testing.T) {
 	}
 }
 
+func TestEscapeLabelName(t *testing.T) {
+	scenarios := []struct {
+		name                string
+		input               string
+		expectedUnderscores string
+		expectedDots        string
+		expectedValue       string
+	}{
+		{
+			name: "empty string",
+		},
+		{
+			name:                "legacy valid label name, no escaping required",
+			input:               "no_escaping_required",
+			expectedUnderscores: "no_escaping_required",
+			expectedDots:        "no__escaping__required",
+			expectedValue:       "no_escaping_required",
+		},
+		{
+			name:                "colon only valid in metric names, not label names",
+			input:               "app:instance_id",
+			expectedUnderscores: "app_instance_id",
+			expectedDots:        "app__instance__id",
+			expectedValue:       "U__app_3a_instance__id",
+		},
+		{
+			name:                "colon and hyphen both escaped in label names",
+			input:               "app:instance-id",
+			expectedUnderscores: "app_instance_id",
+			expectedDots:        "app__instance__id",
+			expectedValue:       "U__app_3a_instance_2d_id",
+		},
+		{
+			name:                "dot and colon both escaped in label names",
+			input:               "http.status:sum",
+			expectedUnderscores: "http_status_sum",
+			expectedDots:        "http_dot_status__sum",
+			expectedValue:       "U__http_2e_status_3a_sum",
+		},
+	}
+
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			got := EscapeLabelName(scenario.input, UnderscoreEscaping)
+			if got != scenario.expectedUnderscores {
+				t.Errorf("UnderscoreEscaping: expected %q but got %q", scenario.expectedUnderscores, got)
+			}
+
+			got = EscapeLabelName(scenario.input, DotsEscaping)
+			if got != scenario.expectedDots {
+				t.Errorf("DotsEscaping: expected %q but got %q", scenario.expectedDots, got)
+			}
+
+			got = EscapeLabelName(scenario.input, ValueEncodingEscaping)
+			if got != scenario.expectedValue {
+				t.Errorf("ValueEncodingEscaping: expected %q but got %q", scenario.expectedValue, got)
+			}
+		})
+	}
+}
+
 func TestValueUnescapeErrors(t *testing.T) {
 	scenarios := []struct {
 		name     string
@@ -788,6 +849,54 @@ func TestEscapeMetricFamily(t *testing.T) {
 							{
 								Name:  proto.String("U__some_3f_label"),
 								Value: proto.String("label??value"),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:   "colon in label name is escaped, colon in metric name is not",
+			scheme: UnderscoreEscaping,
+			input: &dto.MetricFamily{
+				Name: proto.String("requests:total"),
+				Help: proto.String("some help text"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Counter: &dto.Counter{
+							Value: proto.Float64(1),
+						},
+						Label: []*dto.LabelPair{
+							{
+								Name:  proto.String("__name__"),
+								Value: proto.String("requests:total"),
+							},
+							{
+								Name:  proto.String("app:instance_id"),
+								Value: proto.String("srv1"),
+							},
+						},
+					},
+				},
+			},
+			expected: &dto.MetricFamily{
+				Name: proto.String("requests:total"),
+				Help: proto.String("some help text"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Counter: &dto.Counter{
+							Value: proto.Float64(1),
+						},
+						Label: []*dto.LabelPair{
+							{
+								Name:  proto.String("__name__"),
+								Value: proto.String("requests:total"),
+							},
+							{
+								Name:  proto.String("app_instance_id"),
+								Value: proto.String("srv1"),
 							},
 						},
 					},
