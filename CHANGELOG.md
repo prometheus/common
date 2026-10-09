@@ -2,7 +2,9 @@
 
 ## main / unreleased
 
-### What's Changed
+### Breaking changes
+
+* model: remove `Silence` and `Matcher`. These types were out of sync with Alertmanager (`Silence.ID` was `uint64` here vs a string there). Silences are Alertmanager-only, so the types belong there. #98
 
 ## v0.70.0 / 2026-07-10
 
