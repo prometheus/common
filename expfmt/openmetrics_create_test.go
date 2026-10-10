@@ -668,7 +668,7 @@ request_duration_microseconds_sum 1.7560473e+06
 request_duration_microseconds_count 2693
 `,
 		},
-		// 16: Counter, timestamp given, unit given, _total suffix.
+		// 16: Counter, timestamp given, mismatched unit omitted, _total suffix.
 		{
 			in: &dto.MetricFamily{
 				Name: proto.String("some_measure_total"),
@@ -711,7 +711,6 @@ request_duration_microseconds_count 2693
 			},
 			out: `# HELP some_measure some testing measurement
 # TYPE some_measure counter
-# UNIT some_measure seconds
 some_measure_total{labelname="val1",basename="basevalue"} 42.0
 some_measure_total{labelname="val2",basename="basevalue"} 0.23 1.23456789e+06
 `,
@@ -781,6 +780,64 @@ name_count 2693
 				i, expected, got,
 			)
 		}
+	}
+}
+
+func TestCreateOpenMetricsUnitSuffix(t *testing.T) {
+	tests := []struct {
+		name       string
+		metricName string
+		metricType dto.MetricType
+		unit       *string
+		wantUnit   string
+	}{
+		{name: "absent unit", metricName: "request_duration_total"},
+		{name: "empty unit", metricName: "request_duration_total", unit: proto.String(""), wantUnit: "# UNIT request_duration \n"},
+		{name: "matching suffix", metricName: "request_duration_seconds_total", unit: proto.String("seconds"), wantUnit: "# UNIT request_duration_seconds seconds\n"},
+		{name: "missing suffix", metricName: "request_duration_total", unit: proto.String("seconds")},
+		{name: "missing separator", metricName: "request_durationseconds_total", unit: proto.String("seconds")},
+		{name: "partial suffix", metricName: "request_duration_milliseconds_total", unit: proto.String("seconds")},
+		{name: "unit in prefix", metricName: "seconds_request_duration_total", unit: proto.String("seconds")},
+		{name: "counter suffix is not unit", metricName: "request_duration_total", unit: proto.String("total")},
+		{name: "compound unit", metricName: "request_rate_bytes_per_second_total", unit: proto.String("bytes_per_second"), wantUnit: "# UNIT request_rate_bytes_per_second bytes_per_second\n"},
+		{name: "gauge matching suffix", metricName: "request_duration_seconds", metricType: dto.MetricType_GAUGE, unit: proto.String("seconds"), wantUnit: "# UNIT request_duration_seconds seconds\n"},
+		{name: "gauge missing suffix", metricName: "request_duration", metricType: dto.MetricType_GAUGE, unit: proto.String("seconds")},
+		{name: "gauge total suffix is retained", metricName: "request_duration_seconds_total", metricType: dto.MetricType_GAUGE, unit: proto.String("seconds")},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			in := &dto.MetricFamily{
+				Name: proto.String(tt.metricName),
+				Help: proto.String("Time spent."),
+				Type: tt.metricType.Enum(),
+				Unit: tt.unit,
+			}
+			familyName := tt.metricName
+			metricType := "gauge"
+			if tt.metricType == dto.MetricType_COUNTER {
+				in.Metric = []*dto.Metric{{Counter: &dto.Counter{Value: proto.Float64(1.5)}}}
+				familyName = strings.TrimSuffix(tt.metricName, "_total")
+				metricType = "counter"
+			} else {
+				in.Metric = []*dto.Metric{{Gauge: &dto.Gauge{Value: proto.Float64(1.5)}}}
+			}
+			before := proto.Clone(in)
+			var out bytes.Buffer
+			n, err := MetricFamilyToOpenMetrics(&out, in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := "# HELP " + familyName + " Time spent.\n# TYPE " + familyName + " " + metricType + "\n" + tt.wantUnit + tt.metricName + " 1.5\n"
+			if got := out.String(); got != want {
+				t.Errorf("output = %q; want %q", got, want)
+			}
+			if n != out.Len() {
+				t.Errorf("bytes written = %d; want %d", n, out.Len())
+			}
+			if !proto.Equal(in, before) {
+				t.Error("encoding modified the input metric family")
+			}
+		})
 	}
 }
 
