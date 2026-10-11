@@ -4,6 +4,79 @@
 
 ### What's Changed
 
+## v0.72.1 / 2026-10-10
+
+### Bugfixes
+
+* fix(config): deep copy the header in cloneRequest #982
+
+### Internal
+
+* Fix MAINTAINERS.md link text typo in RELEASE.md #1009
+* Synchronize common files from prometheus/prometheus #1010
+* build(deps): bump the codeql group with 4 updates #1007
+
+**Full Changelog**: https://github.com/prometheus/common/compare/v0.72.0...v0.72.1
+
+## v0.72.0 / 2026-09-28
+
+### Note
+
+* This release bumps go.mod to 1.26 -- mostly due to /x Go packages requiring 1.26 as well.
+* This is the first release with the experimental support of OpenMetrics 2 encoding.
+
+### What's Changed
+
+* feat: implement histogram and gauge histogram support for OpenMetrics 2.0 #964
+* expfmt: reject nameless samples after metric metadata #988
+* feat: implement summary support for OpenMetrics 2.0 #983
+* docs(expfmt): update OpenMetrics 2.0 supported metric types comments #989
+* optimize sample unmarshaling for json/v2 #991
+* expfmt: simplify format constants and provide default negotiation slices #992
+* expfmt: reject invalid UTF-8 and a trailing CR in OpenMetrics 2.0 metadata #998
+* expfmt: stop a test leaving the shared parser on legacy validation #996
+* Update supported Go versions #1004
+
+### Internal
+
+* chore: Update linting #1002
+* chore: Update gofumpt config and apply new formatting #987
+* Synchronize common files from prometheus/prometheus #1003
+* build(deps): bump the codeql group with 4 updates #980
+* build(deps): bump the golang-org-x group across 1 directory with 2 updates #1000
+* build(deps): bump github.com/prometheus/client_model from 0.6.2 to 0.6.3 in the prometheus group across 1 directory #1001
+
+**Full Changelog**: https://github.com/prometheus/common/compare/v0.71.0...v0.72.0
+
+## v0.71.0 / 2026-08-31
+
+### What's Changed
+
+* fix: use slog.DiscardHandler in promslog.NopLogger #960
+* feat: implement gauge and counter support for OpenMetrics 2.0 #894
+* fix: support exemplars with empty label sets in OpenMetrics 2.0 #965
+* model: sort label names without boxing them into sort.Interface #963
+* expfmt: fix wildcard content negotiation regression for Negotiate and NegotiateIncludingOpenMetrics #966
+* expfmt: precompute parsed goautoneg.Accept for well-known Format constants #967
+* expfmt: format OpenMetrics 2.0 float values and validate units #969
+* fix: drop invalid OpenMetrics 2.0 exemplars instead of failing exposition #970
+* model: add Duration unit constants and conversion methods #952
+* expfmt: prevent st@ leaking to Gauge and Untyped samples in OpenMetrics 2.0 #971
+* expfmt: fix OpenMetrics 2.0 decoder error, format docs, and encoder version dispatch #968
+
+### Internal
+
+* Synchronize common files from prometheus/prometheus #957 #958 #959 #961 
+* build(deps): bump the codeql group across 1 directory with 4 updates #955
+* build(deps): bump ossf/scorecard-action from 2.4.3 to 2.4.4 #956
+* build(deps): bump github.com/stretchr/testify from 1.11.1 to 1.12.1 #977
+* build(deps): bump google.golang.org/protobuf from 1.36.11 to 1.36.12 #976
+* build(deps): bump golang.org/x/net from 0.57.0 to 0.58.0 in the golang-org-x group across 1 directory #975
+* Update dependabot config #978
+* build(deps): bump github.com/stretchr/testify from 1.11.1 to 1.12.1 in /assets #979
+
+**Full Changelog**: https://github.com/prometheus/common/compare/v0.70.0...v0.71.0
+
 ## v0.70.0 / 2026-07-10
 
 ### Enhancements

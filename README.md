@@ -1,5 +1,5 @@
 # Common
-![circleci](https://circleci.com/gh/prometheus/common/tree/main.svg?style=shield)
+[![Build Status](https://github.com/prometheus/common/actions/workflows/ci.yml/badge.svg)](https://github.com/prometheus/common/actions/workflows/ci.yml)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/prometheus/common/badge)](https://securityscorecards.dev/viewer/?uri=github.com/prometheus/common)
 
 
