@@ -455,6 +455,22 @@ func testDiscriminatorHTTPHeader(t testing.TB) {
 			input:  map[string]string{"Content-Type": `text/plain; version=0.0.3`},
 			output: FmtUnknown,
 		},
+		{
+			input:  map[string]string{"Content-Type": `application/openmetrics-text`},
+			output: FmtOpenMetrics_0_0_1,
+		},
+		{
+			input:  map[string]string{"Content-Type": `application/openmetrics-text; version=0.0.1`},
+			output: FmtOpenMetrics_0_0_1,
+		},
+		{
+			input:  map[string]string{"Content-Type": `application/openmetrics-text; version=1.0.0`},
+			output: FmtOpenMetrics_1_0_0,
+		},
+		{
+			input:  map[string]string{"Content-Type": `application/openmetrics-text; version=0.0.2`},
+			output: FmtUnknown,
+		},
 	}
 
 	for i, scenario := range scenarios {
@@ -588,6 +604,7 @@ func TestNewDecoder(t *testing.T) {
 	tests := []struct {
 		name        string
 		format      Format
+		input       string
 		expectError bool
 	}{
 		{
@@ -613,11 +630,13 @@ func TestNewDecoder(t *testing.T) {
 		{
 			name:        "OpenMetrics 0.0.1",
 			format:      FmtOpenMetrics_0_0_1,
+			input:       "# EOF\n",
 			expectError: false,
 		},
 		{
 			name:        "OpenMetrics 1.0.0",
 			format:      FmtOpenMetrics_1_0_0,
+			input:       "# EOF\n",
 			expectError: false,
 		},
 		{
@@ -633,18 +652,20 @@ func TestNewDecoder(t *testing.T) {
 		{
 			name:        "OpenMetrics 2.0.0",
 			format:      om20Format,
+			input:       "# EOF\n",
 			expectError: true,
 		},
 		{
 			name:        "OpenMetrics 2.0.0 with escaping",
 			format:      om20Format.WithEscapingScheme(model.ValueEncodingEscaping),
+			input:       "# EOF\n",
 			expectError: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dec := NewDecoder(strings.NewReader(""), tt.format)
+			dec := NewDecoder(strings.NewReader(tt.input), tt.format)
 			var mf dto.MetricFamily
 			err := dec.Decode(&mf)
 			if tt.expectError {
@@ -655,4 +676,69 @@ func TestNewDecoder(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestOpenMetricsDecoder(t *testing.T) {
+	var (
+		ts = model.Now()
+		in = `# TYPE mf2 counter
+mf2_total 3
+mf2_total 4
+mf1{label="value1"} -3.14 123.456
+mf1{label="value2"} 42
+# EOF
+`
+		out = model.Vector{
+			&model.Sample{
+				Metric: model.Metric{
+					model.MetricNameLabel: "mf1",
+					"label":               "value1",
+				},
+				Value:     -3.14,
+				Timestamp: 123456,
+			},
+			&model.Sample{
+				Metric: model.Metric{
+					model.MetricNameLabel: "mf1",
+					"label":               "value2",
+				},
+				Value:     42,
+				Timestamp: ts,
+			},
+			&model.Sample{
+				Metric: model.Metric{
+					model.MetricNameLabel: "mf2",
+				},
+				Value:     3,
+				Timestamp: ts,
+			},
+			&model.Sample{
+				Metric: model.Metric{
+					model.MetricNameLabel: "mf2",
+				},
+				Value:     4,
+				Timestamp: ts,
+			},
+		}
+	)
+
+	dec := &SampleDecoder{
+		Dec: NewDecoder(strings.NewReader(in), FmtOpenMetrics_1_0_0),
+		Opts: &DecodeOptions{
+			Timestamp: ts,
+		},
+	}
+	var all model.Vector
+	for {
+		var smpls model.Vector
+		err := dec.Decode(&smpls)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		require.NoError(t, err)
+		all = append(all, smpls...)
+	}
+	sort.Sort(all)
+	sort.Sort(out)
+	require.Equal(t, out, all)
 }
