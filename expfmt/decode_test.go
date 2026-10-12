@@ -468,6 +468,14 @@ func testDiscriminatorHTTPHeader(t testing.TB) {
 			output: FmtOpenMetrics_1_0_0,
 		},
 		{
+			input:  map[string]string{"Content-Type": `application/openmetrics-text; version=2.0.0-rc`},
+			output: FmtOpenMetrics_2_0_0_rc,
+		},
+		{
+			input:  map[string]string{"Content-Type": `application/openmetrics-text; version=2.0.0`},
+			output: FmtOpenMetrics_2_0_0,
+		},
+		{
 			input:  map[string]string{"Content-Type": `application/openmetrics-text; version=0.0.2`},
 			output: FmtUnknown,
 		},
@@ -642,24 +650,26 @@ func TestNewDecoder(t *testing.T) {
 		{
 			name:        "OpenMetrics 2.0.0-rc",
 			format:      om20RCFormat,
-			expectError: true,
+			input:       "# EOF\n",
+			expectError: false,
 		},
 		{
 			name:        "OpenMetrics 2.0.0-rc with escaping",
 			format:      om20RCFormat.WithEscapingScheme(model.ValueEncodingEscaping),
-			expectError: true,
+			input:       "# EOF\n",
+			expectError: false,
 		},
 		{
 			name:        "OpenMetrics 2.0.0",
 			format:      om20Format,
 			input:       "# EOF\n",
-			expectError: true,
+			expectError: false,
 		},
 		{
 			name:        "OpenMetrics 2.0.0 with escaping",
 			format:      om20Format.WithEscapingScheme(model.ValueEncodingEscaping),
 			input:       "# EOF\n",
-			expectError: true,
+			expectError: false,
 		},
 	}
 
@@ -724,6 +734,71 @@ mf1{label="value2"} 42
 
 	dec := &SampleDecoder{
 		Dec: NewDecoder(strings.NewReader(in), FmtOpenMetrics_1_0_0),
+		Opts: &DecodeOptions{
+			Timestamp: ts,
+		},
+	}
+	var all model.Vector
+	for {
+		var smpls model.Vector
+		err := dec.Decode(&smpls)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		require.NoError(t, err)
+		all = append(all, smpls...)
+	}
+	sort.Sort(all)
+	sort.Sort(out)
+	require.Equal(t, out, all)
+}
+
+func TestOpenMetrics20Decoder(t *testing.T) {
+	var (
+		ts = model.Now()
+		in = `# TYPE mf2_total counter
+mf2_total 3
+mf2_total 4
+mf1{label="value1"} -3.14 123.456
+mf1{label="value2"} 42
+# EOF
+`
+		out = model.Vector{
+			&model.Sample{
+				Metric: model.Metric{
+					model.MetricNameLabel: "mf1",
+					"label":               "value1",
+				},
+				Value:     -3.14,
+				Timestamp: 123456,
+			},
+			&model.Sample{
+				Metric: model.Metric{
+					model.MetricNameLabel: "mf1",
+					"label":               "value2",
+				},
+				Value:     42,
+				Timestamp: ts,
+			},
+			&model.Sample{
+				Metric: model.Metric{
+					model.MetricNameLabel: "mf2_total",
+				},
+				Value:     3,
+				Timestamp: ts,
+			},
+			&model.Sample{
+				Metric: model.Metric{
+					model.MetricNameLabel: "mf2_total",
+				},
+				Value:     4,
+				Timestamp: ts,
+			},
+		}
+	)
+
+	dec := &SampleDecoder{
+		Dec: NewDecoder(strings.NewReader(in), FmtOpenMetrics_2_0_0),
 		Opts: &DecodeOptions{
 			Timestamp: ts,
 		},

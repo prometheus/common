@@ -72,6 +72,10 @@ func ResponseFormat(h http.Header) Format {
 			return FmtOpenMetrics_0_0_1
 		case OpenMetricsVersion_1_0_0:
 			return FmtOpenMetrics_1_0_0
+		case OpenMetricsVersion_2_0_0_rc:
+			return FmtOpenMetrics_2_0_0_rc
+		case OpenMetricsVersion_2_0_0:
+			return FmtOpenMetrics_2_0_0
 		default:
 			return FmtUnknown
 		}
@@ -84,9 +88,9 @@ func ResponseFormat(h http.Header) Format {
 // names are validated based on the provided Format -- if the format requires
 // escaping, traditional Prometheus validity checking is used. Otherwise, names
 // are checked for UTF-8 validity. Supported formats include delimited protobuf,
-// Prometheus text format, and OpenMetrics 0.0.1 / 1.0.0. For historical
+// Prometheus text format, and OpenMetrics 0.0.1 / 1.0.0 / 2.0.0-rc / 2.0.0. For historical
 // reasons, this decoder falls back to classic text decoding for other legacy
-// formats, but returns an error for unsupported formats such as OpenMetrics 2.0.
+// formats, and returns an error for unsupported formats such as text protobuf.
 // This decoder may not support the latest features of Prometheus text format
 // and is not intended for high-performance applications.
 // See: https://github.com/prometheus/common/issues/812
@@ -108,6 +112,12 @@ func NewDecoder(r io.Reader, format Format) Decoder {
 		switch params["version"] {
 		case "", OpenMetricsVersion_0_0_1, OpenMetricsVersion_1_0_0:
 			return &openMetricsDecoder{p: newOpenMetricsParser(r, scheme)}
+		case OpenMetricsVersion_2_0_0_rc, OpenMetricsVersion_2_0_0:
+			om2Scheme := model.UTF8Validation
+			if _, hasEscaping := params[model.EscapingKey]; hasEscaping && format.ToEscapingScheme() != model.NoEscaping {
+				om2Scheme = model.LegacyValidation
+			}
+			return &openMetrics20Decoder{p: newOpenMetrics20Parser(r, om2Scheme)}
 		default:
 			return &errDecoder{err: fmt.Errorf("format %s not supported for decoding", format)}
 		}
@@ -168,6 +178,24 @@ type openMetricsDecoder struct {
 
 // Decode implements the Decoder interface.
 func (d *openMetricsDecoder) Decode(v *dto.MetricFamily) error {
+	if d.err != nil {
+		return d.err
+	}
+	if err := d.p.next(v); err != nil {
+		d.err = err
+		return err
+	}
+	return nil
+}
+
+// openMetrics20Decoder implements the Decoder interface for the OpenMetrics 2.0 protocol.
+type openMetrics20Decoder struct {
+	p   *openMetrics20Parser
+	err error
+}
+
+// Decode implements the Decoder interface.
+func (d *openMetrics20Decoder) Decode(v *dto.MetricFamily) error {
 	if d.err != nil {
 		return d.err
 	}
