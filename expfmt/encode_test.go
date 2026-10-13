@@ -248,7 +248,31 @@ func TestNegotiateAccept(t *testing.T) {
 			name:              "requested OM 2.0, accepted OM 2.0",
 			acceptHeaderValue: "application/openmetrics-text;version=2.0.0",
 			acceptedFormats:   []Format{FmtOpenMetrics_2_0_0, FmtText},
-			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=values",
+			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=allow-utf-8",
+		},
+		{
+			name:              "requested OM 2.0 with explicit escaping",
+			acceptHeaderValue: "application/openmetrics-text;version=2.0.0;escaping=underscores",
+			acceptedFormats:   []Format{FmtOpenMetrics_2_0_0, FmtText},
+			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=underscores",
+		},
+		{
+			name:              "requested OM 2.0 with unknown escaping",
+			acceptHeaderValue: "application/openmetrics-text;version=2.0.0;escaping=foo",
+			acceptedFormats:   []Format{FmtOpenMetrics_2_0_0, FmtText},
+			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=allow-utf-8",
+		},
+		{
+			name:              "requested OM 1.0 without escaping keeps the default",
+			acceptHeaderValue: "application/openmetrics-text;version=1.0.0",
+			acceptedFormats:   []Format{FmtOpenMetrics_2_0_0, FmtOpenMetrics_1_0_0, FmtText},
+			expectedFmt:       "application/openmetrics-text; version=1.0.0; charset=utf-8; escaping=values",
+		},
+		{
+			name:              "escaping from a skipped clause is not applied to the match",
+			acceptHeaderValue: "application/json;escaping=allow-utf-8, text/plain;version=0.0.4",
+			acceptedFormats:   []Format{FmtProtoDelim, FmtText},
+			expectedFmt:       "text/plain; version=0.0.4; charset=utf-8; escaping=values",
 		},
 		{
 			name:              "requested OM 2.0, not accepted, falls back to text",
@@ -266,7 +290,7 @@ func TestNegotiateAccept(t *testing.T) {
 			name:              "requested OM 1.0 and 2.0, prefers higher q value",
 			acceptHeaderValue: "application/openmetrics-text;version=1.0.0;q=0.8, application/openmetrics-text;version=2.0.0;q=0.9",
 			acceptedFormats:   []Format{FmtOpenMetrics_1_0_0, FmtOpenMetrics_2_0_0, FmtText},
-			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=values",
+			expectedFmt:       "application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=allow-utf-8",
 		},
 		{
 			name:              "wildcard */* matches text format if present",
@@ -651,6 +675,66 @@ func BenchmarkNegotiateAccept(b *testing.B) {
 	b.ResetTimer()
 	for b.Loop() {
 		_ = NegotiateAccept(h, accepted...)
+	}
+}
+
+func TestNegotiateAcceptEncodeUTF8Names(t *testing.T) {
+	mf := &dto.MetricFamily{
+		Name: proto.String("my.metric"),
+		Type: dto.MetricType_GAUGE.Enum(),
+		Metric: []*dto.Metric{
+			{
+				Label: []*dto.LabelPair{{Name: proto.String("my.label"), Value: proto.String("v")}},
+				Gauge: &dto.Gauge{Value: proto.Float64(1)},
+			},
+		},
+	}
+
+	tests := []struct {
+		name     string
+		accept   string
+		expected string
+	}{
+		{
+			name:     "OM 2.0 without escaping keeps UTF-8 names",
+			accept:   "application/openmetrics-text;version=2.0.0",
+			expected: `{"my.metric","my.label"="v"} 1.0`,
+		},
+		{
+			name:     "OM 2.0 with escaping=underscores escapes",
+			accept:   "application/openmetrics-text;version=2.0.0;escaping=underscores",
+			expected: `my_metric{my_label="v"} 1.0`,
+		},
+		{
+			name:     "OM 1.0 without escaping escapes",
+			accept:   "application/openmetrics-text;version=1.0.0",
+			expected: `my_metric{my_label="v"} 1.0`,
+		},
+		{
+			name:     "text without escaping escapes",
+			accept:   "text/plain;version=0.0.4",
+			expected: `my_metric{my_label="v"} 1`,
+		},
+	}
+
+	oldDefault := model.NameEscapingScheme
+	model.NameEscapingScheme = model.UnderscoreEscaping
+	defer func() {
+		model.NameEscapingScheme = oldDefault
+	}()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := http.Header{}
+			h.Add(hdrAccept, tt.accept)
+			format := NegotiateAccept(h, FmtOpenMetrics_2_0_0, FmtOpenMetrics_1_0_0, FmtText)
+
+			var buf bytes.Buffer
+			enc := NewEncoder(&buf, format)
+			require.NoError(t, enc.Encode(mf))
+			require.NoError(t, enc.(Closer).Close())
+			require.Contains(t, buf.String(), tt.expected)
+		})
 	}
 }
 
