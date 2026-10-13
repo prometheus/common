@@ -957,6 +957,35 @@ request_duration_microseconds_count 2693
 				},
 			},
 		},
+		// 18: Trailing blanks and tabs after sample values and timestamps.
+		{
+			in: "trailing_value_space 1 \t \ntrailing_timestamp_space 2 123 \t \n",
+			out: []*dto.MetricFamily{
+				{
+					Name: proto.String("trailing_value_space"),
+					Type: dto.MetricType_UNTYPED.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Untyped: &dto.Untyped{
+								Value: proto.Float64(1),
+							},
+						},
+					},
+				},
+				{
+					Name: proto.String("trailing_timestamp_space"),
+					Type: dto.MetricType_UNTYPED.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Untyped: &dto.Untyped{
+								Value: proto.Float64(2),
+							},
+							TimestampMs: proto.Int64(123),
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for i, scenario := range scenarios {
