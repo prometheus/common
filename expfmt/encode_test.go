@@ -393,6 +393,19 @@ func TestEncode(t *testing.T) {
 		},
 	}
 
+	metricWithMatchingUnit := &dto.MetricFamily{
+		Name: proto.String("foo_metric_seconds"),
+		Type: dto.MetricType_UNTYPED.Enum(),
+		Unit: proto.String("seconds"),
+		Metric: []*dto.Metric{
+			{
+				Untyped: &dto.Untyped{
+					Value: proto.Float64(1.234),
+				},
+			},
+		},
+	}
+
 	scenarios := []struct {
 		metric  *dto.MetricFamily
 		format  Format
@@ -427,7 +440,6 @@ foo_metric 1.234
 			metric: metric1,
 			format: FmtOpenMetrics_0_0_1,
 			expOut: `# TYPE foo_metric unknown
-# UNIT foo_metric seconds
 foo_metric 1.234
 `,
 		},
@@ -436,7 +448,6 @@ foo_metric 1.234
 			metric: metric1,
 			format: FmtOpenMetrics_1_0_0,
 			expOut: `# TYPE foo_metric unknown
-# UNIT foo_metric seconds
 foo_metric 1.234
 `,
 		},
@@ -445,7 +456,6 @@ foo_metric 1.234
 			metric: metric1,
 			format: FmtOpenMetrics_1_0_0,
 			expOut: `# TYPE foo_metric unknown
-# UNIT foo_metric seconds
 foo_metric 1.234
 `,
 		},
@@ -456,6 +466,24 @@ foo_metric 1.234
 			expOut: `# TYPE foo_metric unknown
 # UNIT foo_metric seconds
 foo_metric 1.234
+`,
+		},
+		// 9: Untyped with matching unit suffix FmtOpenMetrics_1_0_0
+		{
+			metric: metricWithMatchingUnit,
+			format: FmtOpenMetrics_1_0_0,
+			expOut: `# TYPE foo_metric_seconds unknown
+# UNIT foo_metric_seconds seconds
+foo_metric_seconds 1.234
+`,
+		},
+		// 10: Untyped with matching unit suffix FmtOpenMetrics_0_0_1
+		{
+			metric: metricWithMatchingUnit,
+			format: FmtOpenMetrics_0_0_1,
+			expOut: `# TYPE foo_metric_seconds unknown
+# UNIT foo_metric_seconds seconds
+foo_metric_seconds 1.234
 `,
 		},
 	}
