@@ -481,9 +481,10 @@ func UnescapeName(name string, scheme EscapingScheme) string {
 		// It is not possible to unescape from underscore replacement.
 		return name
 	case DotsEscaping:
-		name = strings.ReplaceAll(name, "_dot_", ".")
-		name = strings.ReplaceAll(name, "__", "_")
-		return name
+		if !strings.Contains(name, "__") && !strings.Contains(name, "_dot_") {
+			return name
+		}
+		return dotsUnescaper.Replace(name)
 	case ValueEncodingEscaping:
 		escapedName, found := strings.CutPrefix(name, "U__")
 		if !found {
@@ -544,6 +545,10 @@ func UnescapeName(name string, scheme EscapingScheme) string {
 		panic(fmt.Sprintf("invalid escaping scheme %d", scheme))
 	}
 }
+
+// dotsUnescaper reverses DotsEscaping. It decodes "__" and "_dot_" in a single
+// left-to-right pass, so "a__dot__b" becomes "a_dot_b" rather than "a_._b".
+var dotsUnescaper = strings.NewReplacer("__", "_", "_dot_", ".")
 
 func isValidLegacyRune(b rune, i int) bool {
 	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || b == '_' || b == ':' || (b >= '0' && b <= '9' && i > 0)
