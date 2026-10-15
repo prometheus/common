@@ -113,7 +113,29 @@ var dotPrecision = int(math.Log10(float64(second)))
 
 // String returns a string representation of the Time.
 func (t Time) String() string {
-	return strconv.FormatFloat(float64(t)/float64(second), 'f', -1, 64)
+	// Format seconds and milliseconds as integers: going through float64 would
+	// round times far from the epoch, such as Latest and Earliest.
+	sec, ms := int64(t)/second, int64(t)%second
+	var buf [24]byte
+	b := buf[:0]
+	if t < 0 && sec == 0 {
+		b = append(b, '-')
+	}
+	b = strconv.AppendInt(b, sec, 10)
+	if ms == 0 {
+		return string(b)
+	}
+	if ms < 0 {
+		ms = -ms
+	}
+	// Appending ms+second writes the milliseconds zero-padded behind a
+	// leading 1, which the dot then overwrites.
+	b = strconv.AppendInt(b, ms+second, 10)
+	b[len(b)-dotPrecision-1] = '.'
+	for b[len(b)-1] == '0' {
+		b = b[:len(b)-1]
+	}
+	return string(b)
 }
 
 // MarshalJSON implements the json.Marshaler interface.
@@ -124,23 +146,17 @@ func (t Time) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements the json.Unmarshaler interface.
 func (t *Time) UnmarshalJSON(b []byte) error {
 	base, frac, found := strings.Cut(string(b), ".")
-	if !found {
-		v, err := strconv.ParseInt(base, 10, 64)
-		if err != nil {
-			return err
-		}
-		*t = Time(v * second)
-	} else {
-		v, err := strconv.ParseInt(base, 10, 64)
-		if err != nil {
-			return err
-		}
-
+	v, err := strconv.ParseInt(base, 10, 64)
+	if err != nil {
+		return err
+	}
+	var va int64
+	if found {
 		prec := dotPrecision - len(frac)
 		if prec < 0 {
 			frac = frac[:dotPrecision]
 		}
-		va, err := strconv.ParseInt(frac, 10, 32)
+		va, err = strconv.ParseInt(frac, 10, 32)
 		if err != nil {
 			return err
 		}
@@ -154,10 +170,24 @@ func (t *Time) UnmarshalJSON(b []byte) error {
 		if len(base) > 0 && base[0] == '-' {
 			va = -va
 		}
+	}
+	switch {
+	// Older versions wrote Latest and Earliest rounded to whole seconds.
+	case v == legacyLatestSeconds && va == 0:
+		*t = Latest
+	case v == -legacyLatestSeconds && va == 0:
+		*t = Earliest
+	case v > math.MaxInt64/second || (v == math.MaxInt64/second && va > math.MaxInt64%second),
+		v < math.MinInt64/second || (v == math.MinInt64/second && va < math.MinInt64%second):
+		return errors.New("time out of range")
+	default:
 		*t = Time(v*second + va)
 	}
 	return nil
 }
+
+// legacyLatestSeconds is Latest in seconds as String() used to round it.
+const legacyLatestSeconds = math.MaxInt64/second + 1
 
 // Duration wraps time.Duration. It is used to parse the custom duration format
 // from YAML.
