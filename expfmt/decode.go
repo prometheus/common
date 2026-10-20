@@ -94,7 +94,7 @@ func NewDecoder(r io.Reader, format Format) Decoder {
 		return &errDecoder{err: fmt.Errorf("format %s not supported for decoding", format)}
 	case TypeOpenMetrics:
 		_, params, err := mime.ParseMediaType(string(format))
-		if err == nil && params["version"] == OpenMetricsVersion_2_0_0 {
+		if err == nil && isOpenMetrics20Version(params["version"]) {
 			return &errDecoder{err: fmt.Errorf("format %s not supported for decoding", format)}
 		}
 	}

@@ -37,6 +37,7 @@ func init() {
 		FmtProtoText,
 		FmtProtoCompact,
 		FmtOpenMetrics_1_0_0,
+		FmtOpenMetrics_2_0_0_rc,
 		FmtOpenMetrics_2_0_0,
 		FmtOpenMetrics_0_0_1,
 	} {
@@ -159,7 +160,7 @@ func escapingFor(ac goautoneg.Accept, f Format) Format {
 		// An explicit request always wins, also for OpenMetrics 2.0.
 		return Format("; escaping=" + p)
 	}
-	if f.FormatType() == TypeOpenMetrics && f.Version() == OpenMetricsVersion_2_0_0 {
+	if f.FormatType() == TypeOpenMetrics && isOpenMetrics20Version(f.Version()) {
 		// OpenMetrics 2.0 is UTF-8 native, so asking for it implies UTF-8 name support.
 		return Format("; escaping=" + model.AllowUTF8)
 	}
@@ -262,7 +263,7 @@ func NewEncoder(w io.Writer, format Format, options ...EncoderOption) Encoder {
 		}
 	case TypeOpenMetrics:
 		_, params, err := mime.ParseMediaType(string(format))
-		if err == nil && params["version"] == OpenMetricsVersion_2_0_0 {
+		if err == nil && isOpenMetrics20Version(params["version"]) {
 			return encoderCloser{
 				encode: func(v *dto.MetricFamily) error {
 					_, err := MetricFamilyToOpenMetrics20(w, model.EscapeMetricFamily(v, escapingScheme), options...)

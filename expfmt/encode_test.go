@@ -245,6 +245,18 @@ func TestNegotiateAccept(t *testing.T) {
 		expectedFmt       string
 	}{
 		{
+			name:              "requested OM 2.0-rc, accepted OM 2.0-rc",
+			acceptHeaderValue: "application/openmetrics-text;version=2.0.0-rc",
+			acceptedFormats:   []Format{FmtOpenMetrics_2_0_0_rc, FmtText},
+			expectedFmt:       "application/openmetrics-text; version=2.0.0-rc; charset=utf-8; escaping=allow-utf-8",
+		},
+		{
+			name:              "requested OM 2.0-rc with explicit escaping",
+			acceptHeaderValue: "application/openmetrics-text;version=2.0.0-rc;escaping=underscores",
+			acceptedFormats:   []Format{FmtOpenMetrics_2_0_0_rc, FmtText},
+			expectedFmt:       "application/openmetrics-text; version=2.0.0-rc; charset=utf-8; escaping=underscores",
+		},
+		{
 			name:              "requested OM 2.0, accepted OM 2.0",
 			acceptHeaderValue: "application/openmetrics-text;version=2.0.0",
 			acceptedFormats:   []Format{FmtOpenMetrics_2_0_0, FmtText},
@@ -696,6 +708,16 @@ func TestNegotiateAcceptEncodeUTF8Names(t *testing.T) {
 		expected string
 	}{
 		{
+			name:     "OM 2.0-rc without escaping keeps UTF-8 names",
+			accept:   "application/openmetrics-text;version=2.0.0-rc",
+			expected: `{"my.metric","my.label"="v"} 1.0`,
+		},
+		{
+			name:     "OM 2.0-rc with escaping=underscores escapes",
+			accept:   "application/openmetrics-text;version=2.0.0-rc;escaping=underscores",
+			expected: `my_metric{my_label="v"} 1.0`,
+		},
+		{
 			name:     "OM 2.0 without escaping keeps UTF-8 names",
 			accept:   "application/openmetrics-text;version=2.0.0",
 			expected: `{"my.metric","my.label"="v"} 1.0`,
@@ -727,7 +749,7 @@ func TestNegotiateAcceptEncodeUTF8Names(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := http.Header{}
 			h.Add(hdrAccept, tt.accept)
-			format := NegotiateAccept(h, FmtOpenMetrics_2_0_0, FmtOpenMetrics_1_0_0, FmtText)
+			format := NegotiateAccept(h, FmtOpenMetrics_2_0_0_rc, FmtOpenMetrics_2_0_0, FmtOpenMetrics_1_0_0, FmtText)
 
 			var buf bytes.Buffer
 			enc := NewEncoder(&buf, format)
@@ -769,6 +791,11 @@ func TestNewEncoder_OpenMetricsVersionDispatch(t *testing.T) {
 			name:         "OpenMetrics 0.0.1",
 			format:       FmtOpenMetrics_0_0_1,
 			expectedLine: "# TYPE test_counter unknown\ntest_counter 42.0\n",
+		},
+		{
+			name:         "OpenMetrics 2.0.0-rc standard",
+			format:       FmtOpenMetrics_2_0_0_rc,
+			expectedLine: "# TYPE test_counter counter\ntest_counter 42.0 st@1234567890\n",
 		},
 		{
 			name:         "OpenMetrics 2.0.0 standard",
