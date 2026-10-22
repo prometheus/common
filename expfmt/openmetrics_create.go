@@ -87,6 +87,9 @@ func WithCreatedLines() EncoderOption {
 //     its type will be set to `unknown` in that case to avoid invalid OpenMetrics
 //     output.
 //
+//   - Non-empty unit metadata is omitted unless the unit is an underscore-separated
+//     suffix of the metric family name. Metric names are not changed.
+//
 //   - No support for the following (optional) features: info type,
 //     stateset type, gaugehistogram type.
 //
@@ -193,7 +196,7 @@ func MetricFamilyToOpenMetrics(out io.Writer, in *dto.MetricFamily, options ...E
 	if err != nil {
 		return written, err
 	}
-	if in.Unit != nil {
+	if in.Unit != nil && (*in.Unit == "" || strings.HasSuffix(compliantName, "_"+*in.Unit)) {
 		n, err = w.WriteString("# UNIT ")
 		written += n
 		if err != nil {
