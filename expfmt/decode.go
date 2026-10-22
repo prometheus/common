@@ -27,7 +27,8 @@ import (
 	"github.com/prometheus/common/model"
 )
 
-// Decoder types decode an input stream into metric families.
+// Decoder types decode an input stream into metric families. Duplicate histogram
+// bucket upper bounds and summary quantiles within a metric are rejected.
 type Decoder interface {
 	Decode(*dto.MetricFamily) error
 }
@@ -134,6 +135,38 @@ func (d *protoDecoder) Decode(v *dto.MetricFamily) error {
 			}
 		}
 	}
+	return checkDuplicateBucketsAndQuantiles(v)
+}
+
+// checkDuplicateBucketsAndQuantiles validates each metric independently: metrics
+// with different label sets may legitimately have the same buckets or quantiles.
+// Checking after parsing covers both text and protobuf input without reordering
+// or modifying the decoded data.
+func checkDuplicateBucketsAndQuantiles(f *dto.MetricFamily) error {
+	for _, metric := range f.GetMetric() {
+		switch f.GetType() {
+		case dto.MetricType_HISTOGRAM, dto.MetricType_GAUGE_HISTOGRAM:
+			buckets := metric.GetHistogram().GetBucket()
+			seen := make(map[float64]struct{}, len(buckets))
+			for _, bucket := range buckets {
+				bound := bucket.GetUpperBound()
+				if _, exists := seen[bound]; exists {
+					return fmt.Errorf("metric family %q has duplicate bucket upper bound %v", f.GetName(), bound)
+				}
+				seen[bound] = struct{}{}
+			}
+		case dto.MetricType_SUMMARY:
+			quantiles := metric.GetSummary().GetQuantile()
+			seen := make(map[float64]struct{}, len(quantiles))
+			for _, quantile := range quantiles {
+				value := quantile.GetQuantile()
+				if _, exists := seen[value]; exists {
+					return fmt.Errorf("metric family %q has duplicate quantile %v", f.GetName(), value)
+				}
+				seen[value] = struct{}{}
+			}
+		}
+	}
 	return nil
 }
 
@@ -167,11 +200,14 @@ func (d *textDecoder) Decode(v *dto.MetricFamily) error {
 	}
 	// Pick off one MetricFamily per Decode until there's nothing left.
 	for key, fam := range d.fams {
+		delete(d.fams, key)
+		if err := checkDuplicateBucketsAndQuantiles(fam); err != nil {
+			return err
+		}
 		v.Name = fam.Name
 		v.Help = fam.Help
 		v.Type = fam.Type
 		v.Metric = fam.Metric
-		delete(d.fams, key)
 		return nil
 	}
 	return d.err
@@ -207,6 +243,10 @@ func ExtractSamples(o *DecodeOptions, fams ...*dto.MetricFamily) (model.Vector, 
 		lastErr error
 	)
 	for _, f := range fams {
+		if err := checkDuplicateBucketsAndQuantiles(f); err != nil {
+			lastErr = err
+			continue
+		}
 		some, err := extractSamples(f, o)
 		if err != nil {
 			lastErr = err
