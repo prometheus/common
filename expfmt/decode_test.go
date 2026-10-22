@@ -580,6 +580,8 @@ func TestTextDecoderWithBufioReader(t *testing.T) {
 }
 
 func TestNewDecoder(t *testing.T) {
+	om20RCFormat, err := NewOpenMetricsFormat(OpenMetricsVersion_2_0_0_rc)
+	require.NoError(t, err)
 	om20Format, err := NewOpenMetricsFormat(OpenMetricsVersion_2_0_0)
 	require.NoError(t, err)
 
@@ -617,6 +619,16 @@ func TestNewDecoder(t *testing.T) {
 			name:        "OpenMetrics 1.0.0",
 			format:      FmtOpenMetrics_1_0_0,
 			expectError: false,
+		},
+		{
+			name:        "OpenMetrics 2.0.0-rc",
+			format:      om20RCFormat,
+			expectError: true,
+		},
+		{
+			name:        "OpenMetrics 2.0.0-rc with escaping",
+			format:      om20RCFormat.WithEscapingScheme(model.ValueEncodingEscaping),
+			expectError: true,
 		},
 		{
 			name:        "OpenMetrics 2.0.0",

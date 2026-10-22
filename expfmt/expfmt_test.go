@@ -40,6 +40,14 @@ func TestToFormatType(t *testing.T) {
 			expected: TypeProtoText,
 		},
 		{
+			format:   FmtOpenMetrics_2_0_0_rc,
+			expected: TypeOpenMetrics,
+		},
+		{
+			format:   FmtOpenMetrics_2_0_0,
+			expected: TypeOpenMetrics,
+		},
+		{
 			format:   FmtOpenMetrics_1_0_0,
 			expected: TypeOpenMetrics,
 		},
@@ -170,6 +178,8 @@ func TestFormat_Version(t *testing.T) {
 		{format: FmtText.WithEscapingScheme(model.NoEscaping), expected: "0.0.4"},
 		{format: FmtOpenMetrics_0_0_1, expected: "0.0.1"},
 		{format: FmtOpenMetrics_1_0_0, expected: "1.0.0"},
+		{format: FmtOpenMetrics_2_0_0_rc, expected: "2.0.0-rc"},
+		{format: FmtOpenMetrics_2_0_0_rc.WithEscapingScheme(model.DotsEscaping), expected: "2.0.0-rc"},
 		{format: FmtOpenMetrics_2_0_0, expected: "2.0.0"},
 		{format: FmtOpenMetrics_2_0_0.WithEscapingScheme(model.DotsEscaping), expected: "2.0.0"},
 		{format: FmtProtoDelim, expected: ""},
