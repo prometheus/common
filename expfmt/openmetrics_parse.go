@@ -237,7 +237,7 @@ func emitOpenMetricsFamily(st *openMetricsFamilyState, v *dto.MetricFamily, line
 	v.Metric = st.mf.Metric
 	v.Unit = st.mf.Unit
 	st.emitted = true
-	st.mf = nil
+	st.mf.Metric = nil
 	st.counters = nil
 	st.summaries = nil
 	st.histograms = nil
@@ -470,8 +470,11 @@ func (p *openMetricsParser) resolveSampleFamily(sampleName string) (*openMetrics
 		}
 	}
 
-	if st, exists := p.families[sampleName]; exists && !st.emitted {
+	if st, exists := p.families[sampleName]; exists {
 		if role, ok := matchFamilySample(st, sampleName); ok {
+			if st.emitted {
+				return nil, roleValue, ParseError{Line: p.lineNum, Msg: fmt.Sprintf("interleaved metric family %q", st.mf.GetName())}
+			}
 			if st.mf.Type == nil {
 				st.mf.Type = dto.MetricType_UNTYPED.Enum()
 			}
@@ -485,10 +488,10 @@ func (p *openMetricsParser) resolveSampleFamily(sampleName string) (*openMetrics
 	}
 
 	for _, st := range p.families {
-		if st.emitted {
-			continue
-		}
 		if role, ok := matchFamilySample(st, sampleName); ok {
+			if st.emitted {
+				return nil, roleValue, ParseError{Line: p.lineNum, Msg: fmt.Sprintf("interleaved metric family %q", st.mf.GetName())}
+			}
 			if st.mf.Type == nil {
 				st.mf.Type = dto.MetricType_UNTYPED.Enum()
 			}
@@ -511,7 +514,7 @@ func (p *openMetricsParser) resolveSampleFamily(sampleName string) (*openMetrics
 }
 
 func matchFamilySample(st *openMetricsFamilyState, sampleName string) (sampleRole, bool) {
-	if st == nil || st.emitted || st.mf == nil {
+	if st == nil || st.mf == nil {
 		return roleValue, false
 	}
 	mfName := st.mf.GetName()

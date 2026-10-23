@@ -374,10 +374,10 @@ func TestOpenMetricsParse_UTF8(t *testing.T) {
 {"go.gc_duration_seconds",quantile="0.25"} 7.424100000000001e-05
 {"go.gc_duration_seconds_created"} 1520872607.123
 {"go.gc_duration_seconds",quantile="0.5",a="b"} 8.3835e-05
+{"go.gc_duration_seconds_sum"} 0.004304266
 {"http.status",q="0.9",a="b"} 8.3835e-05
 {"http.status",q="0.9",a="b"} 8.3835e-05
 {q="0.9","http.status",a="b"} 8.3835e-05
-{"go.gc_duration_seconds_sum"} 0.004304266
 {"Heizölrückstoßabdämpfung 10€ metric with \"interesting\" {character\nchoices}","strange©™\n'quoted' \"name\""="6"} 10.0
 # TYPE quotedexemplar counter
 quotedexemplar_total 1 # {"id.thing"="histogram-count-test"} 4
@@ -402,6 +402,7 @@ quotedexemplar2_total 1 # {"id.thing"="histogram-count-test",other="hello"} 4
 		Metric: []*dto.Metric{
 			{
 				Summary: &dto.Summary{
+					SampleSum:        proto.Float64(0.004304266),
 					CreatedTimestamp: timestamppb.New(time.Unix(1520872607, 123000000)),
 					Quantile: []*dto.Quantile{
 						{Quantile: proto.Float64(0), Value: proto.Float64(4.9351e-05)},
@@ -421,16 +422,6 @@ quotedexemplar2_total 1 # {"id.thing"="histogram-count-test",other="hello"} 4
 			},
 		},
 	}, fams["go.gc_duration_seconds"])
-
-	assertProtoEqual(t, &dto.MetricFamily{
-		Name: proto.String("go.gc_duration_seconds_sum"),
-		Type: dto.MetricType_UNTYPED.Enum(),
-		Metric: []*dto.Metric{
-			{
-				Untyped: &dto.Untyped{Value: proto.Float64(0.004304266)},
-			},
-		},
-	}, fams["go.gc_duration_seconds_sum"])
 
 	assertProtoEqual(t, &dto.MetricFamily{
 		Name: proto.String("http.status"),
@@ -937,6 +928,21 @@ func TestOpenMetricsParseErrors(t *testing.T) {
 			input:   "# TYPE m2 counter\nm2_total 1\nm2 2\n# EOF\n",
 			wantErr: `sample "m2" missing required suffix for type COUNTER`,
 		},
+		{
+			name:    "interleaved untyped metric family",
+			input:   "a 1\nb 1\na 2\n# EOF\n",
+			wantErr: `interleaved metric family "a"`,
+		},
+		{
+			name:    "interleaved counter metric family",
+			input:   "# TYPE c counter\nc_total 1\n# TYPE g gauge\ng 1\nc_total 2\n# EOF\n",
+			wantErr: `interleaved metric family "c"`,
+		},
+		{
+			name:    "interleaved summary _sum sample",
+			input:   "# TYPE s summary\ns{quantile=\"0.5\"} 1\n# TYPE g gauge\ng 1\ns_sum 2\n# EOF\n",
+			wantErr: `interleaved metric family "s"`,
+		},
 	}
 
 	for _, tc := range cases {
@@ -1052,8 +1058,8 @@ thing_c_total 14123.232
 
 	t.Run("counter-like names without TYPE metadata are untyped", func(t *testing.T) {
 		input := `foo_total 17.0
-foo_created 1520872607.123
 foo_total{a="b"} 17.0
+foo_created 1520872607.123
 foo_created{a="b"} 1520872608.123
 # EOF
 `
