@@ -99,7 +99,7 @@ func (t Time) Time() time.Time {
 // Unix returns t as a Unix time, the number of seconds elapsed
 // since January 1, 1970 UTC.
 func (t Time) Unix() int64 {
-	return int64(t) / second
+	return t.Time().Unix()
 }
 
 // UnixNano returns t as a Unix time, the number of nanoseconds elapsed
