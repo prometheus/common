@@ -322,7 +322,7 @@ func (p *openMetricsParser) next(v *dto.MetricFamily) error {
 		case "sample":
 			if p.curFamily != nil && p.curFamily.hasSamples && !p.curFamily.emitted {
 				sampleName := extractSampleMetricName(line, node)
-				if _, ok := matchFamilySample(p.curFamily, sampleName); !ok {
+				if _, ok := matchFamilySample(p.curFamily, sampleName); !ok && sampleName != p.curFamily.mf.GetName() {
 					p.pendingLine = line
 					p.pendingNode = node
 					st := p.curFamily
@@ -463,10 +463,9 @@ func (p *openMetricsParser) resolveSampleFamily(sampleName string) (*openMetrics
 			p.curFamily.hasSamples = true
 			return p.curFamily, role, nil
 		}
-		// If curFamily was explicitly typed as counter/histogram/gaugehistogram
-		// and has no samples yet, a bare sample matching the base family name is
-		// missing its required suffix.
-		if !p.curFamily.hasSamples && p.curFamily.hasType && sampleName == p.curFamily.mf.GetName() {
+		// If curFamily was explicitly typed as counter/histogram/gaugehistogram,
+		// a bare sample matching the base family name is missing its required suffix.
+		if p.curFamily.hasType && sampleName == p.curFamily.mf.GetName() {
 			return nil, roleValue, ParseError{Line: p.lineNum, Msg: fmt.Sprintf("sample %q missing required suffix for type %s", sampleName, p.curFamily.mf.GetType())}
 		}
 	}
@@ -479,6 +478,9 @@ func (p *openMetricsParser) resolveSampleFamily(sampleName string) (*openMetrics
 			st.hasSamples = true
 			p.curFamily = st
 			return st, role, nil
+		}
+		if st.hasType {
+			return nil, roleValue, ParseError{Line: p.lineNum, Msg: fmt.Sprintf("sample %q missing required suffix for type %s", sampleName, st.mf.GetType())}
 		}
 	}
 

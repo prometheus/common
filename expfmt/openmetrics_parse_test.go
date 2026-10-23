@@ -922,6 +922,21 @@ func TestOpenMetricsParseErrors(t *testing.T) {
 			input:   "# TYPE c counter\nc_created 1520872607.123\n# EOF\n",
 			wantErr: `counter "c" missing _total value`,
 		},
+		{
+			name:    "counter sample missing _total suffix after previous family emitted",
+			input:   "# TYPE m1 gauge\nm1 1\n# TYPE m2 counter\nm2 2\n# EOF\n",
+			wantErr: `sample "m2" missing required suffix for type COUNTER`,
+		},
+		{
+			name:    "histogram sample missing suffix after previous family emitted",
+			input:   "# TYPE m1 gauge\nm1 1\n# TYPE m2 histogram\nm2 2\n# EOF\n",
+			wantErr: `sample "m2" missing required suffix for type HISTOGRAM`,
+		},
+		{
+			name:    "counter sample missing _total suffix after valid _total sample",
+			input:   "# TYPE m2 counter\nm2_total 1\nm2 2\n# EOF\n",
+			wantErr: `sample "m2" missing required suffix for type COUNTER`,
+		},
 	}
 
 	for _, tc := range cases {
