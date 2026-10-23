@@ -212,14 +212,26 @@ func (p *openMetricsParser) validationScheme() model.ValidationScheme {
 	return p.scheme
 }
 
-func emitOpenMetricsFamily(st *openMetricsFamilyState, v *dto.MetricFamily) {
+func emitOpenMetricsFamily(st *openMetricsFamilyState, v *dto.MetricFamily, lineNum int) error {
 	if st.mf.Type == nil {
 		st.mf.Type = dto.MetricType_UNTYPED.Enum()
+	}
+	name := st.mf.Name
+	if st.mf.GetType() == dto.MetricType_COUNTER {
+		for _, m := range st.mf.Metric {
+			if m.GetCounter().Value == nil {
+				return ParseError{
+					Line: lineNum,
+					Msg:  fmt.Sprintf("counter %q missing _total value", st.mf.GetName()),
+				}
+			}
+		}
+		name = proto.String(st.mf.GetName() + "_total")
 	}
 	for _, m := range st.histograms {
 		normalizeHistogram(m.GetHistogram())
 	}
-	v.Name = st.mf.Name
+	v.Name = name
 	v.Help = st.mf.Help
 	v.Type = st.mf.Type
 	v.Metric = st.mf.Metric
@@ -229,6 +241,7 @@ func emitOpenMetricsFamily(st *openMetricsFamilyState, v *dto.MetricFamily) {
 	st.counters = nil
 	st.summaries = nil
 	st.histograms = nil
+	return nil
 }
 
 // next reads from the input stream until the next MetricFamily is complete and
@@ -297,8 +310,7 @@ func (p *openMetricsParser) next(v *dto.MetricFamily) error {
 			if p.curFamily != nil && p.curFamily.hasSamples && !p.curFamily.emitted {
 				st := p.curFamily
 				p.curFamily = nil
-				emitOpenMetricsFamily(st, v)
-				return nil
+				return emitOpenMetricsFamily(st, v, p.lineNum)
 			}
 			return io.EOF
 
@@ -315,8 +327,7 @@ func (p *openMetricsParser) next(v *dto.MetricFamily) error {
 					p.pendingNode = node
 					st := p.curFamily
 					p.curFamily = nil
-					emitOpenMetricsFamily(st, v)
-					return nil
+					return emitOpenMetricsFamily(st, v, p.lineNum)
 				}
 			}
 			if err := p.handleSample(line, node); err != nil {

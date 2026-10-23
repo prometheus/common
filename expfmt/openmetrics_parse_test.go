@@ -253,7 +253,7 @@ nansum{quantile="0.99"} NaN`
 	}, fams["ggh"])
 
 	assertProtoEqual(t, &dto.MetricFamily{
-		Name: proto.String("foo"),
+		Name: proto.String("foo_total"),
 		Help: proto.String("Counter with and without labels to certify ST is parsed for both cases"),
 		Type: dto.MetricType_COUNTER.Enum(),
 		Metric: []*dto.Metric{
@@ -304,7 +304,7 @@ nansum{quantile="0.99"} NaN`
 				},
 			},
 		},
-	}, fams["foo"])
+	}, fams["foo_total"])
 
 	assertProtoEqual(t, &dto.MetricFamily{
 		Name: proto.String("something"),
@@ -475,7 +475,7 @@ quotedexemplar2_total 1 # {"id.thing"="histogram-count-test",other="hello"} 4
 	}, fams[specialName])
 
 	assertProtoEqual(t, &dto.MetricFamily{
-		Name: proto.String("quotedexemplar"),
+		Name: proto.String("quotedexemplar_total"),
 		Type: dto.MetricType_COUNTER.Enum(),
 		Metric: []*dto.Metric{
 			{
@@ -490,10 +490,10 @@ quotedexemplar2_total 1 # {"id.thing"="histogram-count-test",other="hello"} 4
 				},
 			},
 		},
-	}, fams["quotedexemplar"])
+	}, fams["quotedexemplar_total"])
 
 	assertProtoEqual(t, &dto.MetricFamily{
-		Name: proto.String("quotedexemplar2"),
+		Name: proto.String("quotedexemplar2_total"),
 		Type: dto.MetricType_COUNTER.Enum(),
 		Metric: []*dto.Metric{
 			{
@@ -509,7 +509,7 @@ quotedexemplar2_total 1 # {"id.thing"="histogram-count-test",other="hello"} 4
 				},
 			},
 		},
-	}, fams["quotedexemplar2"])
+	}, fams["quotedexemplar2_total"])
 }
 
 func TestOpenMetricsParseErrors(t *testing.T) {
@@ -917,6 +917,11 @@ func TestOpenMetricsParseErrors(t *testing.T) {
 			input:   "# TYPE c counter\nc_total 1 # {b=\"1\",b=\"2\"} 1\n# EOF\n",
 			wantErr: `duplicate exemplar label name "b"`,
 		},
+		{
+			name:    "counter with _created only and no _total",
+			input:   "# TYPE c counter\nc_created 1520872607.123\n# EOF\n",
+			wantErr: `counter "c" missing _total value`,
+		},
 	}
 
 	for _, tc := range cases {
@@ -1026,8 +1031,8 @@ thing_c_total 14123.232
 		wantTS := timestamppb.New(time.Unix(1520872607, 123000000))
 
 		assertProtoEqual(t, wantTS, fams["thing"].GetMetric()[0].GetHistogram().GetCreatedTimestamp())
-		assertProtoEqual(t, wantTS, fams["thing_c"].GetMetric()[0].GetCounter().GetCreatedTimestamp())
-		require.Equal(t, 14123.232, fams["thing_c"].GetMetric()[0].GetCounter().GetValue())
+		assertProtoEqual(t, wantTS, fams["thing_c_total"].GetMetric()[0].GetCounter().GetCreatedTimestamp())
+		require.Equal(t, 14123.232, fams["thing_c_total"].GetMetric()[0].GetCounter().GetValue())
 	})
 
 	t.Run("counter-like names without TYPE metadata are untyped", func(t *testing.T) {
@@ -1103,9 +1108,7 @@ func TestOpenMetricsRoundTrip(t *testing.T) {
 	gotFams := decodeAllOpenMetrics(t, buf.String(), FmtOpenMetrics_1_0_0)
 	require.Len(t, gotFams, len(inFams))
 
-	wantCounter := proto.Clone(inFams[0]).(*dto.MetricFamily)
-	wantCounter.Name = proto.String("http_requests")
-	assertProtoEqual(t, wantCounter, gotFams["http_requests"])
+	assertProtoEqual(t, inFams[0], gotFams["http_requests_total"])
 	assertProtoEqual(t, inFams[1], gotFams["request_duration_seconds"])
 }
 
@@ -1131,7 +1134,7 @@ func TestOpenMetricsStreaming(t *testing.T) {
 
 	var mf1 dto.MetricFamily
 	require.NoError(t, dec.Decode(&mf1))
-	require.Equal(t, "first", mf1.GetName())
+	require.Equal(t, "first_total", mf1.GetName())
 	require.Equal(t, dto.MetricType_COUNTER, mf1.GetType())
 	require.Len(t, mf1.GetMetric(), 1)
 	require.Equal(t, 1.0, mf1.GetMetric()[0].GetCounter().GetValue())

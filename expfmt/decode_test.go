@@ -707,14 +707,14 @@ mf1{label="value2"} 42
 			},
 			&model.Sample{
 				Metric: model.Metric{
-					model.MetricNameLabel: "mf2",
+					model.MetricNameLabel: "mf2_total",
 				},
 				Value:     3,
 				Timestamp: ts,
 			},
 			&model.Sample{
 				Metric: model.Metric{
-					model.MetricNameLabel: "mf2",
+					model.MetricNameLabel: "mf2_total",
 				},
 				Value:     4,
 				Timestamp: ts,
