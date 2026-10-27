@@ -605,6 +605,12 @@ func (p *openMetrics20Parser) handleSample(input []byte, node *goabnf.ParseTree)
 		if scalarNode == nil {
 			return ParseError{Line: p.lineNum, Msg: fmt.Sprintf("composite value not supported for gauge %q", sampleName)}
 		}
+		if startTS != nil {
+			return ParseError{Line: p.lineNum, Msg: fmt.Sprintf("start timestamp not allowed on gauge metric %q", sampleName)}
+		}
+		if len(exemplars) > 0 {
+			return ParseError{Line: p.lineNum, Msg: fmt.Sprintf("exemplar not allowed on gauge metric %q", sampleName)}
+		}
 		valStr := string(input[scalarNode.Start:scalarNode.End])
 		val, err := parseOpenMetricsFloat(valStr)
 		if err != nil {
@@ -619,6 +625,12 @@ func (p *openMetrics20Parser) handleSample(input []byte, node *goabnf.ParseTree)
 	case dto.MetricType_UNTYPED:
 		if scalarNode == nil {
 			return ParseError{Line: p.lineNum, Msg: fmt.Sprintf("composite value not supported for untyped %q", sampleName)}
+		}
+		if startTS != nil {
+			return ParseError{Line: p.lineNum, Msg: fmt.Sprintf("start timestamp not allowed on untyped metric %q", sampleName)}
+		}
+		if len(exemplars) > 0 {
+			return ParseError{Line: p.lineNum, Msg: fmt.Sprintf("exemplar not allowed on untyped metric %q", sampleName)}
 		}
 		valStr := string(input[scalarNode.Start:scalarNode.End])
 		val, err := parseOpenMetricsFloat(valStr)
@@ -635,6 +647,9 @@ func (p *openMetrics20Parser) handleSample(input []byte, node *goabnf.ParseTree)
 		if compositeNode == nil {
 			return ParseError{Line: p.lineNum, Msg: fmt.Sprintf("composite value required for metric type summary %q", sampleName)}
 		}
+		if len(exemplars) > 0 {
+			return ParseError{Line: p.lineNum, Msg: fmt.Sprintf("exemplar not allowed on summary metric %q", sampleName)}
+		}
 		summaryProto, err := parseCompositeSummary(p.lineNum, input, compositeNode, sampleName, labelPairs, startTS)
 		if err != nil {
 			return err
@@ -650,6 +665,9 @@ func (p *openMetrics20Parser) handleSample(input []byte, node *goabnf.ParseTree)
 			return ParseError{Line: p.lineNum, Msg: fmt.Sprintf("composite value required for metric type %s %q", mtype, sampleName)}
 		}
 		isGauge := mtype == dto.MetricType_GAUGE_HISTOGRAM
+		if isGauge && startTS != nil {
+			return ParseError{Line: p.lineNum, Msg: fmt.Sprintf("start timestamp not allowed on gaugehistogram metric %q", sampleName)}
+		}
 		histProto, err := parseCompositeHistogram(p.lineNum, input, compositeNode, sampleName, labelPairs, isGauge, startTS, exemplars)
 		if err != nil {
 			return err

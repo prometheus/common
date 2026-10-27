@@ -1621,6 +1621,36 @@ foo_total 1.0 # {id="x"} 1.0
 			input: "# TYPE foo_total counter\nfoo_total -1\n# EOF\n",
 			err:   "counter sample value must not be negative",
 		},
+		{
+			name:  "start timestamp on gauge rejected",
+			input: "# TYPE g gauge\ng 1.0 st@1000.0\n# EOF\n",
+			err:   `start timestamp not allowed on gauge metric "g"`,
+		},
+		{
+			name:  "start timestamp on untyped rejected",
+			input: "u 1.0 st@1000.0\n# EOF\n",
+			err:   `start timestamp not allowed on untyped metric "u"`,
+		},
+		{
+			name:  "start timestamp on gaugehistogram rejected",
+			input: "# TYPE gh gaugehistogram\ngh {gcount:1,gsum:1.0,bucket:[+Inf:1]} st@1000.0\n# EOF\n",
+			err:   `start timestamp not allowed on gaugehistogram metric "gh"`,
+		},
+		{
+			name:  "exemplar on gauge rejected",
+			input: "# TYPE g gauge\ng 1.0 # {id=\"1\"} 1.0 1000.0\n# EOF\n",
+			err:   `exemplar not allowed on gauge metric "g"`,
+		},
+		{
+			name:  "exemplar on untyped rejected",
+			input: "u 1.0 # {id=\"1\"} 1.0 1000.0\n# EOF\n",
+			err:   `exemplar not allowed on untyped metric "u"`,
+		},
+		{
+			name:  "exemplar on summary rejected",
+			input: "# TYPE s summary\ns {count:1,sum:1.0,quantile:[0.5:1.0]} # {id=\"1\"} 1.0 1000.0\n# EOF\n",
+			err:   `exemplar not allowed on summary metric "s"`,
+		},
 	}
 
 	for _, tc := range cases {
