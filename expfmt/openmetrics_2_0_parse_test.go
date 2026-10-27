@@ -1157,6 +1157,15 @@ func TestOpenMetrics2ParseExemplarEscapedLabelNamesAndNullBytes(t *testing.T) {
 		},
 	}
 	requireEqualFamilies(t, expected, fams)
+
+	t.Run("NaN and Inf exemplar values", func(t *testing.T) {
+		nanInfInput := "# TYPE c_total counter\nc_total{k=\"nan\"} 1.0 # {id=\"1\"} NaN 1700000000.0\nc_total{k=\"inf\"} 2.0 # {id=\"2\"} +Inf 1700000000.0\n# EOF\n"
+		got, err := decodeOpenMetrics20ToMap(strings.NewReader(nanInfInput), FmtOpenMetrics_2_0_0)
+		require.NoError(t, err)
+		require.Len(t, got["c_total"].GetMetric(), 2)
+		require.True(t, math.IsNaN(got["c_total"].GetMetric()[0].GetCounter().GetExemplar().GetValue()))
+		require.True(t, math.IsInf(got["c_total"].GetMetric()[1].GetCounter().GetExemplar().GetValue(), 1))
+	})
 }
 
 func TestOpenMetrics2ParseCarriageReturnInHelp(t *testing.T) {

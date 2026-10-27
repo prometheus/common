@@ -874,7 +874,7 @@ func (p *openMetricsParser) parseExemplar(input []byte, node *goabnf.ParseTree, 
 	}
 
 	val, err := parseOpenMetricsFloat(valStr)
-	if err != nil || math.IsNaN(val) || math.IsInf(val, 0) {
+	if err != nil || (enforceRuneLimit && (math.IsNaN(val) || math.IsInf(val, 0))) {
 		return nil, ParseError{Line: p.lineNum, Msg: fmt.Sprintf("invalid exemplar value %q", valStr)}
 	}
 
