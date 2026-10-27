@@ -202,6 +202,11 @@ func getOpenMetrics20Grammar() (*goabnf.Grammar, error) {
 
 // openMetrics20Parser streams OpenMetrics 2.0 text exposition format line-by-line
 // using the OpenMetrics 2.0 ABNF grammar.
+//
+// NOTE: Like openMetricsParser, this parser invokes goabnf.ParseForest on each
+// full line without a line-length cap, which has superlinear (roughly quadratic)
+// parse time in line length. As documented on NewDecoder, it is intended for
+// reference and conformance decoding rather than high-performance or untrusted inputs.
 type openMetrics20Parser struct {
 	br          *bufio.Reader
 	g           *goabnf.Grammar
@@ -803,6 +808,8 @@ func parseCompositeSummary(
 		countUint = uint64(f)
 	}
 
+	// Per the OpenMetrics 2.0 spec, summary sum has counter semantics and must
+	// not be NaN or negative (unlike histogram sum, which can be negative or NaN).
 	sumVal, err := parseOpenMetricsFloat(sumStr)
 	if err != nil || math.IsNaN(sumVal) || sumVal < 0 {
 		return nil, ParseError{Line: lineNum, Msg: fmt.Sprintf("invalid summary sum %q", sumStr)}
@@ -888,6 +895,12 @@ func parseCompositeHistogram(
 		}
 	}
 
+	// NOTE: OpenMetrics 2.0 has no distinct wire tag for integer vs float histograms,
+	// and writeFloat encodes whole-number floats without a trailing ".0". We classify
+	// a histogram as a FloatHistogram iff any count, zero_count, or bucket count token
+	// is not a plain integer (e.g. contains a decimal point, exponent, or "+Inf").
+	// Consequently, a FloatHistogram whose counts and buckets are all whole integers
+	// on the wire decodes as an integer Histogram.
 	isFloatHistogram := !countIsInt
 	h := &dto.Histogram{
 		SampleSum:        proto.Float64(sumFloat),
@@ -1172,6 +1185,12 @@ func populateNativeBuckets(
 	}
 
 	if isFloat {
+		// NOTE: For float native histograms, we intentionally omit the exact
+		// bucket-observation-sum vs sample-count check to match Prometheus's
+		// histogram.FloatHistogram.Validate(). Summing many scaled IEEE-754 float64
+		// bucket counts is subject to rounding drift and would cause false-positive
+		// rejections, whereas classic histogram "+Inf == count" compares two single
+		// cumulative numbers directly.
 		if len(negStrs) > 0 {
 			h.NegativeCount = make([]float64, 0, len(negStrs))
 			for _, s := range negStrs {

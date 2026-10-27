@@ -113,6 +113,9 @@ func NewDecoder(r io.Reader, format Format) Decoder {
 		case "", OpenMetricsVersion_0_0_1, OpenMetricsVersion_1_0_0:
 			return &openMetricsDecoder{p: newOpenMetricsParser(r, scheme)}
 		case OpenMetricsVersion_2_0_0_rc, OpenMetricsVersion_2_0_0:
+			// format.ToEscapingScheme() defaults to UnderscoreEscaping when no escaping
+			// parameter is set, whereas OpenMetrics 2.0 supports UTF-8 names by default
+			// unless a non-UTF-8 escaping scheme is explicitly requested.
 			om2Scheme := model.UTF8Validation
 			if _, hasEscaping := params[model.EscapingKey]; hasEscaping && format.ToEscapingScheme() != model.NoEscaping {
 				om2Scheme = model.LegacyValidation
@@ -189,6 +192,9 @@ func (d *openMetricsDecoder) Decode(v *dto.MetricFamily) error {
 }
 
 // openMetrics20Decoder implements the Decoder interface for the OpenMetrics 2.0 protocol.
+// Like openMetricsDecoder, it uses goabnf.ParseForest per line without a line-length
+// cap (which has superlinear parse time in line length) and is intended for
+// reference/conformance decoding rather than high-performance or untrusted inputs.
 type openMetrics20Decoder struct {
 	p   *openMetrics20Parser
 	err error
