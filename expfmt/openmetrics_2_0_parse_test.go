@@ -40,6 +40,9 @@ func decodeOpenMetrics20ToMap(r io.Reader, format Format) (map[string]*dto.Metri
 			}
 			return nil, err
 		}
+		if _, exists := fams[mf.GetName()]; exists {
+			return nil, errors.New("duplicate MetricFamily " + mf.GetName())
+		}
 		fams[mf.GetName()] = mf
 	}
 }
