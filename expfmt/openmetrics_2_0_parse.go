@@ -778,7 +778,7 @@ func parseCompositeSummary(
 	countUint, ok := parsePlainUint64(countStr)
 	if !ok {
 		f, err := parseOpenMetricsFloat(countStr)
-		if err != nil || math.IsNaN(f) || math.IsInf(f, 0) || f < 0 || float64(uint64(f)) != f {
+		if err != nil || math.IsNaN(f) || math.IsInf(f, 0) || f < 0 || f >= math.Exp2(64) || float64(uint64(f)) != f {
 			return nil, ParseError{Line: lineNum, Msg: fmt.Sprintf("invalid summary count %q", countStr)}
 		}
 		countUint = uint64(f)

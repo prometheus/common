@@ -1497,6 +1497,11 @@ foo_total 1.0 # {id="x"} 1.0
 			input: "# TYPE a gauge\na{k=\"1\"} 1\n# TYPE b gauge\nb 2\na{k=\"2\"} 3\n# EOF\n",
 			err:   `interleaved metric family "a"`,
 		},
+		{
+			name:  "summary float count overflowing uint64 rejected",
+			input: "# TYPE s summary\ns {count:18446744073709551616.0,sum:1.0,quantile:[]}\n# EOF\n",
+			err:   `invalid summary count "18446744073709551616.0"`,
+		},
 	}
 
 	for _, tc := range cases {
