@@ -530,6 +530,42 @@ test_histogram {count:6,sum:12.1,schema:0,zero_threshold:0.001,zero_count:2,nega
 		},
 	}
 	requireEqualFamilies(t, expected, fams)
+
+	t.Run("multiple positive and negative spans", func(t *testing.T) {
+		multiSpanInput := `# TYPE multi_span histogram
+multi_span {count:8,sum:15.0,schema:0,zero_threshold:0.001,zero_count:1,negative_spans:[-2:1,1:1],negative_buckets:[1,2],positive_spans:[0:2,1:2],positive_buckets:[1,1,1,1]}
+# EOF
+`
+		got, err := decodeOpenMetrics20ToMap(strings.NewReader(multiSpanInput), FmtOpenMetrics_2_0_0)
+		require.NoError(t, err)
+		requireEqualFamilies(t, map[string]*dto.MetricFamily{
+			"multi_span": {
+				Name: proto.String("multi_span"),
+				Type: dto.MetricType_HISTOGRAM.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Histogram: &dto.Histogram{
+							SampleCount:   proto.Uint64(8),
+							SampleSum:     proto.Float64(15.0),
+							Schema:        proto.Int32(0),
+							ZeroThreshold: proto.Float64(0.001),
+							ZeroCount:     proto.Uint64(1),
+							NegativeSpan: []*dto.BucketSpan{
+								{Offset: proto.Int32(-2), Length: proto.Uint32(1)},
+								{Offset: proto.Int32(1), Length: proto.Uint32(1)},
+							},
+							NegativeDelta: []int64{1, 1},
+							PositiveSpan: []*dto.BucketSpan{
+								{Offset: proto.Int32(0), Length: proto.Uint32(2)},
+								{Offset: proto.Int32(1), Length: proto.Uint32(2)},
+							},
+							PositiveDelta: []int64{1, 0, 0, 0},
+						},
+					},
+				},
+			},
+		}, got)
+	})
 }
 
 func TestOpenMetrics2ParseNativeHistogramOmittedEmptyFields(t *testing.T) {
