@@ -854,7 +854,7 @@ func (p *openMetricsParser) handleSample(input []byte, node *goabnf.ParseTree) e
 	return nil
 }
 
-func (p *openMetricsParser) parseExemplar(input []byte, node *goabnf.ParseTree, enforceRuneLimit bool) (*dto.Exemplar, error) {
+func (p *openMetricsParser) parseExemplar(input []byte, node *goabnf.ParseTree, isOM1 bool) (*dto.Exemplar, error) {
 	var (
 		rawLabels []parsedLabel
 		valStr    string
@@ -874,7 +874,7 @@ func (p *openMetricsParser) parseExemplar(input []byte, node *goabnf.ParseTree, 
 	}
 
 	val, err := parseOpenMetricsFloat(valStr)
-	if err != nil || (enforceRuneLimit && (math.IsNaN(val) || math.IsInf(val, 0))) {
+	if err != nil || (isOM1 && (math.IsNaN(val) || math.IsInf(val, 0))) {
 		return nil, ParseError{Line: p.lineNum, Msg: fmt.Sprintf("invalid exemplar value %q", valStr)}
 	}
 
@@ -900,7 +900,7 @@ func (p *openMetricsParser) parseExemplar(input []byte, node *goabnf.ParseTree, 
 			Value: proto.String(rl.value),
 		})
 	}
-	if enforceRuneLimit && totalRune > openMetricsExemplarMaxRunes {
+	if isOM1 && totalRune > openMetricsExemplarMaxRunes {
 		return nil, ParseError{Line: p.lineNum, Msg: fmt.Sprintf("exemplar label set exceeds %d runes (%d)", openMetricsExemplarMaxRunes, totalRune)}
 	}
 
