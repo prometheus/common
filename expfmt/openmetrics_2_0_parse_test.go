@@ -1571,6 +1571,51 @@ foo_total 1.0 # {id="x"} 1.0
 			input: "# TYPE foo_total counter\nfoo_total 1.0 st@1e20\n# EOF\n",
 			err:   `invalid start timestamp "1e20"`,
 		},
+		{
+			name:  "negative_spans and negative_buckets length mismatch",
+			input: "# TYPE foo histogram\nfoo {count:2,sum:1.0,schema:0,zero_threshold:0,zero_count:1,negative_spans:[0:2],negative_buckets:[1]}\n# EOF\n",
+			err:   "negative_spans length (2) does not match negative_buckets count (1)",
+		},
+		{
+			name:  "positive_spans and positive_buckets length mismatch",
+			input: "# TYPE foo histogram\nfoo {count:2,sum:1.0,schema:0,zero_threshold:0,zero_count:1,positive_spans:[0:2],positive_buckets:[1]}\n# EOF\n",
+			err:   "positive_spans length (2) does not match positive_buckets count (1)",
+		},
+		{
+			name:  "duplicate TYPE metadata",
+			input: "# TYPE foo gauge\n# TYPE foo gauge\nfoo 1\n# EOF\n",
+			err:   `second TYPE line for metric name "foo"`,
+		},
+		{
+			name:  "duplicate HELP metadata",
+			input: "# HELP foo first\n# HELP foo second\nfoo 1\n# EOF\n",
+			err:   `second HELP line for metric name "foo"`,
+		},
+		{
+			name:  "duplicate UNIT metadata",
+			input: "# UNIT foo_seconds seconds\n# UNIT foo_seconds seconds\nfoo_seconds 1\n# EOF\n",
+			err:   `second UNIT line for metric name "foo_seconds"`,
+		},
+		{
+			name:  "metadata after samples",
+			input: "foo 1\n# HELP foo help\n# EOF\n",
+			err:   `metadata for metric "foo" after samples`,
+		},
+		{
+			name:  "reserved __name__ label",
+			input: "foo{__name__=\"bar\"} 1\n# EOF\n",
+			err:   `label name "__name__" is reserved`,
+		},
+		{
+			name:  "duplicate label name",
+			input: "foo{k=\"1\",k=\"2\"} 1\n# EOF\n",
+			err:   `duplicate label "k" for metric "foo"`,
+		},
+		{
+			name:  "negative counter value",
+			input: "# TYPE foo_total counter\nfoo_total -1\n# EOF\n",
+			err:   "counter sample value must not be negative",
+		},
 	}
 
 	for _, tc := range cases {
