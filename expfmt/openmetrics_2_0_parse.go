@@ -459,7 +459,10 @@ func (p *openMetrics20Parser) resolveSampleFamily(sampleName string) (*openMetri
 		return p.curFamily, nil
 	}
 
-	if st, exists := p.families[sampleName]; exists && !st.emitted {
+	if st, exists := p.families[sampleName]; exists {
+		if st.emitted {
+			return nil, ParseError{Line: p.lineNum, Msg: fmt.Sprintf("interleaved metric family %q", st.mf.GetName())}
+		}
 		if st.mf.Type == nil {
 			st.mf.Type = dto.MetricType_UNTYPED.Enum()
 		}
