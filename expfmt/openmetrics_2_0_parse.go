@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"math/bits"
 	"strconv"
 	"strings"
 	"sync"
@@ -1185,7 +1186,11 @@ func populateNativeBuckets(
 			if !ok || iv < 0 {
 				return ParseError{Line: lineNum, Msg: fmt.Sprintf("invalid negative_buckets value %q", s)}
 			}
-			negTotal += uint64(iv)
+			var carry uint64
+			negTotal, carry = bits.Add64(negTotal, uint64(iv), 0)
+			if carry != 0 {
+				return ParseError{Line: lineNum, Msg: "native histogram bucket observations overflow uint64"}
+			}
 			h.NegativeDelta = append(h.NegativeDelta, iv-prev)
 			prev = iv
 		}
@@ -1198,13 +1203,21 @@ func populateNativeBuckets(
 			if !ok || iv < 0 {
 				return ParseError{Line: lineNum, Msg: fmt.Sprintf("invalid positive_buckets value %q", s)}
 			}
-			posTotal += uint64(iv)
+			var carry uint64
+			posTotal, carry = bits.Add64(posTotal, uint64(iv), 0)
+			if carry != 0 {
+				return ParseError{Line: lineNum, Msg: "native histogram bucket observations overflow uint64"}
+			}
 			h.PositiveDelta = append(h.PositiveDelta, iv-prev)
 			prev = iv
 		}
 	}
 	if !isGauge && h.SampleCount != nil {
-		obs := h.GetZeroCount() + negTotal + posTotal
+		obs, c1 := bits.Add64(h.GetZeroCount(), negTotal, 0)
+		obs, c2 := bits.Add64(obs, posTotal, c1)
+		if c2 != 0 {
+			return ParseError{Line: lineNum, Msg: "native histogram bucket observations overflow uint64"}
+		}
 		if math.IsNaN(h.GetSampleSum()) {
 			if obs > h.GetSampleCount() {
 				return ParseError{Line: lineNum, Msg: fmt.Sprintf("native histogram bucket observations (%d) exceed sample count (%d)", obs, h.GetSampleCount())}

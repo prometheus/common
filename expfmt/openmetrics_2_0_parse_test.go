@@ -1557,6 +1557,11 @@ foo_total 1.0 # {id="x"} 1.0
 			err:   "native histogram bucket observations (5) do not match sample count (10)",
 		},
 		{
+			name:  "native histogram bucket observations uint64 overflow rejected",
+			input: "# TYPE h histogram\nh {count:2,sum:1,schema:0,zero_threshold:0,zero_count:18446744073709551615,positive_spans:[0:1],positive_buckets:[3]}\n# EOF\n",
+			err:   "native histogram bucket observations overflow uint64",
+		},
+		{
 			name:  "negative native bucket count in gaugehistogram rejected",
 			input: "# TYPE foo gaugehistogram\nfoo {gcount:1,gsum:1.0,schema:0,zero_threshold:0,zero_count:0,positive_spans:[0:1],positive_buckets:[-1]}\n# EOF\n",
 			err:   `invalid positive_buckets value "-1"`,
