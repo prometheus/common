@@ -1157,7 +1157,7 @@ func populateNativeBuckets(
 			h.NegativeCount = make([]float64, 0, len(negStrs))
 			for _, s := range negStrs {
 				fv, err := parseOpenMetricsFloat(s)
-				if err != nil || math.IsNaN(fv) || (!isGauge && fv < 0) {
+				if err != nil || math.IsNaN(fv) || fv < 0 {
 					return ParseError{Line: lineNum, Msg: fmt.Sprintf("invalid negative_buckets value %q", s)}
 				}
 				h.NegativeCount = append(h.NegativeCount, fv)
@@ -1167,7 +1167,7 @@ func populateNativeBuckets(
 			h.PositiveCount = make([]float64, 0, len(posStrs))
 			for _, s := range posStrs {
 				fv, err := parseOpenMetricsFloat(s)
-				if err != nil || math.IsNaN(fv) || (!isGauge && fv < 0) {
+				if err != nil || math.IsNaN(fv) || fv < 0 {
 					return ParseError{Line: lineNum, Msg: fmt.Sprintf("invalid positive_buckets value %q", s)}
 				}
 				h.PositiveCount = append(h.PositiveCount, fv)
@@ -1182,12 +1182,10 @@ func populateNativeBuckets(
 		var prev int64
 		for _, s := range negStrs {
 			iv, ok := parsePlainInt64(s)
-			if !ok || (!isGauge && iv < 0) {
+			if !ok || iv < 0 {
 				return ParseError{Line: lineNum, Msg: fmt.Sprintf("invalid negative_buckets value %q", s)}
 			}
-			if iv >= 0 {
-				negTotal += uint64(iv)
-			}
+			negTotal += uint64(iv)
 			h.NegativeDelta = append(h.NegativeDelta, iv-prev)
 			prev = iv
 		}
@@ -1197,12 +1195,10 @@ func populateNativeBuckets(
 		var prev int64
 		for _, s := range posStrs {
 			iv, ok := parsePlainInt64(s)
-			if !ok || (!isGauge && iv < 0) {
+			if !ok || iv < 0 {
 				return ParseError{Line: lineNum, Msg: fmt.Sprintf("invalid positive_buckets value %q", s)}
 			}
-			if iv >= 0 {
-				posTotal += uint64(iv)
-			}
+			posTotal += uint64(iv)
 			h.PositiveDelta = append(h.PositiveDelta, iv-prev)
 			prev = iv
 		}
