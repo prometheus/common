@@ -871,7 +871,7 @@ func parseCompositeHistogram(
 
 	isFloatHistogram := !countIsInt
 	h := &dto.Histogram{
-		SampleSum:        proto.Float64(sumValOrNaN(sumFloat)),
+		SampleSum:        proto.Float64(sumFloat),
 		CreatedTimestamp: startTS,
 		Exemplars:        exemplars,
 	}
@@ -1261,8 +1261,4 @@ func parsePlainInt64(s string) (int64, bool) {
 		return 0, false
 	}
 	return v, true
-}
-
-func sumValOrNaN(v float64) float64 {
-	return v
 }
