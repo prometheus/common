@@ -58,7 +58,16 @@ func requireEqualFamilies(t *testing.T, expected, actual map[string]*dto.MetricF
 }
 
 func TestOpenMetrics2Parse(t *testing.T) {
-	input := `# HELP go_gc_duration_seconds A summary of GC invocation durations.
+	longExemplarValue := strings.Repeat("x", 200)
+
+	for _, tc := range []struct {
+		name     string
+		input    string
+		expected map[string]*dto.MetricFamily
+	}{
+		{
+			name: "mixed exposition",
+			input: `# HELP go_gc_duration_seconds A summary of GC invocation durations.
 # TYPE go_gc_duration_seconds summary
 # UNIT go_gc_duration_seconds seconds
 go_gc_duration_seconds {count:99,sum:0.004,quantile:[0:4.9351e-05,0.5:8.3835e-05]}
@@ -71,606 +80,530 @@ un 1
 # TYPE foo_total counter
 foo_total 17.0 1520879607.789 # {id="counter-test"} 5 1520879600.789
 # EOF
-`
-
-	fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-	require.NoError(t, err)
-
-	expected := map[string]*dto.MetricFamily{
-		"go_gc_duration_seconds": {
-			Name: proto.String("go_gc_duration_seconds"),
-			Help: proto.String("A summary of GC invocation durations."),
-			Type: dto.MetricType_SUMMARY.Enum(),
-			Unit: proto.String("seconds"),
-			Metric: []*dto.Metric{
-				{
-					Summary: &dto.Summary{
-						SampleCount: proto.Uint64(99),
-						SampleSum:   proto.Float64(0.004),
-						Quantile: []*dto.Quantile{
-							{Quantile: proto.Float64(0.0), Value: proto.Float64(4.9351e-05)},
-							{Quantile: proto.Float64(0.5), Value: proto.Float64(8.3835e-05)},
-						},
-					},
-				},
-			},
-		},
-		"go_goroutines": {
-			Name: proto.String("go_goroutines"),
-			Type: dto.MetricType_GAUGE.Enum(),
-			Metric: []*dto.Metric{
-				{
-					Gauge:       &dto.Gauge{Value: proto.Float64(33)},
-					TimestampMs: proto.Int64(123456789),
-				},
-			},
-		},
-		"hh": {
-			Name: proto.String("hh"),
-			Type: dto.MetricType_HISTOGRAM.Enum(),
-			Metric: []*dto.Metric{
-				{
-					Histogram: &dto.Histogram{
-						SampleCount: proto.Uint64(1),
-						SampleSum:   proto.Float64(1.0),
-						Bucket: []*dto.Bucket{
-							{
-								CumulativeCount: proto.Uint64(1),
-								UpperBound:      proto.Float64(math.Inf(1)),
+`,
+			expected: map[string]*dto.MetricFamily{
+				"go_gc_duration_seconds": {
+					Name: proto.String("go_gc_duration_seconds"),
+					Help: proto.String("A summary of GC invocation durations."),
+					Type: dto.MetricType_SUMMARY.Enum(),
+					Unit: proto.String("seconds"),
+					Metric: []*dto.Metric{
+						{
+							Summary: &dto.Summary{
+								SampleCount: proto.Uint64(99),
+								SampleSum:   proto.Float64(0.004),
+								Quantile: []*dto.Quantile{
+									{Quantile: proto.Float64(0.0), Value: proto.Float64(4.9351e-05)},
+									{Quantile: proto.Float64(0.5), Value: proto.Float64(8.3835e-05)},
+								},
 							},
 						},
 					},
 				},
-			},
-		},
-		"un": {
-			Name: proto.String("un"),
-			Type: dto.MetricType_UNTYPED.Enum(),
-			Metric: []*dto.Metric{
-				{
-					Untyped: &dto.Untyped{Value: proto.Float64(1)},
-				},
-			},
-		},
-		"foo_total": {
-			Name: proto.String("foo_total"),
-			Type: dto.MetricType_COUNTER.Enum(),
-			Metric: []*dto.Metric{
-				{
-					Counter: &dto.Counter{
-						Value: proto.Float64(17.0),
-						Exemplar: &dto.Exemplar{
-							Label: []*dto.LabelPair{
-								{Name: proto.String("id"), Value: proto.String("counter-test")},
-							},
-							Value:     proto.Float64(5),
-							Timestamp: &timestamppb.Timestamp{Seconds: 1520879600, Nanos: 789000000},
+				"go_goroutines": {
+					Name: proto.String("go_goroutines"),
+					Type: dto.MetricType_GAUGE.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Gauge:       &dto.Gauge{Value: proto.Float64(33)},
+							TimestampMs: proto.Int64(123456789),
 						},
 					},
-					TimestampMs: proto.Int64(1520879607789),
+				},
+				"hh": {
+					Name: proto.String("hh"),
+					Type: dto.MetricType_HISTOGRAM.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Histogram: &dto.Histogram{
+								SampleCount: proto.Uint64(1),
+								SampleSum:   proto.Float64(1.0),
+								Bucket: []*dto.Bucket{
+									{
+										CumulativeCount: proto.Uint64(1),
+										UpperBound:      proto.Float64(math.Inf(1)),
+									},
+								},
+							},
+						},
+					},
+				},
+				"un": {
+					Name: proto.String("un"),
+					Type: dto.MetricType_UNTYPED.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Untyped: &dto.Untyped{Value: proto.Float64(1)},
+						},
+					},
+				},
+				"foo_total": {
+					Name: proto.String("foo_total"),
+					Type: dto.MetricType_COUNTER.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Counter: &dto.Counter{
+								Value: proto.Float64(17.0),
+								Exemplar: &dto.Exemplar{
+									Label: []*dto.LabelPair{
+										{Name: proto.String("id"), Value: proto.String("counter-test")},
+									},
+									Value:     proto.Float64(5),
+									Timestamp: &timestamppb.Timestamp{Seconds: 1520879600, Nanos: 789000000},
+								},
+							},
+							TimestampMs: proto.Int64(1520879607789),
+						},
+					},
 				},
 			},
 		},
-	}
-
-	requireEqualFamilies(t, expected, fams)
-}
-
-func TestOpenMetrics2ParseStartTimestamp(t *testing.T) {
-	input := `# TYPE requests_total counter
+		{
+			name: "start timestamp with main timestamp",
+			input: `# TYPE requests_total counter
 requests_total 42.0 1000000.0 st@500000.0
 # EOF
-`
-	fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-	require.NoError(t, err)
-
-	expected := map[string]*dto.MetricFamily{
-		"requests_total": {
-			Name: proto.String("requests_total"),
-			Type: dto.MetricType_COUNTER.Enum(),
-			Metric: []*dto.Metric{
-				{
-					Counter: &dto.Counter{
-						Value:            proto.Float64(42.0),
-						CreatedTimestamp: &timestamppb.Timestamp{Seconds: 500000, Nanos: 0},
+`,
+			expected: map[string]*dto.MetricFamily{
+				"requests_total": {
+					Name: proto.String("requests_total"),
+					Type: dto.MetricType_COUNTER.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Counter: &dto.Counter{
+								Value:            proto.Float64(42.0),
+								CreatedTimestamp: &timestamppb.Timestamp{Seconds: 500000, Nanos: 0},
+							},
+							TimestampMs: proto.Int64(1000000000),
+						},
 					},
-					TimestampMs: proto.Int64(1000000000),
 				},
 			},
 		},
-	}
-	requireEqualFamilies(t, expected, fams)
-}
-
-func TestOpenMetrics2ParseStartTimestampNoMainTimestamp(t *testing.T) {
-	input := `# TYPE requests_total counter
+		{
+			name: "start timestamp without main timestamp",
+			input: `# TYPE requests_total counter
 requests_total 42.0 st@500000.0
 # EOF
-`
-	fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-	require.NoError(t, err)
-
-	expected := map[string]*dto.MetricFamily{
-		"requests_total": {
-			Name: proto.String("requests_total"),
-			Type: dto.MetricType_COUNTER.Enum(),
-			Metric: []*dto.Metric{
-				{
-					Counter: &dto.Counter{
-						Value:            proto.Float64(42.0),
-						CreatedTimestamp: &timestamppb.Timestamp{Seconds: 500000, Nanos: 0},
+`,
+			expected: map[string]*dto.MetricFamily{
+				"requests_total": {
+					Name: proto.String("requests_total"),
+					Type: dto.MetricType_COUNTER.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Counter: &dto.Counter{
+								Value:            proto.Float64(42.0),
+								CreatedTimestamp: &timestamppb.Timestamp{Seconds: 500000, Nanos: 0},
+							},
+						},
 					},
 				},
 			},
 		},
-	}
-	requireEqualFamilies(t, expected, fams)
-}
-
-func TestOpenMetrics2ParseMultipleExemplars(t *testing.T) {
-	input := `# TYPE foo_total counter
+		{
+			// dto.Counter has a single Exemplar field, so it retains the first exemplar;
+			// dto.Histogram has an Exemplars slice that holds all exemplars.
+			name: "multiple exemplars on counter",
+			input: `# TYPE foo_total counter
 foo_total 17.0 # {id="a"} 1.0 1234566.0 # {id="b"} 2.0 1234567.0
 # EOF
-`
-	fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-	require.NoError(t, err)
-
-	// dto.Counter has a single Exemplar field, so it retains the first exemplar;
-	// dto.Histogram has an Exemplars slice that holds all exemplars.
-	expected := map[string]*dto.MetricFamily{
-		"foo_total": {
-			Name: proto.String("foo_total"),
-			Type: dto.MetricType_COUNTER.Enum(),
-			Metric: []*dto.Metric{
-				{
-					Counter: &dto.Counter{
-						Value: proto.Float64(17.0),
-						Exemplar: &dto.Exemplar{
-							Label:     []*dto.LabelPair{{Name: proto.String("id"), Value: proto.String("a")}},
-							Value:     proto.Float64(1.0),
-							Timestamp: &timestamppb.Timestamp{Seconds: 1234566, Nanos: 0},
+`,
+			expected: map[string]*dto.MetricFamily{
+				"foo_total": {
+					Name: proto.String("foo_total"),
+					Type: dto.MetricType_COUNTER.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Counter: &dto.Counter{
+								Value: proto.Float64(17.0),
+								Exemplar: &dto.Exemplar{
+									Label:     []*dto.LabelPair{{Name: proto.String("id"), Value: proto.String("a")}},
+									Value:     proto.Float64(1.0),
+									Timestamp: &timestamppb.Timestamp{Seconds: 1234566, Nanos: 0},
+								},
+							},
 						},
 					},
 				},
 			},
 		},
-	}
-	requireEqualFamilies(t, expected, fams)
-}
-
-func TestOpenMetrics2ParseExemplarMultipleLabels(t *testing.T) {
-	input := `# TYPE http_requests_total counter
+		{
+			name: "exemplar with multiple labels",
+			input: `# TYPE http_requests_total counter
 http_requests_total 1027 1710000000.0 # {trace_id="abc123",span_id="def456"} 1.0 1709999999.0
 # EOF
-`
-	fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-	require.NoError(t, err)
-
-	expected := map[string]*dto.MetricFamily{
-		"http_requests_total": {
-			Name: proto.String("http_requests_total"),
-			Type: dto.MetricType_COUNTER.Enum(),
-			Metric: []*dto.Metric{
-				{
-					Counter: &dto.Counter{
-						Value: proto.Float64(1027),
-						Exemplar: &dto.Exemplar{
-							Label: []*dto.LabelPair{
-								{Name: proto.String("trace_id"), Value: proto.String("abc123")},
-								{Name: proto.String("span_id"), Value: proto.String("def456")},
+`,
+			expected: map[string]*dto.MetricFamily{
+				"http_requests_total": {
+					Name: proto.String("http_requests_total"),
+					Type: dto.MetricType_COUNTER.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Counter: &dto.Counter{
+								Value: proto.Float64(1027),
+								Exemplar: &dto.Exemplar{
+									Label: []*dto.LabelPair{
+										{Name: proto.String("trace_id"), Value: proto.String("abc123")},
+										{Name: proto.String("span_id"), Value: proto.String("def456")},
+									},
+									Value:     proto.Float64(1.0),
+									Timestamp: &timestamppb.Timestamp{Seconds: 1709999999, Nanos: 0},
+								},
 							},
-							Value:     proto.Float64(1.0),
-							Timestamp: &timestamppb.Timestamp{Seconds: 1709999999, Nanos: 0},
+							TimestampMs: proto.Int64(1710000000000),
 						},
 					},
-					TimestampMs: proto.Int64(1710000000000),
 				},
 			},
 		},
-	}
-	requireEqualFamilies(t, expected, fams)
-}
-
-func TestOpenMetrics2ParseExemplarExceedsOM1Limit(t *testing.T) {
-	longValue := strings.Repeat("x", 200)
-	input := `# TYPE foo_total counter
-foo_total 1.0 # {data="` + longValue + `"} 1.0 1234567.0
+		{
+			name: "exemplar exceeding OM1 rune limit",
+			input: `# TYPE foo_total counter
+foo_total 1.0 # {data="` + longExemplarValue + `"} 1.0 1234567.0
 # EOF
-`
-	fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-	require.NoError(t, err)
-
-	expected := map[string]*dto.MetricFamily{
-		"foo_total": {
-			Name: proto.String("foo_total"),
-			Type: dto.MetricType_COUNTER.Enum(),
-			Metric: []*dto.Metric{
-				{
-					Counter: &dto.Counter{
-						Value: proto.Float64(1.0),
-						Exemplar: &dto.Exemplar{
-							Label: []*dto.LabelPair{
-								{Name: proto.String("data"), Value: proto.String(longValue)},
+`,
+			expected: map[string]*dto.MetricFamily{
+				"foo_total": {
+					Name: proto.String("foo_total"),
+					Type: dto.MetricType_COUNTER.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Counter: &dto.Counter{
+								Value: proto.Float64(1.0),
+								Exemplar: &dto.Exemplar{
+									Label: []*dto.LabelPair{
+										{Name: proto.String("data"), Value: proto.String(longExemplarValue)},
+									},
+									Value:     proto.Float64(1.0),
+									Timestamp: &timestamppb.Timestamp{Seconds: 1234567, Nanos: 0},
+								},
 							},
-							Value:     proto.Float64(1.0),
-							Timestamp: &timestamppb.Timestamp{Seconds: 1234567, Nanos: 0},
 						},
 					},
 				},
 			},
 		},
-	}
-	requireEqualFamilies(t, expected, fams)
-}
-
-func TestOpenMetrics2ParseExemplarQuotedUTF8LabelKey(t *testing.T) {
-	input := `# TYPE foo_total counter
+		{
+			name: "exemplar with quoted UTF-8 label key",
+			input: `# TYPE foo_total counter
 foo_total 17.0 # {"my.id"="abc"} 5 1520879600.789
 # EOF
-`
-	fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-	require.NoError(t, err)
-
-	expected := map[string]*dto.MetricFamily{
-		"foo_total": {
-			Name: proto.String("foo_total"),
-			Type: dto.MetricType_COUNTER.Enum(),
-			Metric: []*dto.Metric{
-				{
-					Counter: &dto.Counter{
-						Value: proto.Float64(17.0),
-						Exemplar: &dto.Exemplar{
-							Label: []*dto.LabelPair{
-								{Name: proto.String("my.id"), Value: proto.String("abc")},
+`,
+			expected: map[string]*dto.MetricFamily{
+				"foo_total": {
+					Name: proto.String("foo_total"),
+					Type: dto.MetricType_COUNTER.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Counter: &dto.Counter{
+								Value: proto.Float64(17.0),
+								Exemplar: &dto.Exemplar{
+									Label: []*dto.LabelPair{
+										{Name: proto.String("my.id"), Value: proto.String("abc")},
+									},
+									Value:     proto.Float64(5),
+									Timestamp: &timestamppb.Timestamp{Seconds: 1520879600, Nanos: 789000000},
+								},
 							},
-							Value:     proto.Float64(5),
-							Timestamp: &timestamppb.Timestamp{Seconds: 1520879600, Nanos: 789000000},
 						},
 					},
 				},
 			},
 		},
-	}
-	requireEqualFamilies(t, expected, fams)
-}
-
-func TestOpenMetrics2ParseCompositeClassicGaugeHistogram(t *testing.T) {
-	input := `# TYPE foo gaugehistogram
+		{
+			name: "composite classic gauge histogram",
+			input: `# TYPE foo gaugehistogram
 foo {gcount:42,gsum:3289.3,bucket:[0.01:20,0.1:25,1:34,+Inf:42]}
 # EOF
-`
-	fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-	require.NoError(t, err)
-
-	expected := map[string]*dto.MetricFamily{
-		"foo": {
-			Name: proto.String("foo"),
-			Type: dto.MetricType_GAUGE_HISTOGRAM.Enum(),
-			Metric: []*dto.Metric{
-				{
-					Histogram: &dto.Histogram{
-						SampleCount: proto.Uint64(42),
-						SampleSum:   proto.Float64(3289.3),
-						Bucket: []*dto.Bucket{
-							{CumulativeCount: proto.Uint64(20), UpperBound: proto.Float64(0.01)},
-							{CumulativeCount: proto.Uint64(25), UpperBound: proto.Float64(0.1)},
-							{CumulativeCount: proto.Uint64(34), UpperBound: proto.Float64(1)},
-							{CumulativeCount: proto.Uint64(42), UpperBound: proto.Float64(math.Inf(1))},
+`,
+			expected: map[string]*dto.MetricFamily{
+				"foo": {
+					Name: proto.String("foo"),
+					Type: dto.MetricType_GAUGE_HISTOGRAM.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Histogram: &dto.Histogram{
+								SampleCount: proto.Uint64(42),
+								SampleSum:   proto.Float64(3289.3),
+								Bucket: []*dto.Bucket{
+									{CumulativeCount: proto.Uint64(20), UpperBound: proto.Float64(0.01)},
+									{CumulativeCount: proto.Uint64(25), UpperBound: proto.Float64(0.1)},
+									{CumulativeCount: proto.Uint64(34), UpperBound: proto.Float64(1)},
+									{CumulativeCount: proto.Uint64(42), UpperBound: proto.Float64(math.Inf(1))},
+								},
+							},
 						},
 					},
 				},
 			},
 		},
-	}
-	requireEqualFamilies(t, expected, fams)
-}
-
-func TestOpenMetrics2ParseCompositeSummary(t *testing.T) {
-	input := `# HELP rpc_duration_seconds RPC duration.
+		{
+			name: "composite summary",
+			input: `# HELP rpc_duration_seconds RPC duration.
 # TYPE rpc_duration_seconds summary
 rpc_duration_seconds {count:100,sum:30000.0,quantile:[0.5:100.0,0.9:200.0,0.99:300.0]}
 # EOF
-`
-	fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-	require.NoError(t, err)
-
-	expected := map[string]*dto.MetricFamily{
-		"rpc_duration_seconds": {
-			Name: proto.String("rpc_duration_seconds"),
-			Help: proto.String("RPC duration."),
-			Type: dto.MetricType_SUMMARY.Enum(),
-			Metric: []*dto.Metric{
-				{
-					Summary: &dto.Summary{
-						SampleCount: proto.Uint64(100),
-						SampleSum:   proto.Float64(30000.0),
-						Quantile: []*dto.Quantile{
-							{Quantile: proto.Float64(0.5), Value: proto.Float64(100.0)},
-							{Quantile: proto.Float64(0.9), Value: proto.Float64(200.0)},
-							{Quantile: proto.Float64(0.99), Value: proto.Float64(300.0)},
+`,
+			expected: map[string]*dto.MetricFamily{
+				"rpc_duration_seconds": {
+					Name: proto.String("rpc_duration_seconds"),
+					Help: proto.String("RPC duration."),
+					Type: dto.MetricType_SUMMARY.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Summary: &dto.Summary{
+								SampleCount: proto.Uint64(100),
+								SampleSum:   proto.Float64(30000.0),
+								Quantile: []*dto.Quantile{
+									{Quantile: proto.Float64(0.5), Value: proto.Float64(100.0)},
+									{Quantile: proto.Float64(0.9), Value: proto.Float64(200.0)},
+									{Quantile: proto.Float64(0.99), Value: proto.Float64(300.0)},
+								},
+							},
 						},
 					},
 				},
 			},
 		},
-	}
-	requireEqualFamilies(t, expected, fams)
-}
-
-func TestOpenMetrics2ParseCompositeClassicHistogram(t *testing.T) {
-	input := `# HELP req_duration Request duration histogram.
+		{
+			name: "composite classic histogram",
+			input: `# HELP req_duration Request duration histogram.
 # TYPE req_duration histogram
 req_duration {count:3,sum:6.0,bucket:[0.1:1,1.0:2,+Inf:3]}
 # EOF
-`
-	fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-	require.NoError(t, err)
-
-	expected := map[string]*dto.MetricFamily{
-		"req_duration": {
-			Name: proto.String("req_duration"),
-			Help: proto.String("Request duration histogram."),
-			Type: dto.MetricType_HISTOGRAM.Enum(),
-			Metric: []*dto.Metric{
-				{
-					Histogram: &dto.Histogram{
-						SampleCount: proto.Uint64(3),
-						SampleSum:   proto.Float64(6.0),
-						Bucket: []*dto.Bucket{
-							{CumulativeCount: proto.Uint64(1), UpperBound: proto.Float64(0.1)},
-							{CumulativeCount: proto.Uint64(2), UpperBound: proto.Float64(1.0)},
-							{CumulativeCount: proto.Uint64(3), UpperBound: proto.Float64(math.Inf(1))},
+`,
+			expected: map[string]*dto.MetricFamily{
+				"req_duration": {
+					Name: proto.String("req_duration"),
+					Help: proto.String("Request duration histogram."),
+					Type: dto.MetricType_HISTOGRAM.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Histogram: &dto.Histogram{
+								SampleCount: proto.Uint64(3),
+								SampleSum:   proto.Float64(6.0),
+								Bucket: []*dto.Bucket{
+									{CumulativeCount: proto.Uint64(1), UpperBound: proto.Float64(0.1)},
+									{CumulativeCount: proto.Uint64(2), UpperBound: proto.Float64(1.0)},
+									{CumulativeCount: proto.Uint64(3), UpperBound: proto.Float64(math.Inf(1))},
+								},
+							},
 						},
 					},
 				},
 			},
 		},
-	}
-	requireEqualFamilies(t, expected, fams)
-}
-
-func TestOpenMetrics2ParseClassicHistogramNegInfBucket(t *testing.T) {
-	input := `# TYPE req_duration histogram
+		{
+			name: "classic histogram with -Inf bucket",
+			input: `# TYPE req_duration histogram
 req_duration {count:3,sum:6.0,bucket:[-Inf:1,1.0:2,+Inf:3]}
 # EOF
-`
-	fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-	require.NoError(t, err)
-
-	expected := map[string]*dto.MetricFamily{
-		"req_duration": {
-			Name: proto.String("req_duration"),
-			Type: dto.MetricType_HISTOGRAM.Enum(),
-			Metric: []*dto.Metric{
-				{
-					Histogram: &dto.Histogram{
-						SampleCount: proto.Uint64(3),
-						SampleSum:   proto.Float64(6.0),
-						Bucket: []*dto.Bucket{
-							{CumulativeCount: proto.Uint64(1), UpperBound: proto.Float64(math.Inf(-1))},
-							{CumulativeCount: proto.Uint64(2), UpperBound: proto.Float64(1.0)},
-							{CumulativeCount: proto.Uint64(3), UpperBound: proto.Float64(math.Inf(1))},
+`,
+			expected: map[string]*dto.MetricFamily{
+				"req_duration": {
+					Name: proto.String("req_duration"),
+					Type: dto.MetricType_HISTOGRAM.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Histogram: &dto.Histogram{
+								SampleCount: proto.Uint64(3),
+								SampleSum:   proto.Float64(6.0),
+								Bucket: []*dto.Bucket{
+									{CumulativeCount: proto.Uint64(1), UpperBound: proto.Float64(math.Inf(-1))},
+									{CumulativeCount: proto.Uint64(2), UpperBound: proto.Float64(1.0)},
+									{CumulativeCount: proto.Uint64(3), UpperBound: proto.Float64(math.Inf(1))},
+								},
+							},
 						},
 					},
 				},
 			},
 		},
-	}
-	requireEqualFamilies(t, expected, fams)
-}
-
-func TestOpenMetrics2ParseCompositeNativeAndClassicHistogram(t *testing.T) {
-	input := `# HELP req_duration Request duration histogram with both representations.
+		{
+			name: "composite native and classic histogram",
+			input: `# HELP req_duration Request duration histogram with both representations.
 # TYPE req_duration histogram
 req_duration {count:3,sum:6.0,schema:0,zero_threshold:0.001,zero_count:0,positive_spans:[0:2],positive_buckets:[1,2],bucket:[0.1:1,1.0:2,+Inf:3]}
 # EOF
-`
-	fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-	require.NoError(t, err)
-
-	expected := map[string]*dto.MetricFamily{
-		"req_duration": {
-			Name: proto.String("req_duration"),
-			Help: proto.String("Request duration histogram with both representations."),
-			Type: dto.MetricType_HISTOGRAM.Enum(),
-			Metric: []*dto.Metric{
-				{
-					Histogram: &dto.Histogram{
-						SampleCount:   proto.Uint64(3),
-						SampleSum:     proto.Float64(6.0),
-						Schema:        proto.Int32(0),
-						ZeroThreshold: proto.Float64(0.001),
-						ZeroCount:     proto.Uint64(0),
-						PositiveSpan: []*dto.BucketSpan{
-							{Offset: proto.Int32(0), Length: proto.Uint32(2)},
-						},
-						PositiveDelta: []int64{1, 1},
-						Bucket: []*dto.Bucket{
-							{CumulativeCount: proto.Uint64(1), UpperBound: proto.Float64(0.1)},
-							{CumulativeCount: proto.Uint64(2), UpperBound: proto.Float64(1.0)},
-							{CumulativeCount: proto.Uint64(3), UpperBound: proto.Float64(math.Inf(1))},
+`,
+			expected: map[string]*dto.MetricFamily{
+				"req_duration": {
+					Name: proto.String("req_duration"),
+					Help: proto.String("Request duration histogram with both representations."),
+					Type: dto.MetricType_HISTOGRAM.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Histogram: &dto.Histogram{
+								SampleCount:   proto.Uint64(3),
+								SampleSum:     proto.Float64(6.0),
+								Schema:        proto.Int32(0),
+								ZeroThreshold: proto.Float64(0.001),
+								ZeroCount:     proto.Uint64(0),
+								PositiveSpan: []*dto.BucketSpan{
+									{Offset: proto.Int32(0), Length: proto.Uint32(2)},
+								},
+								PositiveDelta: []int64{1, 1},
+								Bucket: []*dto.Bucket{
+									{CumulativeCount: proto.Uint64(1), UpperBound: proto.Float64(0.1)},
+									{CumulativeCount: proto.Uint64(2), UpperBound: proto.Float64(1.0)},
+									{CumulativeCount: proto.Uint64(3), UpperBound: proto.Float64(math.Inf(1))},
+								},
+							},
 						},
 					},
 				},
 			},
 		},
-	}
-	requireEqualFamilies(t, expected, fams)
-}
-
-func TestOpenMetrics2ParseNativeHistogram(t *testing.T) {
-	input := `# HELP test_histogram Native histogram.
+		{
+			name: "native histogram with empty negative spans and buckets",
+			input: `# HELP test_histogram Native histogram.
 # TYPE test_histogram histogram
 test_histogram {count:6,sum:12.1,schema:0,zero_threshold:0.001,zero_count:2,negative_spans:[],negative_buckets:[],positive_spans:[0:3],positive_buckets:[1,2,1]}
 # EOF
-`
-	fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-	require.NoError(t, err)
-
-	expected := map[string]*dto.MetricFamily{
-		"test_histogram": {
-			Name: proto.String("test_histogram"),
-			Help: proto.String("Native histogram."),
-			Type: dto.MetricType_HISTOGRAM.Enum(),
-			Metric: []*dto.Metric{
-				{
-					Histogram: &dto.Histogram{
-						SampleCount:   proto.Uint64(6),
-						SampleSum:     proto.Float64(12.1),
-						Schema:        proto.Int32(0),
-						ZeroThreshold: proto.Float64(0.001),
-						ZeroCount:     proto.Uint64(2),
-						PositiveSpan: []*dto.BucketSpan{
-							{Offset: proto.Int32(0), Length: proto.Uint32(3)},
+`,
+			expected: map[string]*dto.MetricFamily{
+				"test_histogram": {
+					Name: proto.String("test_histogram"),
+					Help: proto.String("Native histogram."),
+					Type: dto.MetricType_HISTOGRAM.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Histogram: &dto.Histogram{
+								SampleCount:   proto.Uint64(6),
+								SampleSum:     proto.Float64(12.1),
+								Schema:        proto.Int32(0),
+								ZeroThreshold: proto.Float64(0.001),
+								ZeroCount:     proto.Uint64(2),
+								PositiveSpan: []*dto.BucketSpan{
+									{Offset: proto.Int32(0), Length: proto.Uint32(3)},
+								},
+								PositiveDelta: []int64{1, 1, -1},
+							},
 						},
-						PositiveDelta: []int64{1, 1, -1},
 					},
 				},
 			},
 		},
-	}
-	requireEqualFamilies(t, expected, fams)
-
-	t.Run("multiple positive and negative spans", func(t *testing.T) {
-		multiSpanInput := `# TYPE multi_span histogram
+		{
+			name: "native histogram with multiple positive and negative spans",
+			input: `# TYPE multi_span histogram
 multi_span {count:8,sum:15.0,schema:0,zero_threshold:0.001,zero_count:1,negative_spans:[-2:1,1:1],negative_buckets:[1,2],positive_spans:[0:2,1:2],positive_buckets:[1,1,1,1]}
 # EOF
-`
-		got, err := decodeOpenMetrics20ToMap(strings.NewReader(multiSpanInput), FmtOpenMetrics_2_0_0)
-		require.NoError(t, err)
-		requireEqualFamilies(t, map[string]*dto.MetricFamily{
-			"multi_span": {
-				Name: proto.String("multi_span"),
-				Type: dto.MetricType_HISTOGRAM.Enum(),
-				Metric: []*dto.Metric{
-					{
-						Histogram: &dto.Histogram{
-							SampleCount:   proto.Uint64(8),
-							SampleSum:     proto.Float64(15.0),
-							Schema:        proto.Int32(0),
-							ZeroThreshold: proto.Float64(0.001),
-							ZeroCount:     proto.Uint64(1),
-							NegativeSpan: []*dto.BucketSpan{
-								{Offset: proto.Int32(-2), Length: proto.Uint32(1)},
-								{Offset: proto.Int32(1), Length: proto.Uint32(1)},
+`,
+			expected: map[string]*dto.MetricFamily{
+				"multi_span": {
+					Name: proto.String("multi_span"),
+					Type: dto.MetricType_HISTOGRAM.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Histogram: &dto.Histogram{
+								SampleCount:   proto.Uint64(8),
+								SampleSum:     proto.Float64(15.0),
+								Schema:        proto.Int32(0),
+								ZeroThreshold: proto.Float64(0.001),
+								ZeroCount:     proto.Uint64(1),
+								NegativeSpan: []*dto.BucketSpan{
+									{Offset: proto.Int32(-2), Length: proto.Uint32(1)},
+									{Offset: proto.Int32(1), Length: proto.Uint32(1)},
+								},
+								NegativeDelta: []int64{1, 1},
+								PositiveSpan: []*dto.BucketSpan{
+									{Offset: proto.Int32(0), Length: proto.Uint32(2)},
+									{Offset: proto.Int32(1), Length: proto.Uint32(2)},
+								},
+								PositiveDelta: []int64{1, 0, 0, 0},
 							},
-							NegativeDelta: []int64{1, 1},
-							PositiveSpan: []*dto.BucketSpan{
-								{Offset: proto.Int32(0), Length: proto.Uint32(2)},
-								{Offset: proto.Int32(1), Length: proto.Uint32(2)},
-							},
-							PositiveDelta: []int64{1, 0, 0, 0},
 						},
 					},
 				},
 			},
-		}, got)
-	})
-}
-
-func TestOpenMetrics2ParseNativeHistogramOmittedEmptyFields(t *testing.T) {
-	input := `# TYPE test_histogram histogram
+		},
+		{
+			name: "native histogram with omitted empty negative fields",
+			input: `# TYPE test_histogram histogram
 test_histogram {count:6,sum:12.1,schema:0,zero_threshold:0.001,zero_count:2,positive_spans:[0:3],positive_buckets:[1,2,1]}
 # EOF
-`
-	fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-	require.NoError(t, err)
-
-	expected := map[string]*dto.MetricFamily{
-		"test_histogram": {
-			Name: proto.String("test_histogram"),
-			Type: dto.MetricType_HISTOGRAM.Enum(),
-			Metric: []*dto.Metric{
-				{
-					Histogram: &dto.Histogram{
-						SampleCount:   proto.Uint64(6),
-						SampleSum:     proto.Float64(12.1),
-						Schema:        proto.Int32(0),
-						ZeroThreshold: proto.Float64(0.001),
-						ZeroCount:     proto.Uint64(2),
-						PositiveSpan: []*dto.BucketSpan{
-							{Offset: proto.Int32(0), Length: proto.Uint32(3)},
+`,
+			expected: map[string]*dto.MetricFamily{
+				"test_histogram": {
+					Name: proto.String("test_histogram"),
+					Type: dto.MetricType_HISTOGRAM.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Histogram: &dto.Histogram{
+								SampleCount:   proto.Uint64(6),
+								SampleSum:     proto.Float64(12.1),
+								Schema:        proto.Int32(0),
+								ZeroThreshold: proto.Float64(0.001),
+								ZeroCount:     proto.Uint64(2),
+								PositiveSpan: []*dto.BucketSpan{
+									{Offset: proto.Int32(0), Length: proto.Uint32(3)},
+								},
+								PositiveDelta: []int64{1, 1, -1},
+							},
 						},
-						PositiveDelta: []int64{1, 1, -1},
 					},
 				},
 			},
 		},
-	}
-	requireEqualFamilies(t, expected, fams)
-}
-
-func TestOpenMetrics2ParseNativeHistogramOmittedPositiveFields(t *testing.T) {
-	input := `# TYPE test_histogram histogram
+		{
+			name: "native histogram with omitted empty positive fields",
+			input: `# TYPE test_histogram histogram
 test_histogram {count:6,sum:12.1,schema:0,zero_threshold:0.001,zero_count:2,negative_spans:[0:3],negative_buckets:[1,2,1]}
 # EOF
-`
-	fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-	require.NoError(t, err)
-
-	expected := map[string]*dto.MetricFamily{
-		"test_histogram": {
-			Name: proto.String("test_histogram"),
-			Type: dto.MetricType_HISTOGRAM.Enum(),
-			Metric: []*dto.Metric{
-				{
-					Histogram: &dto.Histogram{
-						SampleCount:   proto.Uint64(6),
-						SampleSum:     proto.Float64(12.1),
-						Schema:        proto.Int32(0),
-						ZeroThreshold: proto.Float64(0.001),
-						ZeroCount:     proto.Uint64(2),
-						NegativeSpan: []*dto.BucketSpan{
-							{Offset: proto.Int32(0), Length: proto.Uint32(3)},
+`,
+			expected: map[string]*dto.MetricFamily{
+				"test_histogram": {
+					Name: proto.String("test_histogram"),
+					Type: dto.MetricType_HISTOGRAM.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Histogram: &dto.Histogram{
+								SampleCount:   proto.Uint64(6),
+								SampleSum:     proto.Float64(12.1),
+								Schema:        proto.Int32(0),
+								ZeroThreshold: proto.Float64(0.001),
+								ZeroCount:     proto.Uint64(2),
+								NegativeSpan: []*dto.BucketSpan{
+									{Offset: proto.Int32(0), Length: proto.Uint32(3)},
+								},
+								NegativeDelta: []int64{1, 1, -1},
+							},
 						},
-						NegativeDelta: []int64{1, 1, -1},
 					},
 				},
 			},
 		},
-	}
-	requireEqualFamilies(t, expected, fams)
-}
-
-func TestOpenMetrics2ParseUTF8MetricName(t *testing.T) {
-	input := `# TYPE "metric.name" gauge
+		{
+			name: "UTF-8 metric name",
+			input: `# TYPE "metric.name" gauge
 {"metric.name",label="value"} 1.0
 # EOF
-`
-	fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-	require.NoError(t, err)
-
-	expected := map[string]*dto.MetricFamily{
-		"metric.name": {
-			Name: proto.String("metric.name"),
-			Type: dto.MetricType_GAUGE.Enum(),
-			Metric: []*dto.Metric{
-				{
-					Label: []*dto.LabelPair{
-						{Name: proto.String("label"), Value: proto.String("value")},
+`,
+			expected: map[string]*dto.MetricFamily{
+				"metric.name": {
+					Name: proto.String("metric.name"),
+					Type: dto.MetricType_GAUGE.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Label: []*dto.LabelPair{
+								{Name: proto.String("label"), Value: proto.String("value")},
+							},
+							Gauge: &dto.Gauge{Value: proto.Float64(1.0)},
+						},
 					},
-					Gauge: &dto.Gauge{Value: proto.Float64(1.0)},
 				},
 			},
 		},
-	}
-	requireEqualFamilies(t, expected, fams)
-}
-
-func TestOpenMetrics2ParseUnknown(t *testing.T) {
-	for _, tc := range []struct {
-		name  string
-		input string
-		exp   map[string]*dto.MetricFamily
-	}{
 		{
-			name: "explicit help and type",
+			name: "unknown metric with explicit help and type",
 			input: `# HELP un Some unknown metric.
 # TYPE un unknown
 un 1
 # EOF
 `,
-			exp: map[string]*dto.MetricFamily{
+			expected: map[string]*dto.MetricFamily{
 				"un": {
 					Name: proto.String("un"),
 					Help: proto.String("Some unknown metric."),
@@ -682,11 +615,11 @@ un 1
 			},
 		},
 		{
-			name: "no type declaration",
+			name: "unknown metric with no type declaration",
 			input: `bare_metric 42
 # EOF
 `,
-			exp: map[string]*dto.MetricFamily{
+			expected: map[string]*dto.MetricFamily{
 				"bare_metric": {
 					Name: proto.String("bare_metric"),
 					Type: dto.MetricType_UNTYPED.Enum(),
@@ -697,13 +630,13 @@ un 1
 			},
 		},
 		{
-			name: "explicit type and unit",
+			name: "unknown metric with explicit type and unit",
 			input: `# TYPE un_seconds unknown
 # UNIT un_seconds seconds
 un_seconds 1.5
 # EOF
 `,
-			exp: map[string]*dto.MetricFamily{
+			expected: map[string]*dto.MetricFamily{
 				"un_seconds": {
 					Name: proto.String("un_seconds"),
 					Type: dto.MetricType_UNTYPED.Enum(),
@@ -714,175 +647,332 @@ un_seconds 1.5
 				},
 			},
 		},
+		{
+			name: "composite extra labels with UTF-8 metric name",
+			input: `# TYPE "req.duration" histogram
+{"req.duration",job="api"} {count:3,sum:6.0,bucket:[0.1:1,+Inf:3]}
+# EOF
+`,
+			expected: map[string]*dto.MetricFamily{
+				"req.duration": {
+					Name: proto.String("req.duration"),
+					Type: dto.MetricType_HISTOGRAM.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Label: []*dto.LabelPair{
+								{Name: proto.String("job"), Value: proto.String("api")},
+							},
+							Histogram: &dto.Histogram{
+								SampleCount: proto.Uint64(3),
+								SampleSum:   proto.Float64(6.0),
+								Bucket: []*dto.Bucket{
+									{CumulativeCount: proto.Uint64(1), UpperBound: proto.Float64(0.1)},
+									{CumulativeCount: proto.Uint64(3), UpperBound: proto.Float64(math.Inf(1))},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "composite extra labels with multiple labels",
+			input: `# TYPE req_duration histogram
+req_duration{job="api",env="prod"} {count:3,sum:6.0,bucket:[0.1:1,1.0:2,+Inf:3]}
+# EOF
+`,
+			expected: map[string]*dto.MetricFamily{
+				"req_duration": {
+					Name: proto.String("req_duration"),
+					Type: dto.MetricType_HISTOGRAM.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Label: []*dto.LabelPair{
+								{Name: proto.String("job"), Value: proto.String("api")},
+								{Name: proto.String("env"), Value: proto.String("prod")},
+							},
+							Histogram: &dto.Histogram{
+								SampleCount: proto.Uint64(3),
+								SampleSum:   proto.Float64(6.0),
+								Bucket: []*dto.Bucket{
+									{CumulativeCount: proto.Uint64(1), UpperBound: proto.Float64(0.1)},
+									{CumulativeCount: proto.Uint64(2), UpperBound: proto.Float64(1.0)},
+									{CumulativeCount: proto.Uint64(3), UpperBound: proto.Float64(math.Inf(1))},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "composite extra labels with quoted UTF-8 label containing equals",
+			input: `# TYPE foo summary
+foo{"a=b"="v",job="api"} {count:1,sum:2.0,quantile:[0.5:1.0]}
+# EOF
+`,
+			expected: map[string]*dto.MetricFamily{
+				"foo": {
+					Name: proto.String("foo"),
+					Type: dto.MetricType_SUMMARY.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Label: []*dto.LabelPair{
+								{Name: proto.String("a=b"), Value: proto.String("v")},
+								{Name: proto.String("job"), Value: proto.String("api")},
+							},
+							Summary: &dto.Summary{
+								SampleCount: proto.Uint64(1),
+								SampleSum:   proto.Float64(2.0),
+								Quantile: []*dto.Quantile{
+									{Quantile: proto.Float64(0.5), Value: proto.Float64(1.0)},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "composite histogram with timestamp and start timestamp",
+			input: `# TYPE req_duration histogram
+req_duration {count:2,sum:4.0,bucket:[+Inf:2]} 1234567.0 st@1000.0
+# EOF
+`,
+			expected: map[string]*dto.MetricFamily{
+				"req_duration": {
+					Name: proto.String("req_duration"),
+					Type: dto.MetricType_HISTOGRAM.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Histogram: &dto.Histogram{
+								SampleCount:      proto.Uint64(2),
+								SampleSum:        proto.Float64(4.0),
+								CreatedTimestamp: &timestamppb.Timestamp{Seconds: 1000, Nanos: 0},
+								Bucket: []*dto.Bucket{
+									{CumulativeCount: proto.Uint64(2), UpperBound: proto.Float64(math.Inf(1))},
+								},
+							},
+							TimestampMs: proto.Int64(1234567000),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "float native histogram",
+			input: `# TYPE test_histogram histogram
+test_histogram {count:5.5,sum:12.1,schema:0,zero_threshold:0.001,zero_count:2.5,negative_spans:[],negative_buckets:[],positive_spans:[0:2],positive_buckets:[2.0,1.0]}
+# EOF
+`,
+			expected: map[string]*dto.MetricFamily{
+				"test_histogram": {
+					Name: proto.String("test_histogram"),
+					Type: dto.MetricType_HISTOGRAM.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Histogram: &dto.Histogram{
+								SampleCountFloat: proto.Float64(5.5),
+								SampleSum:        proto.Float64(12.1),
+								Schema:           proto.Int32(0),
+								ZeroThreshold:    proto.Float64(0.001),
+								ZeroCountFloat:   proto.Float64(2.5),
+								PositiveSpan: []*dto.BucketSpan{
+									{Offset: proto.Int32(0), Length: proto.Uint32(2)},
+								},
+								PositiveCount: []float64{2.0, 1.0},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "composite native gauge histogram",
+			input: `# TYPE req_size gaugehistogram
+req_size {gcount:6,gsum:100.0,schema:0,zero_threshold:0.001,zero_count:1,negative_spans:[],negative_buckets:[],positive_spans:[0:2],positive_buckets:[3,2]}
+# EOF
+`,
+			expected: map[string]*dto.MetricFamily{
+				"req_size": {
+					Name: proto.String("req_size"),
+					Type: dto.MetricType_GAUGE_HISTOGRAM.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Histogram: &dto.Histogram{
+								SampleCount:   proto.Uint64(6),
+								SampleSum:     proto.Float64(100.0),
+								Schema:        proto.Int32(0),
+								ZeroThreshold: proto.Float64(0.001),
+								ZeroCount:     proto.Uint64(1),
+								PositiveSpan: []*dto.BucketSpan{
+									{Offset: proto.Int32(0), Length: proto.Uint32(2)},
+								},
+								PositiveDelta: []int64{3, -1},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "exemplar on composite histogram line",
+			input: `# TYPE req_duration histogram
+req_duration {count:2,sum:4.0,bucket:[1.0:1,+Inf:2]} # {id="req-1"} 3.8 9999999.0
+# EOF
+`,
+			expected: map[string]*dto.MetricFamily{
+				"req_duration": {
+					Name: proto.String("req_duration"),
+					Type: dto.MetricType_HISTOGRAM.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Histogram: &dto.Histogram{
+								SampleCount: proto.Uint64(2),
+								SampleSum:   proto.Float64(4.0),
+								Bucket: []*dto.Bucket{
+									{CumulativeCount: proto.Uint64(1), UpperBound: proto.Float64(1.0)},
+									{CumulativeCount: proto.Uint64(2), UpperBound: proto.Float64(math.Inf(1))},
+								},
+								Exemplars: []*dto.Exemplar{
+									{
+										Label: []*dto.LabelPair{
+											{Name: proto.String("id"), Value: proto.String("req-1")},
+										},
+										Value:     proto.Float64(3.8),
+										Timestamp: &timestamppb.Timestamp{Seconds: 9999999, Nanos: 0},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "descriptor ordering: TYPE before HELP and UNIT",
+			input: `# TYPE open_fds gauge
+# HELP open_fds Number of open file descriptors.
+# UNIT open_fds fds
+open_fds 8.0
+# EOF
+`,
+			expected: map[string]*dto.MetricFamily{
+				"open_fds": {
+					Name:   proto.String("open_fds"),
+					Help:   proto.String("Number of open file descriptors."),
+					Type:   dto.MetricType_GAUGE.Enum(),
+					Unit:   proto.String("fds"),
+					Metric: []*dto.Metric{{Gauge: &dto.Gauge{Value: proto.Float64(8.0)}}},
+				},
+			},
+		},
+		{
+			name: "descriptor ordering: UNIT before TYPE",
+			input: `# UNIT http_requests requests
+# TYPE http_requests counter
+http_requests 1.0
+# EOF
+`,
+			expected: map[string]*dto.MetricFamily{
+				"http_requests": {
+					Name:   proto.String("http_requests"),
+					Type:   dto.MetricType_COUNTER.Enum(),
+					Unit:   proto.String("requests"),
+					Metric: []*dto.Metric{{Counter: &dto.Counter{Value: proto.Float64(1.0)}}},
+				},
+			},
+		},
+		{
+			name: "family reset: undeclared metric after declared metric",
+			input: `# TYPE http_requests counter
+# UNIT http_requests requests
+http_requests 1.0
+bare_metric 2.0
+# EOF
+`,
+			expected: map[string]*dto.MetricFamily{
+				"http_requests": {
+					Name:   proto.String("http_requests"),
+					Type:   dto.MetricType_COUNTER.Enum(),
+					Unit:   proto.String("requests"),
+					Metric: []*dto.Metric{{Counter: &dto.Counter{Value: proto.Float64(1.0)}}},
+				},
+				"bare_metric": {
+					Name:   proto.String("bare_metric"),
+					Type:   dto.MetricType_UNTYPED.Enum(),
+					Metric: []*dto.Metric{{Untyped: &dto.Untyped{Value: proto.Float64(2.0)}}},
+				},
+			},
+		},
+		{
+			// "foo" has no samples so it is omitted; "foo_total" is parsed as its own untyped family.
+			name: "family reset: suffix mismatch reverts to untyped",
+			input: `# TYPE foo counter
+foo_total 1.0
+# EOF
+`,
+			expected: map[string]*dto.MetricFamily{
+				"foo_total": {
+					Name:   proto.String("foo_total"),
+					Type:   dto.MetricType_UNTYPED.Enum(),
+					Metric: []*dto.Metric{{Untyped: &dto.Untyped{Value: proto.Float64(1.0)}}},
+				},
+			},
+		},
+		{
+			name:  "exemplar with escaped label names and null bytes",
+			input: "# TYPE foo_total counter\nfoo_total 1.0 1700000000.0 # {\"trace\\\\id\\n\\\"1\\\"\"=\"a\x00b\\nc\"} 1.0 1700000000.5\n# EOF\n",
+			expected: map[string]*dto.MetricFamily{
+				"foo_total": {
+					Name: proto.String("foo_total"),
+					Type: dto.MetricType_COUNTER.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Counter: &dto.Counter{
+								Value: proto.Float64(1.0),
+								Exemplar: &dto.Exemplar{
+									Label: []*dto.LabelPair{
+										{Name: proto.String("trace\\id\n\"1\""), Value: proto.String("a\x00b\nc")},
+									},
+									Value:     proto.Float64(1.0),
+									Timestamp: &timestamppb.Timestamp{Seconds: 1700000000, Nanos: 500000000},
+								},
+							},
+							TimestampMs: proto.Int64(1700000000000),
+						},
+					},
+				},
+			},
+		},
+		{
+			name:  "carriage return in HELP",
+			input: "# HELP foo first\rsecond\nfoo 1\n# EOF\n",
+			expected: map[string]*dto.MetricFamily{
+				"foo": {
+					Name:   proto.String("foo"),
+					Help:   proto.String("first\rsecond"),
+					Type:   dto.MetricType_UNTYPED.Enum(),
+					Metric: []*dto.Metric{{Untyped: &dto.Untyped{Value: proto.Float64(1)}}},
+				},
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fams, err := decodeOpenMetrics20ToMap(strings.NewReader(tc.input), FmtOpenMetrics_2_0_0)
 			require.NoError(t, err)
-			requireEqualFamilies(t, tc.exp, fams)
+			requireEqualFamilies(t, tc.expected, fams)
 		})
 	}
-}
 
-func TestOpenMetrics2ParseCompositeExtraLabels(t *testing.T) {
-	t.Run("UTF-8 metric name", func(t *testing.T) {
-		input := `# TYPE "req.duration" histogram
-{"req.duration",job="api"} {count:3,sum:6.0,bucket:[0.1:1,+Inf:3]}
-# EOF
-`
-		fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
+	t.Run("NaN and Inf exemplar values", func(t *testing.T) {
+		nanInfInput := "# TYPE c_total counter\nc_total{k=\"nan\"} 1.0 # {id=\"1\"} NaN 1700000000.0\nc_total{k=\"inf\"} 2.0 # {id=\"2\"} +Inf 1700000000.0\n# EOF\n"
+		got, err := decodeOpenMetrics20ToMap(strings.NewReader(nanInfInput), FmtOpenMetrics_2_0_0)
 		require.NoError(t, err)
-
-		expected := map[string]*dto.MetricFamily{
-			"req.duration": {
-				Name: proto.String("req.duration"),
-				Type: dto.MetricType_HISTOGRAM.Enum(),
-				Metric: []*dto.Metric{
-					{
-						Label: []*dto.LabelPair{
-							{Name: proto.String("job"), Value: proto.String("api")},
-						},
-						Histogram: &dto.Histogram{
-							SampleCount: proto.Uint64(3),
-							SampleSum:   proto.Float64(6.0),
-							Bucket: []*dto.Bucket{
-								{CumulativeCount: proto.Uint64(1), UpperBound: proto.Float64(0.1)},
-								{CumulativeCount: proto.Uint64(3), UpperBound: proto.Float64(math.Inf(1))},
-							},
-						},
-					},
-				},
-			},
-		}
-		requireEqualFamilies(t, expected, fams)
+		require.Len(t, got["c_total"].GetMetric(), 2)
+		require.True(t, math.IsNaN(got["c_total"].GetMetric()[0].GetCounter().GetExemplar().GetValue()))
+		require.True(t, math.IsInf(got["c_total"].GetMetric()[1].GetCounter().GetExemplar().GetValue(), 1))
 	})
-
-	t.Run("multiple labels", func(t *testing.T) {
-		input := `# TYPE req_duration histogram
-req_duration{job="api",env="prod"} {count:3,sum:6.0,bucket:[0.1:1,1.0:2,+Inf:3]}
-# EOF
-`
-		fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-		require.NoError(t, err)
-
-		expected := map[string]*dto.MetricFamily{
-			"req_duration": {
-				Name: proto.String("req_duration"),
-				Type: dto.MetricType_HISTOGRAM.Enum(),
-				Metric: []*dto.Metric{
-					{
-						Label: []*dto.LabelPair{
-							{Name: proto.String("job"), Value: proto.String("api")},
-							{Name: proto.String("env"), Value: proto.String("prod")},
-						},
-						Histogram: &dto.Histogram{
-							SampleCount: proto.Uint64(3),
-							SampleSum:   proto.Float64(6.0),
-							Bucket: []*dto.Bucket{
-								{CumulativeCount: proto.Uint64(1), UpperBound: proto.Float64(0.1)},
-								{CumulativeCount: proto.Uint64(2), UpperBound: proto.Float64(1.0)},
-								{CumulativeCount: proto.Uint64(3), UpperBound: proto.Float64(math.Inf(1))},
-							},
-						},
-					},
-				},
-			},
-		}
-		requireEqualFamilies(t, expected, fams)
-	})
-
-	t.Run("quoted UTF-8 label with equals", func(t *testing.T) {
-		input := `# TYPE foo summary
-foo{"a=b"="v",job="api"} {count:1,sum:2.0,quantile:[0.5:1.0]}
-# EOF
-`
-		fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-		require.NoError(t, err)
-
-		expected := map[string]*dto.MetricFamily{
-			"foo": {
-				Name: proto.String("foo"),
-				Type: dto.MetricType_SUMMARY.Enum(),
-				Metric: []*dto.Metric{
-					{
-						Label: []*dto.LabelPair{
-							{Name: proto.String("a=b"), Value: proto.String("v")},
-							{Name: proto.String("job"), Value: proto.String("api")},
-						},
-						Summary: &dto.Summary{
-							SampleCount: proto.Uint64(1),
-							SampleSum:   proto.Float64(2.0),
-							Quantile: []*dto.Quantile{
-								{Quantile: proto.Float64(0.5), Value: proto.Float64(1.0)},
-							},
-						},
-					},
-				},
-			},
-		}
-		requireEqualFamilies(t, expected, fams)
-	})
-}
-
-func TestOpenMetrics2ParseCompositeWithTimestamp(t *testing.T) {
-	input := `# TYPE req_duration histogram
-req_duration {count:2,sum:4.0,bucket:[+Inf:2]} 1234567.0 st@1000.0
-# EOF
-`
-	fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-	require.NoError(t, err)
-
-	expected := map[string]*dto.MetricFamily{
-		"req_duration": {
-			Name: proto.String("req_duration"),
-			Type: dto.MetricType_HISTOGRAM.Enum(),
-			Metric: []*dto.Metric{
-				{
-					Histogram: &dto.Histogram{
-						SampleCount:      proto.Uint64(2),
-						SampleSum:        proto.Float64(4.0),
-						CreatedTimestamp: &timestamppb.Timestamp{Seconds: 1000, Nanos: 0},
-						Bucket: []*dto.Bucket{
-							{CumulativeCount: proto.Uint64(2), UpperBound: proto.Float64(math.Inf(1))},
-						},
-					},
-					TimestampMs: proto.Int64(1234567000),
-				},
-			},
-		},
-	}
-	requireEqualFamilies(t, expected, fams)
-}
-
-func TestOpenMetrics2ParseFloatHistogram(t *testing.T) {
-	input := `# TYPE test_histogram histogram
-test_histogram {count:5.5,sum:12.1,schema:0,zero_threshold:0.001,zero_count:2.5,negative_spans:[],negative_buckets:[],positive_spans:[0:2],positive_buckets:[2.0,1.0]}
-# EOF
-`
-	fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-	require.NoError(t, err)
-
-	expected := map[string]*dto.MetricFamily{
-		"test_histogram": {
-			Name: proto.String("test_histogram"),
-			Type: dto.MetricType_HISTOGRAM.Enum(),
-			Metric: []*dto.Metric{
-				{
-					Histogram: &dto.Histogram{
-						SampleCountFloat: proto.Float64(5.5),
-						SampleSum:        proto.Float64(12.1),
-						Schema:           proto.Int32(0),
-						ZeroThreshold:    proto.Float64(0.001),
-						ZeroCountFloat:   proto.Float64(2.5),
-						PositiveSpan: []*dto.BucketSpan{
-							{Offset: proto.Int32(0), Length: proto.Uint32(2)},
-						},
-						PositiveCount: []float64{2.0, 1.0},
-					},
-				},
-			},
-		},
-	}
-	requireEqualFamilies(t, expected, fams)
 }
 
 func TestOpenMetrics2ParseNativeHistogramIntVsFloatDiscriminator(t *testing.T) {
@@ -1006,221 +1096,6 @@ func TestOpenMetrics2ParseNativeHistogramIntVsFloatDiscriminator(t *testing.T) {
 			requireEqualFamilies(t, expected, fams)
 		})
 	}
-}
-
-func TestOpenMetrics2ParseCompositeGaugeHistogram(t *testing.T) {
-	input := `# TYPE req_size gaugehistogram
-req_size {gcount:6,gsum:100.0,schema:0,zero_threshold:0.001,zero_count:1,negative_spans:[],negative_buckets:[],positive_spans:[0:2],positive_buckets:[3,2]}
-# EOF
-`
-	fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-	require.NoError(t, err)
-
-	expected := map[string]*dto.MetricFamily{
-		"req_size": {
-			Name: proto.String("req_size"),
-			Type: dto.MetricType_GAUGE_HISTOGRAM.Enum(),
-			Metric: []*dto.Metric{
-				{
-					Histogram: &dto.Histogram{
-						SampleCount:   proto.Uint64(6),
-						SampleSum:     proto.Float64(100.0),
-						Schema:        proto.Int32(0),
-						ZeroThreshold: proto.Float64(0.001),
-						ZeroCount:     proto.Uint64(1),
-						PositiveSpan: []*dto.BucketSpan{
-							{Offset: proto.Int32(0), Length: proto.Uint32(2)},
-						},
-						PositiveDelta: []int64{3, -1},
-					},
-				},
-			},
-		},
-	}
-	requireEqualFamilies(t, expected, fams)
-}
-
-func TestOpenMetrics2ParseExemplarOnCompositeLine(t *testing.T) {
-	input := `# TYPE req_duration histogram
-req_duration {count:2,sum:4.0,bucket:[1.0:1,+Inf:2]} # {id="req-1"} 3.8 9999999.0
-# EOF
-`
-	fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-	require.NoError(t, err)
-
-	expected := map[string]*dto.MetricFamily{
-		"req_duration": {
-			Name: proto.String("req_duration"),
-			Type: dto.MetricType_HISTOGRAM.Enum(),
-			Metric: []*dto.Metric{
-				{
-					Histogram: &dto.Histogram{
-						SampleCount: proto.Uint64(2),
-						SampleSum:   proto.Float64(4.0),
-						Bucket: []*dto.Bucket{
-							{CumulativeCount: proto.Uint64(1), UpperBound: proto.Float64(1.0)},
-							{CumulativeCount: proto.Uint64(2), UpperBound: proto.Float64(math.Inf(1))},
-						},
-						Exemplars: []*dto.Exemplar{
-							{
-								Label: []*dto.LabelPair{
-									{Name: proto.String("id"), Value: proto.String("req-1")},
-								},
-								Value:     proto.Float64(3.8),
-								Timestamp: &timestamppb.Timestamp{Seconds: 9999999, Nanos: 0},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	requireEqualFamilies(t, expected, fams)
-}
-
-func TestOpenMetrics2ParseDescriptorOrdering(t *testing.T) {
-	t.Run("TYPE before HELP and UNIT", func(t *testing.T) {
-		input := `# TYPE open_fds gauge
-# HELP open_fds Number of open file descriptors.
-# UNIT open_fds fds
-open_fds 8.0
-# EOF
-`
-		fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-		require.NoError(t, err)
-
-		expected := map[string]*dto.MetricFamily{
-			"open_fds": {
-				Name:   proto.String("open_fds"),
-				Help:   proto.String("Number of open file descriptors."),
-				Type:   dto.MetricType_GAUGE.Enum(),
-				Unit:   proto.String("fds"),
-				Metric: []*dto.Metric{{Gauge: &dto.Gauge{Value: proto.Float64(8.0)}}},
-			},
-		}
-		requireEqualFamilies(t, expected, fams)
-	})
-
-	t.Run("UNIT before TYPE", func(t *testing.T) {
-		input := `# UNIT http_requests requests
-# TYPE http_requests counter
-http_requests 1.0
-# EOF
-`
-		fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-		require.NoError(t, err)
-
-		expected := map[string]*dto.MetricFamily{
-			"http_requests": {
-				Name:   proto.String("http_requests"),
-				Type:   dto.MetricType_COUNTER.Enum(),
-				Unit:   proto.String("requests"),
-				Metric: []*dto.Metric{{Counter: &dto.Counter{Value: proto.Float64(1.0)}}},
-			},
-		}
-		requireEqualFamilies(t, expected, fams)
-	})
-}
-
-func TestOpenMetrics2ParseFamilyReset(t *testing.T) {
-	t.Run("undeclared metric after declared metric", func(t *testing.T) {
-		input := `# TYPE http_requests counter
-# UNIT http_requests requests
-http_requests 1.0
-bare_metric 2.0
-# EOF
-`
-		fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-		require.NoError(t, err)
-
-		expected := map[string]*dto.MetricFamily{
-			"http_requests": {
-				Name:   proto.String("http_requests"),
-				Type:   dto.MetricType_COUNTER.Enum(),
-				Unit:   proto.String("requests"),
-				Metric: []*dto.Metric{{Counter: &dto.Counter{Value: proto.Float64(1.0)}}},
-			},
-			"bare_metric": {
-				Name:   proto.String("bare_metric"),
-				Type:   dto.MetricType_UNTYPED.Enum(),
-				Metric: []*dto.Metric{{Untyped: &dto.Untyped{Value: proto.Float64(2.0)}}},
-			},
-		}
-		requireEqualFamilies(t, expected, fams)
-	})
-
-	t.Run("suffix mismatch reverts to untyped", func(t *testing.T) {
-		input := `# TYPE foo counter
-foo_total 1.0
-# EOF
-`
-		fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-		require.NoError(t, err)
-
-		// "foo" has no samples so it is omitted; "foo_total" is parsed as its own untyped family.
-		expected := map[string]*dto.MetricFamily{
-			"foo_total": {
-				Name:   proto.String("foo_total"),
-				Type:   dto.MetricType_UNTYPED.Enum(),
-				Metric: []*dto.Metric{{Untyped: &dto.Untyped{Value: proto.Float64(1.0)}}},
-			},
-		}
-		requireEqualFamilies(t, expected, fams)
-	})
-}
-
-func TestOpenMetrics2ParseExemplarEscapedLabelNamesAndNullBytes(t *testing.T) {
-	input := "# TYPE foo_total counter\nfoo_total 1.0 1700000000.0 # {\"trace\\\\id\\n\\\"1\\\"\"=\"a\x00b\\nc\"} 1.0 1700000000.5\n# EOF\n"
-	fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-	require.NoError(t, err)
-
-	expected := map[string]*dto.MetricFamily{
-		"foo_total": {
-			Name: proto.String("foo_total"),
-			Type: dto.MetricType_COUNTER.Enum(),
-			Metric: []*dto.Metric{
-				{
-					Counter: &dto.Counter{
-						Value: proto.Float64(1.0),
-						Exemplar: &dto.Exemplar{
-							Label: []*dto.LabelPair{
-								{Name: proto.String("trace\\id\n\"1\""), Value: proto.String("a\x00b\nc")},
-							},
-							Value:     proto.Float64(1.0),
-							Timestamp: &timestamppb.Timestamp{Seconds: 1700000000, Nanos: 500000000},
-						},
-					},
-					TimestampMs: proto.Int64(1700000000000),
-				},
-			},
-		},
-	}
-	requireEqualFamilies(t, expected, fams)
-
-	t.Run("NaN and Inf exemplar values", func(t *testing.T) {
-		nanInfInput := "# TYPE c_total counter\nc_total{k=\"nan\"} 1.0 # {id=\"1\"} NaN 1700000000.0\nc_total{k=\"inf\"} 2.0 # {id=\"2\"} +Inf 1700000000.0\n# EOF\n"
-		got, err := decodeOpenMetrics20ToMap(strings.NewReader(nanInfInput), FmtOpenMetrics_2_0_0)
-		require.NoError(t, err)
-		require.Len(t, got["c_total"].GetMetric(), 2)
-		require.True(t, math.IsNaN(got["c_total"].GetMetric()[0].GetCounter().GetExemplar().GetValue()))
-		require.True(t, math.IsInf(got["c_total"].GetMetric()[1].GetCounter().GetExemplar().GetValue(), 1))
-	})
-}
-
-func TestOpenMetrics2ParseCarriageReturnInHelp(t *testing.T) {
-	input := "# HELP foo first\rsecond\nfoo 1\n# EOF\n"
-	fams, err := decodeOpenMetrics20ToMap(strings.NewReader(input), FmtOpenMetrics_2_0_0)
-	require.NoError(t, err)
-
-	expected := map[string]*dto.MetricFamily{
-		"foo": {
-			Name:   proto.String("foo"),
-			Help:   proto.String("first\rsecond"),
-			Type:   dto.MetricType_UNTYPED.Enum(),
-			Metric: []*dto.Metric{{Untyped: &dto.Untyped{Value: proto.Float64(1)}}},
-		},
-	}
-	requireEqualFamilies(t, expected, fams)
 }
 
 func TestOpenMetrics2ParseUnsupportedTypes(t *testing.T) {
@@ -1759,6 +1634,56 @@ func TestOpenMetrics2RoundTrip(t *testing.T) {
 								Value:     proto.Float64(1.5),
 								Timestamp: &timestamppb.Timestamp{Seconds: 2002, Nanos: 0},
 							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: proto.String("scaled_req_duration_seconds"),
+			Help: proto.String("Float native and classic histogram."),
+			Type: dto.MetricType_HISTOGRAM.Enum(),
+			Unit: proto.String("seconds"),
+			Metric: []*dto.Metric{
+				{
+					Histogram: &dto.Histogram{
+						SampleCountFloat: proto.Float64(5.5),
+						SampleSum:        proto.Float64(12.1),
+						Schema:           proto.Int32(0),
+						ZeroThreshold:    proto.Float64(0.001),
+						ZeroCountFloat:   proto.Float64(2.5),
+						CreatedTimestamp: &timestamppb.Timestamp{Seconds: 2000, Nanos: 0},
+						PositiveSpan: []*dto.BucketSpan{
+							{Offset: proto.Int32(0), Length: proto.Uint32(2)},
+						},
+						PositiveCount: []float64{1.5, 1.5},
+						Bucket: []*dto.Bucket{
+							{CumulativeCountFloat: proto.Float64(2.5), UpperBound: proto.Float64(0.1)},
+							{CumulativeCountFloat: proto.Float64(5.5), UpperBound: proto.Float64(math.Inf(1))},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: proto.String("queue_size"),
+			Help: proto.String("Gauge histogram."),
+			Type: dto.MetricType_GAUGE_HISTOGRAM.Enum(),
+			Metric: []*dto.Metric{
+				{
+					Histogram: &dto.Histogram{
+						SampleCount:   proto.Uint64(6),
+						SampleSum:     proto.Float64(100.0),
+						Schema:        proto.Int32(0),
+						ZeroThreshold: proto.Float64(0.001),
+						ZeroCount:     proto.Uint64(1),
+						PositiveSpan: []*dto.BucketSpan{
+							{Offset: proto.Int32(0), Length: proto.Uint32(2)},
+						},
+						PositiveDelta: []int64{3, -1},
+						Bucket: []*dto.Bucket{
+							{CumulativeCount: proto.Uint64(4), UpperBound: proto.Float64(10)},
+							{CumulativeCount: proto.Uint64(6), UpperBound: proto.Float64(math.Inf(1))},
 						},
 					},
 				},
