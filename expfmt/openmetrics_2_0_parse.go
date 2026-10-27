@@ -959,12 +959,6 @@ func parseCompositeHistogram(
 		if err := extractBucket(classicNode); err != nil {
 			return nil, err
 		}
-
-		for i, cb := range classicBuckets {
-			if i > 0 && cb.ub <= classicBuckets[i-1].ub {
-				return nil, ParseError{Line: lineNum, Msg: "classic histogram buckets must be sorted in increasing order"}
-			}
-		}
 	}
 
 	var (
@@ -1040,16 +1034,6 @@ func parseCompositeHistogram(
 				}
 			}
 		}
-
-		if err := populateNativeBuckets(lineNum, h, isFloatHistogram, isGauge, negBucketStrs, posBucketStrs); err != nil {
-			return nil, err
-		}
-
-		if isFloatHistogram {
-			h.ZeroCountFloat = proto.Float64(zeroCountFloat)
-		} else {
-			h.ZeroCount = proto.Uint64(zeroCountUint)
-		}
 	}
 
 	if isFloatHistogram {
@@ -1058,9 +1042,38 @@ func parseCompositeHistogram(
 		h.SampleCount = proto.Uint64(countUint)
 	}
 
+	if nativeNode != nil {
+		if isFloatHistogram {
+			h.ZeroCountFloat = proto.Float64(zeroCountFloat)
+		} else {
+			h.ZeroCount = proto.Uint64(zeroCountUint)
+		}
+
+		if err := populateNativeBuckets(lineNum, h, isFloatHistogram, isGauge, negBucketStrs, posBucketStrs); err != nil {
+			return nil, err
+		}
+	}
+
 	if len(classicBuckets) > 0 {
 		h.Bucket = make([]*dto.Bucket, 0, len(classicBuckets))
-		for _, cb := range classicBuckets {
+		for i, cb := range classicBuckets {
+			if i > 0 {
+				if cb.ub <= classicBuckets[i-1].ub {
+					return nil, ParseError{Line: lineNum, Msg: "classic histogram buckets must be sorted in increasing order"}
+				}
+				if !isGauge && cb.fVal < classicBuckets[i-1].fVal {
+					return nil, ParseError{Line: lineNum, Msg: fmt.Sprintf("classic bucket counts must be monotonically increasing: %g < %g", cb.fVal, classicBuckets[i-1].fVal)}
+				}
+			}
+			if math.IsInf(cb.ub, +1) {
+				if isFloatHistogram {
+					if cb.fVal != countFloat {
+						return nil, ParseError{Line: lineNum, Msg: fmt.Sprintf("classic bucket +Inf count (%g) does not match sample count (%g)", cb.fVal, countFloat)}
+					}
+				} else if cb.uVal != countUint {
+					return nil, ParseError{Line: lineNum, Msg: fmt.Sprintf("classic bucket +Inf count (%d) does not match sample count (%d)", cb.uVal, countUint)}
+				}
+			}
 			b := &dto.Bucket{
 				UpperBound: proto.Float64(cb.ub),
 			}
@@ -1163,6 +1176,7 @@ func populateNativeBuckets(
 		return nil
 	}
 
+	var negTotal, posTotal uint64
 	if len(negStrs) > 0 {
 		h.NegativeDelta = make([]int64, 0, len(negStrs))
 		var prev int64
@@ -1170,6 +1184,9 @@ func populateNativeBuckets(
 			iv, ok := parsePlainInt64(s)
 			if !ok || (!isGauge && iv < 0) {
 				return ParseError{Line: lineNum, Msg: fmt.Sprintf("invalid negative_buckets value %q", s)}
+			}
+			if iv >= 0 {
+				negTotal += uint64(iv)
 			}
 			h.NegativeDelta = append(h.NegativeDelta, iv-prev)
 			prev = iv
@@ -1183,8 +1200,21 @@ func populateNativeBuckets(
 			if !ok || (!isGauge && iv < 0) {
 				return ParseError{Line: lineNum, Msg: fmt.Sprintf("invalid positive_buckets value %q", s)}
 			}
+			if iv >= 0 {
+				posTotal += uint64(iv)
+			}
 			h.PositiveDelta = append(h.PositiveDelta, iv-prev)
 			prev = iv
+		}
+	}
+	if !isGauge && h.SampleCount != nil {
+		obs := h.GetZeroCount() + negTotal + posTotal
+		if math.IsNaN(h.GetSampleSum()) {
+			if obs > h.GetSampleCount() {
+				return ParseError{Line: lineNum, Msg: fmt.Sprintf("native histogram bucket observations (%d) exceed sample count (%d)", obs, h.GetSampleCount())}
+			}
+		} else if obs != h.GetSampleCount() {
+			return ParseError{Line: lineNum, Msg: fmt.Sprintf("native histogram bucket observations (%d) do not match sample count (%d)", obs, h.GetSampleCount())}
 		}
 	}
 	return nil
