@@ -1522,6 +1522,16 @@ foo_total 1.0 # {id="x"} 1.0
 			input: "# TYPE foo gaugehistogram\nfoo {gcount:1,gsum:1.0,schema:0,zero_threshold:0,zero_count:0,positive_spans:[0:1],positive_buckets:[-1]}\n# EOF\n",
 			err:   `invalid positive_buckets value "-1"`,
 		},
+		{
+			name:  "sample timestamp overflowing int64 ms rejected",
+			input: "# TYPE foo gauge\nfoo 1.0 1e20\n# EOF\n",
+			err:   `invalid timestamp "1e20"`,
+		},
+		{
+			name:  "start timestamp out of protobuf range rejected",
+			input: "# TYPE foo_total counter\nfoo_total 1.0 st@1e20\n# EOF\n",
+			err:   `invalid start timestamp "1e20"`,
+		},
 	}
 
 	for _, tc := range cases {
