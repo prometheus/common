@@ -1412,6 +1412,21 @@ foo_total 1.0 # {id="x"} 1.0
 			err:   `interleaved metric family "a"`,
 		},
 		{
+			name:  "interleaved sample after new family descriptor rejected",
+			input: "# TYPE a gauge\na{k=\"1\"} 1\n# TYPE b gauge\na{k=\"2\"} 2\n# EOF\n",
+			err:   `interleaved metric family "a"`,
+		},
+		{
+			name:  "interleaved sample after descriptor-only family rejected",
+			input: "# TYPE a counter\nb 1\na 2\n# EOF\n",
+			err:   `interleaved metric family "a"`,
+		},
+		{
+			name:  "interleaved descriptors rejected",
+			input: "# TYPE a counter\n# TYPE b gauge\n# HELP a help\n# EOF\n",
+			err:   `interleaved metric family "a"`,
+		},
+		{
 			name:  "summary float count overflowing uint64 rejected",
 			input: "# TYPE s summary\ns {count:18446744073709551616.0,sum:1.0,quantile:[]}\n# EOF\n",
 			err:   `invalid summary count "18446744073709551616.0"`,
@@ -1720,13 +1735,13 @@ func TestOpenMetrics2Streaming(t *testing.T) {
 	errCh := make(chan error, 1)
 	stepCh := make(chan struct{})
 	go func() {
-		_, err := io.WriteString(pw, "# TYPE first_total counter\nfirst_total 1\n# TYPE second gauge\nsecond 2\n")
+		_, err := io.WriteString(pw, "# TYPE first_total counter\nfirst_total 1\n# TYPE second gauge\n")
 		if err != nil {
 			errCh <- err
 			return
 		}
 		<-stepCh
-		_, err = io.WriteString(pw, "# EOF\n")
+		_, err = io.WriteString(pw, "second 2\n# EOF\n")
 		_ = pw.CloseWithError(err)
 		errCh <- nil
 	}()

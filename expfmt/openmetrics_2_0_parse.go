@@ -330,20 +330,39 @@ func (p *openMetrics20Parser) next(v *dto.MetricFamily) error {
 			return io.EOF
 
 		case "metric-descriptor":
+			if p.curFamily != nil && !p.curFamily.emitted {
+				mfName := extractDescriptorMetricName(line, node)
+				if mfName != p.curFamily.mf.GetName() {
+					if p.curFamily.hasSamples {
+						p.pendingLine = line
+						p.pendingNode = node
+						st := p.curFamily
+						p.curFamily = nil
+						emitOpenMetrics20Family(st, v)
+						return nil
+					}
+					p.curFamily.emitted = true
+					p.curFamily = nil
+				}
+			}
 			if err := p.handleDescriptor(line, node); err != nil {
 				return err
 			}
 
 		case "sample":
-			if p.curFamily != nil && p.curFamily.hasSamples && !p.curFamily.emitted {
+			if p.curFamily != nil && !p.curFamily.emitted {
 				sampleName := extractSampleMetricName(line, node)
 				if sampleName != p.curFamily.mf.GetName() {
-					p.pendingLine = line
-					p.pendingNode = node
-					st := p.curFamily
+					if p.curFamily.hasSamples {
+						p.pendingLine = line
+						p.pendingNode = node
+						st := p.curFamily
+						p.curFamily = nil
+						emitOpenMetrics20Family(st, v)
+						return nil
+					}
+					p.curFamily.emitted = true
 					p.curFamily = nil
-					emitOpenMetrics20Family(st, v)
-					return nil
 				}
 			}
 			if err := p.handleSample(line, node); err != nil {
@@ -351,6 +370,15 @@ func (p *openMetrics20Parser) next(v *dto.MetricFamily) error {
 			}
 		}
 	}
+}
+
+func extractDescriptorMetricName(input []byte, node *goabnf.ParseTree) string {
+	for _, c := range node.Children {
+		if c.Rule == "metric-descriptor-name" {
+			return extractMetricNameNode(input, c)
+		}
+	}
+	return ""
 }
 
 func (p *openMetrics20Parser) getOrCreateDescriptorFamily(name string) (*openMetricsFamilyState, error) {
@@ -366,6 +394,9 @@ func (p *openMetrics20Parser) getOrCreateDescriptorFamily(name string) (*openMet
 	if prev, exists := p.families[name]; exists {
 		if prev.hasSamples {
 			return nil, ParseError{Line: p.lineNum, Msg: fmt.Sprintf("metadata for metric %q after samples", name)}
+		}
+		if prev.emitted {
+			return nil, ParseError{Line: p.lineNum, Msg: fmt.Sprintf("interleaved metric family %q", name)}
 		}
 		return prev, nil
 	}
