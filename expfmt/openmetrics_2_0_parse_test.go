@@ -1542,6 +1542,11 @@ foo_total 1.0 # {id="x"} 1.0
 			err:   `label name "__name__" is reserved`,
 		},
 		{
+			name:  "reserved __name__ label in exemplar",
+			input: "# TYPE foo_total counter\nfoo_total 1.0 # {__name__=\"bar\"} 1.0 1000.0\n# EOF\n",
+			err:   `exemplar label name "__name__" is reserved`,
+		},
+		{
 			name:  "duplicate label name",
 			input: "foo{k=\"1\",k=\"2\"} 1\n# EOF\n",
 			err:   `duplicate label "k" for metric "foo"`,

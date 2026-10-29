@@ -305,6 +305,30 @@ http_requests_total 1027.0
 `,
 		},
 		{
+			name: "CounterWithReservedNameExemplarLabel",
+			in: &dto.MetricFamily{
+				Name: proto.String("http_requests_total"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Counter: &dto.Counter{
+							Value: proto.Float64(1027),
+							Exemplar: &dto.Exemplar{
+								Label: []*dto.LabelPair{
+									{Name: proto.String("__name__"), Value: proto.String("foo")},
+								},
+								Value:     proto.Float64(1),
+								Timestamp: &timestamppb.Timestamp{Seconds: 1234567890},
+							},
+						},
+					},
+				},
+			},
+			out: `# TYPE http_requests_total counter
+http_requests_total 1027.0
+`,
+		},
+		{
 			name: "CarriageReturnInsideHelp",
 			in: &dto.MetricFamily{
 				Name: proto.String("http_requests_total"),

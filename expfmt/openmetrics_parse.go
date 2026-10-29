@@ -884,6 +884,9 @@ func (p *openMetricsParser) parseExemplar(input []byte, node *goabnf.ParseTree, 
 		totalRune int
 	)
 	for _, rl := range rawLabels {
+		if rl.name == string(model.MetricNameLabel) {
+			return nil, ParseError{Line: p.lineNum, Msg: fmt.Sprintf("exemplar label name %q is reserved", model.MetricNameLabel)}
+		}
 		if !p.validationScheme().IsValidLabelName(rl.name) {
 			return nil, ParseError{Line: p.lineNum, Msg: fmt.Sprintf("invalid exemplar label name %q", rl.name)}
 		}

@@ -25,6 +25,8 @@ import (
 
 	dto "github.com/prometheus/client_model/go"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/prometheus/common/model"
 )
 
 // MetricFamilyToOpenMetrics20 converts a MetricFamily proto message into the
@@ -1135,6 +1137,9 @@ func validateLabels20(labels []*dto.LabelPair) error {
 		lname := lp.GetName()
 		if lname == "" {
 			return errors.New("label name cannot be empty")
+		}
+		if lname == string(model.MetricNameLabel) {
+			return fmt.Errorf("label name %q is reserved", model.MetricNameLabel)
 		}
 		if containsRawNewline(lname) {
 			return fmt.Errorf("label name %q contains raw newlines", lname)

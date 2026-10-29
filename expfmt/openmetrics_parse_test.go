@@ -909,6 +909,11 @@ func TestOpenMetricsParseErrors(t *testing.T) {
 			wantErr: `duplicate exemplar label name "b"`,
 		},
 		{
+			name:    "reserved __name__ label on exemplar",
+			input:   "# TYPE c counter\nc_total 1 # {__name__=\"x\"} 1\n# EOF\n",
+			wantErr: `exemplar label name "__name__" is reserved`,
+		},
+		{
 			name:    "counter with _created only and no _total",
 			input:   "# TYPE c counter\nc_created 1520872607.123\n# EOF\n",
 			wantErr: `counter "c" missing _total value`,
