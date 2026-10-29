@@ -383,9 +383,6 @@ func writeCompositeSummary(w enhancedWriter, name string, metric *dto.Metric) (i
 	if math.IsNaN(sum) {
 		return 0, fmt.Errorf("summary sum cannot be NaN in metric %s", name)
 	}
-	if sum < 0 {
-		return 0, fmt.Errorf("summary sum cannot be negative (%g) in metric %s", sum, name)
-	}
 
 	var prevQuantile float64
 	for i, q := range s.Quantile {
@@ -403,11 +400,6 @@ func writeCompositeSummary(w enhancedWriter, name string, metric *dto.Metric) (i
 			return 0, fmt.Errorf("summary quantiles must be strictly increasing: %g <= %g in metric %s", qv, prevQuantile, name)
 		}
 		prevQuantile = qv
-
-		v := q.GetValue()
-		if !math.IsNaN(v) && v < 0 {
-			return 0, fmt.Errorf("summary quantile value cannot be negative (%g) in metric %s", v, name)
-		}
 	}
 
 	if s.CreatedTimestamp != nil {

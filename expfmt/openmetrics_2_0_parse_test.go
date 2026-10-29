@@ -367,6 +367,31 @@ rpc_duration_seconds {count:100,sum:30000.0,quantile:[0.5:100.0,0.9:200.0,0.99:3
 			},
 		},
 		{
+			name: "composite summary with negative sum and quantile values",
+			input: `# TYPE temp_delta_celsius summary
+temp_delta_celsius {count:10,sum:-15.5,quantile:[0.5:-2.5,0.9:1.0]}
+# EOF
+`,
+			expected: map[string]*dto.MetricFamily{
+				"temp_delta_celsius": {
+					Name: proto.String("temp_delta_celsius"),
+					Type: dto.MetricType_SUMMARY.Enum(),
+					Metric: []*dto.Metric{
+						{
+							Summary: &dto.Summary{
+								SampleCount: proto.Uint64(10),
+								SampleSum:   proto.Float64(-15.5),
+								Quantile: []*dto.Quantile{
+									{Quantile: proto.Float64(0.5), Value: proto.Float64(-2.5)},
+									{Quantile: proto.Float64(0.9), Value: proto.Float64(1.0)},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "composite classic histogram",
 			input: `# HELP req_duration Request duration histogram.
 # TYPE req_duration histogram
@@ -1360,6 +1385,11 @@ foo_total 1.0 # {id="x"} 1.0
 			name:  "NaN summary quantile",
 			input: "# TYPE foo summary\nfoo {count:1,sum:2.0,quantile:[NaN:1.0]}\n# EOF\n",
 			err:   "parse error",
+		},
+		{
+			name:  "NaN summary sum",
+			input: "# TYPE foo summary\nfoo {count:1,sum:NaN,quantile:[0.5:1.0]}\n# EOF\n",
+			err:   `invalid summary sum "NaN"`,
 		},
 		{
 			name:  "empty quoted label name in sample",

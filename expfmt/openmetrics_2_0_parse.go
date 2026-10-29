@@ -818,9 +818,6 @@ func parseCompositeSummary(
 					if err != nil {
 						return nil, ParseError{Line: lineNum, Msg: fmt.Sprintf("invalid quantile value %q: %v", vStr, err)}
 					}
-					if !math.IsNaN(v) && v < 0 {
-						return nil, ParseError{Line: lineNum, Msg: fmt.Sprintf("quantile value must not be negative: %g", v)}
-					}
 					quantiles = append(quantiles, &dto.Quantile{
 						Quantile: proto.Float64(q),
 						Value:    proto.Float64(v),
@@ -839,10 +836,10 @@ func parseCompositeSummary(
 		countUint = uint64(f)
 	}
 
-	// Per the OpenMetrics 2.0 spec, summary sum has counter semantics and must
-	// not be NaN or negative (unlike histogram sum, which can be negative or NaN).
+	// Per the OpenMetrics 2.0 spec, summary sum must not be NaN (unlike
+	// histogram sum, which can be NaN).
 	sumVal, err := parseOpenMetricsFloat(sumStr)
-	if err != nil || math.IsNaN(sumVal) || sumVal < 0 {
+	if err != nil || math.IsNaN(sumVal) {
 		return nil, ParseError{Line: lineNum, Msg: fmt.Sprintf("invalid summary sum %q", sumStr)}
 	}
 
