@@ -539,7 +539,10 @@ func writeCompositeHistogram(w enhancedWriter, name string, metric *dto.Metric, 
 			}
 			return 0, fmt.Errorf("histogram count cannot be NaN in metric %s", name)
 		}
-		if !isGauge && c < 0 {
+		if c < 0 {
+			if isGauge {
+				return 0, fmt.Errorf("gaugehistogram count cannot be negative (%g) in metric %s", c, name)
+			}
 			return 0, fmt.Errorf("histogram count cannot be negative (%g) in metric %s", c, name)
 		}
 	}
@@ -557,7 +560,7 @@ func writeCompositeHistogram(w enhancedWriter, name string, metric *dto.Metric, 
 	}
 
 	if isNative {
-		if err := validateNativeHistogram(name, h, isGauge); err != nil {
+		if err := validateNativeHistogram(name, h); err != nil {
 			return 0, err
 		}
 	}
@@ -701,7 +704,7 @@ func writeCompositeHistogram(w enhancedWriter, name string, metric *dto.Metric, 
 	return written, nil
 }
 
-func validateNativeHistogram(name string, h *dto.Histogram, isGauge bool) error {
+func validateNativeHistogram(name string, h *dto.Histogram) error {
 	schema := *h.Schema
 	if schema < -4 || schema > 8 {
 		return fmt.Errorf("native histogram schema %d is out of range [-4, 8] in metric %s", schema, name)
@@ -717,15 +720,15 @@ func validateNativeHistogram(name string, h *dto.Histogram, isGauge bool) error 
 		if math.IsNaN(c) {
 			return fmt.Errorf("native histogram zero_count cannot be NaN in metric %s", name)
 		}
-		if !isGauge && c < 0 {
+		if c < 0 {
 			return fmt.Errorf("native histogram zero_count cannot be negative (%g) in metric %s", c, name)
 		}
 	}
 
-	if err := validateSpansAndBuckets(name, "negative", h.NegativeSpan, h.NegativeDelta, h.NegativeCount, isGauge); err != nil {
+	if err := validateSpansAndBuckets(name, "negative", h.NegativeSpan, h.NegativeDelta, h.NegativeCount); err != nil {
 		return err
 	}
-	return validateSpansAndBuckets(name, "positive", h.PositiveSpan, h.PositiveDelta, h.PositiveCount, isGauge)
+	return validateSpansAndBuckets(name, "positive", h.PositiveSpan, h.PositiveDelta, h.PositiveCount)
 }
 
 func validateSpansAndBuckets(
@@ -734,7 +737,6 @@ func validateSpansAndBuckets(
 	spans []*dto.BucketSpan,
 	deltas []int64,
 	floatCounts []float64,
-	isGauge bool,
 ) error {
 	isFloatBuckets := len(floatCounts) > 0
 	var numBuckets int
@@ -771,7 +773,7 @@ func validateSpansAndBuckets(
 			if math.IsNaN(v) {
 				return fmt.Errorf("%s bucket count cannot be NaN in metric %s", spanName, name)
 			}
-			if !isGauge && v < 0 {
+			if v < 0 {
 				return fmt.Errorf("%s bucket count cannot be negative (%g) in metric %s", spanName, v, name)
 			}
 		}
@@ -779,7 +781,7 @@ func validateSpansAndBuckets(
 		var current int64
 		for _, d := range deltas {
 			current += d
-			if !isGauge && current < 0 {
+			if current < 0 {
 				return fmt.Errorf("%s bucket count cannot be negative (%d) in metric %s", spanName, current, name)
 			}
 		}
@@ -988,7 +990,7 @@ func validateClassicBuckets(
 			if math.IsNaN(c) {
 				return fmt.Errorf("classic bucket count cannot be NaN in metric %s", name)
 			}
-			if !isGauge && c < 0 {
+			if c < 0 {
 				return fmt.Errorf("classic bucket count cannot be negative (%g) in metric %s", c, name)
 			}
 		}
@@ -1001,7 +1003,7 @@ func validateClassicBuckets(
 			bCount = float64(*b.CumulativeCount)
 		}
 
-		if !isGauge && i > 0 && bCount < prevCount {
+		if i > 0 && bCount < prevCount {
 			return fmt.Errorf("classic bucket counts must be monotonically increasing: %g < %g in metric %s", bCount, prevCount, name)
 		}
 		prevCount = bCount
@@ -1029,7 +1031,7 @@ func validateClassicBuckets(
 		}
 	}
 
-	if !infSeen && len(h.Bucket) > 0 && !isGauge {
+	if !infSeen && len(h.Bucket) > 0 {
 		if sampleCount < prevCount {
 			return fmt.Errorf("sample count (%g) is less than highest bucket count (%g) in metric %s", sampleCount, prevCount, name)
 		}

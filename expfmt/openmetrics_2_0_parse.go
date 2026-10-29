@@ -1109,7 +1109,7 @@ func parseCompositeHistogram(
 			h.ZeroCount = proto.Uint64(zeroCountUint)
 		}
 
-		if err := populateNativeBuckets(lineNum, h, isFloatHistogram, isGauge, negBucketStrs, posBucketStrs); err != nil {
+		if err := populateNativeBuckets(lineNum, h, isFloatHistogram, negBucketStrs, posBucketStrs); err != nil {
 			return nil, err
 		}
 	}
@@ -1121,7 +1121,7 @@ func parseCompositeHistogram(
 				if cb.ub <= classicBuckets[i-1].ub {
 					return nil, ParseError{Line: lineNum, Msg: "classic histogram buckets must be sorted in increasing order"}
 				}
-				if !isGauge && cb.fVal < classicBuckets[i-1].fVal {
+				if cb.fVal < classicBuckets[i-1].fVal {
 					return nil, ParseError{Line: lineNum, Msg: fmt.Sprintf("classic bucket counts must be monotonically increasing: %g < %g", cb.fVal, classicBuckets[i-1].fVal)}
 				}
 			}
@@ -1193,7 +1193,6 @@ func populateNativeBuckets(
 	lineNum int,
 	h *dto.Histogram,
 	isFloat bool,
-	isGauge bool,
 	negStrs, posStrs []string,
 ) error {
 	var negSpanLen uint64
@@ -1277,7 +1276,7 @@ func populateNativeBuckets(
 			prev = iv
 		}
 	}
-	if !isGauge && h.SampleCount != nil {
+	if h.SampleCount != nil {
 		obs, c1 := bits.Add64(h.GetZeroCount(), negTotal, 0)
 		obs, c2 := bits.Add64(obs, posTotal, c1)
 		if c2 != 0 {

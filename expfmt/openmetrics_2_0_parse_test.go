@@ -1467,6 +1467,11 @@ foo_total 1.0 # {id="x"} 1.0
 			err:   "classic bucket counts must be monotonically increasing: 1 < 2",
 		},
 		{
+			name:  "decreasing classic gaugehistogram bucket counts rejected",
+			input: "# TYPE foo gaugehistogram\nfoo {gcount:3,gsum:6.0,bucket:[0.1:2,1.0:1,+Inf:3]}\n# EOF\n",
+			err:   "classic bucket counts must be monotonically increasing: 1 < 2",
+		},
+		{
 			name:  "classic histogram +Inf bucket count mismatch rejected",
 			input: "# TYPE foo histogram\nfoo {count:5,sum:6.0,bucket:[0.1:1,1.0:2,+Inf:3]}\n# EOF\n",
 			err:   "classic bucket +Inf count (3) does not match sample count (5)",
@@ -1474,6 +1479,11 @@ foo_total 1.0 # {id="x"} 1.0
 		{
 			name:  "native histogram bucket observations mismatch rejected",
 			input: "# TYPE foo histogram\nfoo {count:10,sum:12.1,schema:0,zero_threshold:0.001,zero_count:2,positive_spans:[0:2],positive_buckets:[2,1]}\n# EOF\n",
+			err:   "native histogram bucket observations (5) do not match sample count (10)",
+		},
+		{
+			name:  "native gaugehistogram bucket observations mismatch rejected",
+			input: "# TYPE foo gaugehistogram\nfoo {gcount:10,gsum:12.1,schema:0,zero_threshold:0.001,zero_count:2,positive_spans:[0:2],positive_buckets:[2,1]}\n# EOF\n",
 			err:   "native histogram bucket observations (5) do not match sample count (10)",
 		},
 		{

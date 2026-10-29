@@ -851,25 +851,25 @@ acme_http_request_seconds:rate5m{path="/api/v1",method="GET"} {gcount:0.01,gsum:
 `,
 		},
 		{
-			name: "GaugeHistogram_NegativeValues",
+			name: "GaugeHistogram_NegativeSumAndThreshold",
 			in: &dto.MetricFamily{
 				Name: proto.String("net_flow_rate"),
 				Type: dto.MetricType_GAUGE_HISTOGRAM.Enum(),
 				Metric: []*dto.Metric{
 					{
 						Histogram: &dto.Histogram{
-							SampleCountFloat: proto.Float64(-1.5),
+							SampleCountFloat: proto.Float64(1.5),
 							SampleSum:        proto.Float64(-3.2),
 							Bucket: []*dto.Bucket{
-								{UpperBound: proto.Float64(-0.5), CumulativeCountFloat: proto.Float64(-2.0)},
-								{UpperBound: proto.Float64(math.Inf(+1)), CumulativeCountFloat: proto.Float64(-1.5)},
+								{UpperBound: proto.Float64(-0.5), CumulativeCountFloat: proto.Float64(1.0)},
+								{UpperBound: proto.Float64(math.Inf(+1)), CumulativeCountFloat: proto.Float64(1.5)},
 							},
 						},
 					},
 				},
 			},
 			out: `# TYPE net_flow_rate gaugehistogram
-net_flow_rate {gcount:-1.5,gsum:-3.2,bucket:[-0.5:-2,+Inf:-1.5]}
+net_flow_rate {gcount:1.5,gsum:-3.2,bucket:[-0.5:1,+Inf:1.5]}
 `,
 		},
 		{
@@ -1572,6 +1572,22 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 				},
 			},
 			expectedErr: "gaugehistogram count cannot be NaN",
+		},
+		{
+			name: "GaugeHistogramCountNegative",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_gauge_histogram"),
+				Type: dto.MetricType_GAUGE_HISTOGRAM.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Histogram: &dto.Histogram{
+							SampleCountFloat: proto.Float64(-1.0),
+							SampleSum:        proto.Float64(0.0),
+						},
+					},
+				},
+			},
+			expectedErr: "gaugehistogram count cannot be negative",
 		},
 		{
 			name: "MetricHasLeLabel_ClassicHistogram",
