@@ -510,6 +510,30 @@ func TestEscapeName(t *testing.T) {
 			expectedValue:         "U__http_2e_status:sum",
 		},
 		{
+			name:                  "legacy valid name containing _dot_",
+			input:                 "http_dot_requests_total",
+			expectedUnderscores:   "http_dot_requests_total",
+			expectedDots:          "http__dot__requests__total",
+			expectedUnescapedDots: "http_dot_requests_total",
+			expectedValue:         "http_dot_requests_total",
+		},
+		{
+			name:                  "name with dots containing _dot_",
+			input:                 "my.metric_dot_total:sum",
+			expectedUnderscores:   "my_metric_dot_total:sum",
+			expectedDots:          "my_dot_metric__dot__total:sum",
+			expectedUnescapedDots: "my.metric_dot_total:sum",
+			expectedValue:         "U__my_2e_metric__dot__total:sum",
+		},
+		{
+			name:                  "underscore before dot",
+			input:                 "x_.y",
+			expectedUnderscores:   "x__y",
+			expectedDots:          "x___dot_y",
+			expectedUnescapedDots: "x_.y",
+			expectedValue:         "U__x___2e_y",
+		},
+		{
 			name:                  "name with spaces and emoji",
 			input:                 "label with 😱",
 			expectedUnderscores:   "label_with__",
@@ -633,6 +657,43 @@ func TestValueUnescapeErrors(t *testing.T) {
 			if got != scenario.expected {
 				t.Errorf("expected unescaped string output %s but got %s", scenario.expected, got)
 			}
+		})
+	}
+}
+
+func TestDotsUnescapeInvalidInput(t *testing.T) {
+	// An underscore that starts neither "__" nor "_dot_" is kept as is.
+	scenarios := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "single underscore",
+			input:    "a_b",
+			expected: "a_b",
+		},
+		{
+			name:     "trailing underscore",
+			input:    "a__b_",
+			expected: "a_b_",
+		},
+		{
+			name:     "unterminated dot",
+			input:    "a_dot",
+			expected: "a_dot",
+		},
+		{
+			// Decoded left to right: the "__" is read before "_dot_" can start.
+			name:     "dot overlapping an escaped underscore",
+			input:    "a__dot_b",
+			expected: "a_dot_b",
+		},
+	}
+
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			require.Equal(t, scenario.expected, UnescapeName(scenario.input, DotsEscaping))
 		})
 	}
 }
