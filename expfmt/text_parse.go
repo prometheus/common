@@ -645,7 +645,7 @@ func (p *TextParser) startTimestamp() stateFn {
 // p.currentByte) is the first byte of the docstring after 'HELP'.
 func (p *TextParser) readingHelp() stateFn {
 	if p.currentMF.Help != nil {
-		p.parseError(fmt.Sprintf("second HELP line for metric name %q", p.currentMF.GetName()))
+		p.parseError(fmt.Sprintf("second HELP line for metric name %q%s", p.currentMF.GetName(), p.suffixedNameHint()))
 		return nil
 	}
 	// Rest of line is the docstring.
@@ -660,7 +660,7 @@ func (p *TextParser) readingHelp() stateFn {
 // p.currentByte) is the first byte of the type hint after 'HELP'.
 func (p *TextParser) readingType() stateFn {
 	if p.currentMF.Type != nil {
-		p.parseError(fmt.Sprintf("second TYPE line for metric name %q, or TYPE reported after samples", p.currentMF.GetName()))
+		p.parseError(fmt.Sprintf("second TYPE line for metric name %q, or TYPE reported after samples%s", p.currentMF.GetName(), p.suffixedNameHint()))
 		return nil
 	}
 	// Rest of line is the type.
@@ -682,6 +682,21 @@ func (p *TextParser) readingType() stateFn {
 	}
 	p.currentMF.Type = dto.MetricType(metricType).Enum()
 	return p.startOfLine
+}
+
+// suffixedNameHint is used in errors about HELP and TYPE lines. When the metric
+// name of the line (still held in p.currentToken) has been attributed to a
+// summary or histogram because of its "_count", "_sum" or "_bucket" suffix, it
+// returns a note saying so. Otherwise, it returns an empty string.
+func (p *TextParser) suffixedNameHint() string {
+	name, mfName := p.currentToken.String(), p.currentMF.GetName()
+	if name == mfName {
+		return ""
+	}
+	return fmt.Sprintf(
+		" (%q is treated as the %q series of %s %q)",
+		name, strings.TrimPrefix(name, mfName), strings.ToLower(p.currentMF.GetType().String()), mfName,
+	)
 }
 
 // parseError sets p.err to a ParseError at the current line with the given
