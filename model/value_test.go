@@ -16,7 +16,7 @@ package model
 import (
 	"encoding/json"
 	"math"
-	"sort"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -347,7 +347,7 @@ func TestVectorSort(t *testing.T) {
 		},
 	}
 
-	sort.Sort(input)
+	slices.SortFunc(input, (*Sample).Compare)
 
 	for i, actual := range input {
 		actualFp := actual.Metric.Fingerprint()

@@ -14,7 +14,8 @@
 package model
 
 import (
-	"sort"
+	"cmp"
+	"slices"
 	"testing"
 )
 
@@ -52,7 +53,7 @@ func TestFingerprintsSort(t *testing.T) {
 		18446744073709551615,
 	}
 
-	sort.Sort(fingerPrints)
+	slices.SortFunc(fingerPrints, cmp.Compare)
 
 	expected := Fingerprints{
 		0,
