@@ -571,6 +571,115 @@ func TestEscapeName(t *testing.T) {
 	}
 }
 
+func TestIsValidLegacyLabelName(t *testing.T) {
+	scenarios := []struct {
+		name  string
+		input string
+		valid bool
+	}{
+		{name: "empty", input: "", valid: false},
+		{name: "plain label", input: "foo_bar", valid: true},
+		{name: "label starting with digit", input: "1foo", valid: false},
+		{name: "label with digit after first", input: "foo1", valid: true},
+		{name: "label with colon", input: "app:instance", valid: false},
+		{name: "label with hyphen", input: "app-instance", valid: false},
+		{name: "label with dot", input: "app.instance", valid: false},
+		{name: "underscore only", input: "_", valid: true},
+		{name: "single letter", input: "a", valid: true},
+	}
+
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			got := IsValidLegacyLabelName(scenario.input)
+			if got != scenario.valid {
+				t.Errorf("IsValidLegacyLabelName(%q) = %v, want %v", scenario.input, got, scenario.valid)
+			}
+		})
+	}
+}
+
+func TestEscapeLabelName(t *testing.T) {
+	scenarios := []struct {
+		name                  string
+		input                 string
+		expectedUnderscores   string
+		expectedDots          string
+		expectedUnescapedDots string
+		expectedValue         string
+	}{
+		{
+			name: "empty string",
+		},
+		{
+			// A colon is valid in metric names but NOT in label names; it must
+			// be escaped for label names. This is the regression for
+			// prometheus/prometheus#18380.
+			name:                  "label name with colon",
+			input:                 "app:instance-id",
+			expectedUnderscores:   "app_instance_id",
+			expectedDots:          "app__instance__id",
+			expectedUnescapedDots: "app_instance_id",
+			expectedValue:         "U__app_3a_instance_2d_id",
+		},
+		{
+			name:                "legacy valid label name (no colon)",
+			input:               "no_escaping_required",
+			expectedUnderscores: "no_escaping_required",
+			expectedDots:        "no__escaping__required",
+			// Dots escaping will escape underscores even though it's not strictly
+			// necessary for compatibility.
+			expectedUnescapedDots: "no_escaping_required",
+			expectedValue:         "no_escaping_required",
+		},
+		{
+			name:                  "label name with dots",
+			input:                 "app.instance.id",
+			expectedUnderscores:   "app_instance_id",
+			expectedDots:          "app_dot_instance_dot_id",
+			expectedUnescapedDots: "app.instance.id",
+			expectedValue:         "U__app_2e_instance_2e_id",
+		},
+		{
+			// A label name that is legacy-valid for metric names (colon at
+			// position 0) must still be escaped for labels.
+			name:                  "colon at start",
+			input:                 ":label",
+			expectedUnderscores:   "_label",
+			expectedDots:          "__label",
+			expectedUnescapedDots: "_label",
+			expectedValue:         "U___3a_label",
+		},
+	}
+
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			got := EscapeLabelName(scenario.input, UnderscoreEscaping)
+			if got != scenario.expectedUnderscores {
+				t.Errorf("underscores: expected %q but got %q", scenario.expectedUnderscores, got)
+			}
+
+			got = EscapeLabelName(scenario.input, DotsEscaping)
+			if got != scenario.expectedDots {
+				t.Errorf("dots: expected %q but got %q", scenario.expectedDots, got)
+			}
+			got = UnescapeName(got, DotsEscaping)
+			if got != scenario.expectedUnescapedDots {
+				t.Errorf("dots unescaped: expected %q but got %q", scenario.expectedUnescapedDots, got)
+			}
+
+			got = EscapeLabelName(scenario.input, ValueEncodingEscaping)
+			if got != scenario.expectedValue {
+				t.Errorf("values: expected %q but got %q", scenario.expectedValue, got)
+			}
+			// Value escaping is round-trippable.
+			got = UnescapeName(got, ValueEncodingEscaping)
+			if got != scenario.input {
+				t.Errorf("values unescaped: expected %q but got %q", scenario.input, got)
+			}
+		})
+	}
+}
+
 func TestValueUnescapeErrors(t *testing.T) {
 	scenarios := []struct {
 		name     string
@@ -836,6 +945,107 @@ func TestEscapeMetricFamily(t *testing.T) {
 							{
 								Name:  proto.String("some_label"),
 								Value: proto.String("label??value"),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			// Regression for prometheus/prometheus#18380: a colon in a label
+			// name must be escaped, even though colons are valid in metric
+			// names. __name__ keeps its colon because its value is a metric name.
+			name:   "label name with colon, underscores scheme",
+			scheme: UnderscoreEscaping,
+			input: &dto.MetricFamily{
+				Name: proto.String("my:metric"),
+				Help: proto.String("some help text"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Counter: &dto.Counter{
+							Value: proto.Float64(1),
+						},
+						Label: []*dto.LabelPair{
+							{
+								Name:  proto.String("__name__"),
+								Value: proto.String("my:metric"),
+							},
+							{
+								Name:  proto.String("app:instance-id"),
+								Value: proto.String("server-1"),
+							},
+						},
+					},
+				},
+			},
+			expected: &dto.MetricFamily{
+				Name: proto.String("my:metric"),
+				Help: proto.String("some help text"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Counter: &dto.Counter{
+							Value: proto.Float64(1),
+						},
+						Label: []*dto.LabelPair{
+							{
+								Name:  proto.String("__name__"),
+								Value: proto.String("my:metric"),
+							},
+							{
+								Name:  proto.String("app_instance_id"),
+								Value: proto.String("server-1"),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			// Same as above but with ValueEncodingEscaping, to verify the
+			// colon is encoded as _3a_ for label names while __name__ keeps it.
+			name:   "label name with colon, values scheme",
+			scheme: ValueEncodingEscaping,
+			input: &dto.MetricFamily{
+				Name: proto.String("my:metric"),
+				Help: proto.String("some help text"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Counter: &dto.Counter{
+							Value: proto.Float64(1),
+						},
+						Label: []*dto.LabelPair{
+							{
+								Name:  proto.String("__name__"),
+								Value: proto.String("my:metric"),
+							},
+							{
+								Name:  proto.String("app:instance-id"),
+								Value: proto.String("server-1"),
+							},
+						},
+					},
+				},
+			},
+			expected: &dto.MetricFamily{
+				Name: proto.String("my:metric"),
+				Help: proto.String("some help text"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Counter: &dto.Counter{
+							Value: proto.Float64(1),
+						},
+						Label: []*dto.LabelPair{
+							{
+								Name:  proto.String("__name__"),
+								Value: proto.String("my:metric"),
+							},
+							{
+								Name:  proto.String("U__app_3a_instance_2d_id"),
+								Value: proto.String("server-1"),
 							},
 						},
 					},

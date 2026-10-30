@@ -320,6 +320,26 @@ func IsValidLegacyMetricName(n string) bool {
 	return LegacyValidation.IsValidMetricName(n)
 }
 
+// IsValidLegacyLabelName reports whether n is a valid legacy label name.
+// Unlike legacy metric names, legacy label names never permit ':' (colon),
+// which is reserved for metric names only. This function does not use
+// LabelNameRE for the check but a much faster hardcoded implementation.
+//
+// Use this, rather than IsValidLegacyMetricName, whenever the string in
+// question is a label name and not a metric name (the value of the __name__
+// label is a metric name).
+func IsValidLegacyLabelName(n string) bool {
+	if len(n) == 0 {
+		return false
+	}
+	for i, b := range n {
+		if !isValidLegacyLabelRune(b, i) {
+			return false
+		}
+	}
+	return true
+}
+
 // EscapeMetricFamily escapes the given metric names and labels with the given
 // escaping scheme. Returns a new object that uses the same pointers to fields
 // when possible and creates new escaped versions so as not to mutate the
@@ -362,6 +382,8 @@ func EscapeMetricFamily(v *dto.MetricFamily, scheme EscapingScheme) *dto.MetricF
 
 		for _, l := range m.Label {
 			if l.GetName() == MetricNameLabel {
+				// The value of __name__ is a metric name, so it is validated
+				// and escaped with the metric-name rules (colons allowed).
 				if l.Value == nil || IsValidLegacyMetricName(l.GetValue()) {
 					escaped.Label = append(escaped.Label, l)
 					continue
@@ -372,12 +394,14 @@ func EscapeMetricFamily(v *dto.MetricFamily, scheme EscapingScheme) *dto.MetricF
 				})
 				continue
 			}
-			if l.Name == nil || IsValidLegacyMetricName(l.GetName()) {
+			// Label names never permit colons in the data model, so they are
+			// validated and escaped with the label-name rules.
+			if l.Name == nil || IsValidLegacyLabelName(l.GetName()) {
 				escaped.Label = append(escaped.Label, l)
 				continue
 			}
 			escaped.Label = append(escaped.Label, &dto.LabelPair{
-				Name:  proto.String(EscapeName(l.GetName(), scheme)),
+				Name:  proto.String(EscapeLabelName(l.GetName(), scheme)),
 				Value: l.Value,
 			})
 		}
@@ -391,7 +415,7 @@ func metricNeedsEscaping(m *dto.Metric) bool {
 		if l.GetName() == MetricNameLabel && !IsValidLegacyMetricName(l.GetValue()) {
 			return true
 		}
-		if !IsValidLegacyMetricName(l.GetName()) {
+		if !IsValidLegacyLabelName(l.GetName()) {
 			return true
 		}
 	}
@@ -447,6 +471,74 @@ func EscapeName(name string, scheme EscapingScheme) string {
 			case b == '_':
 				escaped.WriteString("__")
 			case isValidLegacyRune(b, i):
+				escaped.WriteRune(b)
+			case !utf8.ValidRune(b):
+				escaped.WriteString("_FFFD_")
+			default:
+				escaped.WriteRune('_')
+				escaped.WriteString(strconv.FormatInt(int64(b), 16))
+				escaped.WriteRune('_')
+			}
+		}
+		return escaped.String()
+	default:
+		panic(fmt.Sprintf("invalid escaping scheme %d", scheme))
+	}
+}
+
+// EscapeLabelName escapes the incoming label name according to the provided
+// escaping scheme. It is like [EscapeName] but applies the label-name validity
+// rules, which never permit ':' (colon) even though colons are allowed in
+// metric names. This is the correct entry point for label names; [EscapeName]
+// should only be used for metric names.
+//
+// Use this for any name that is a label name rather than a metric name (the
+// value of the __name__ label is a metric name).
+func EscapeLabelName(name string, scheme EscapingScheme) string {
+	if len(name) == 0 {
+		return name
+	}
+	var escaped strings.Builder
+	switch scheme {
+	case NoEscaping:
+		return name
+	case UnderscoreEscaping:
+		if IsValidLegacyLabelName(name) {
+			return name
+		}
+		for i, b := range name {
+			if isValidLegacyLabelRune(b, i) {
+				escaped.WriteRune(b)
+			} else {
+				escaped.WriteRune('_')
+			}
+		}
+		return escaped.String()
+	case DotsEscaping:
+		// Do not early return for legacy valid names, we still escape underscores.
+		for i, b := range name {
+			switch {
+			case b == '_':
+				escaped.WriteString("__")
+			case b == '.':
+				escaped.WriteString("_dot_")
+			case isValidLegacyLabelRune(b, i):
+				escaped.WriteRune(b)
+			default:
+				escaped.WriteString("__")
+			}
+		}
+		return escaped.String()
+	case ValueEncodingEscaping:
+		if IsValidLegacyLabelName(name) {
+			return name
+		}
+		escaped.WriteString("U__")
+		for i, b := range name {
+			switch {
+			case b == '_':
+				escaped.WriteString("__")
+			case isValidLegacyLabelRune(b, i):
 				escaped.WriteRune(b)
 			case !utf8.ValidRune(b):
 				escaped.WriteString("_FFFD_")
@@ -547,6 +639,12 @@ func UnescapeName(name string, scheme EscapingScheme) string {
 
 func isValidLegacyRune(b rune, i int) bool {
 	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || b == '_' || b == ':' || (b >= '0' && b <= '9' && i > 0)
+}
+
+// isValidLegacyLabelRune is like isValidLegacyRune but does not permit ':',
+// which is reserved for metric names and has never been valid in label names.
+func isValidLegacyLabelRune(b rune, i int) bool {
+	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || b == '_' || (b >= '0' && b <= '9' && i > 0)
 }
 
 func (e EscapingScheme) String() string {
