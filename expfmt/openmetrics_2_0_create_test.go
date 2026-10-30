@@ -305,6 +305,30 @@ http_requests_total 1027.0
 `,
 		},
 		{
+			name: "CounterWithReservedNameExemplarLabel",
+			in: &dto.MetricFamily{
+				Name: proto.String("http_requests_total"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Counter: &dto.Counter{
+							Value: proto.Float64(1027),
+							Exemplar: &dto.Exemplar{
+								Label: []*dto.LabelPair{
+									{Name: proto.String("__name__"), Value: proto.String("foo")},
+								},
+								Value:     proto.Float64(1),
+								Timestamp: &timestamppb.Timestamp{Seconds: 1234567890},
+							},
+						},
+					},
+				},
+			},
+			out: `# TYPE http_requests_total counter
+http_requests_total 1027.0
+`,
+		},
+		{
 			name: "CarriageReturnInsideHelp",
 			in: &dto.MetricFamily{
 				Name: proto.String("http_requests_total"),
@@ -851,25 +875,25 @@ acme_http_request_seconds:rate5m{path="/api/v1",method="GET"} {gcount:0.01,gsum:
 `,
 		},
 		{
-			name: "GaugeHistogram_NegativeValues",
+			name: "GaugeHistogram_NegativeSumAndThreshold",
 			in: &dto.MetricFamily{
 				Name: proto.String("net_flow_rate"),
 				Type: dto.MetricType_GAUGE_HISTOGRAM.Enum(),
 				Metric: []*dto.Metric{
 					{
 						Histogram: &dto.Histogram{
-							SampleCountFloat: proto.Float64(-1.5),
+							SampleCountFloat: proto.Float64(1.5),
 							SampleSum:        proto.Float64(-3.2),
 							Bucket: []*dto.Bucket{
-								{UpperBound: proto.Float64(-0.5), CumulativeCountFloat: proto.Float64(-2.0)},
-								{UpperBound: proto.Float64(math.Inf(+1)), CumulativeCountFloat: proto.Float64(-1.5)},
+								{UpperBound: proto.Float64(-0.5), CumulativeCountFloat: proto.Float64(1.0)},
+								{UpperBound: proto.Float64(math.Inf(+1)), CumulativeCountFloat: proto.Float64(1.5)},
 							},
 						},
 					},
 				},
 			},
 			out: `# TYPE net_flow_rate gaugehistogram
-net_flow_rate {gcount:-1.5,gsum:-3.2,bucket:[-0.5:-2,+Inf:-1.5]}
+net_flow_rate {gcount:1.5,gsum:-3.2,bucket:[-0.5:1,+Inf:1.5]}
 `,
 		},
 		{
@@ -1109,6 +1133,28 @@ foo {count:5,sum:10,quantile:[0.5:NaN,0.99:+Inf]}
 `,
 		},
 		{
+			name: "Summary_NegativeSumAndQuantiles",
+			in: &dto.MetricFamily{
+				Name: proto.String("temp_delta"),
+				Type: dto.MetricType_SUMMARY.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Summary: &dto.Summary{
+							SampleCount: proto.Uint64(5),
+							SampleSum:   proto.Float64(-10.5),
+							Quantile: []*dto.Quantile{
+								{Quantile: proto.Float64(0.5), Value: proto.Float64(-2.5)},
+								{Quantile: proto.Float64(0.99), Value: proto.Float64(1.0)},
+							},
+						},
+					},
+				},
+			},
+			out: `# TYPE temp_delta summary
+temp_delta {count:5,sum:-10.5,quantile:[0.5:-2.5,0.99:1]}
+`,
+		},
+		{
 			name: "Summary_UTF8",
 			in: &dto.MetricFamily{
 				Name: proto.String("my.app/duration"),
@@ -1336,21 +1382,6 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 			expectedErr: "summary sum cannot be NaN",
 		},
 		{
-			name: "Summary_SumNegative",
-			in: &dto.MetricFamily{
-				Name: proto.String("test_summary"),
-				Type: dto.MetricType_SUMMARY.Enum(),
-				Metric: []*dto.Metric{
-					{
-						Summary: &dto.Summary{
-							SampleSum: proto.Float64(-1.0),
-						},
-					},
-				},
-			},
-			expectedErr: "summary sum cannot be negative",
-		},
-		{
 			name: "Summary_NilQuantile",
 			in: &dto.MetricFamily{
 				Name: proto.String("test_summary"),
@@ -1470,23 +1501,6 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 			expectedErr: "summary quantiles must be strictly increasing",
 		},
 		{
-			name: "Summary_QuantileValueNegative",
-			in: &dto.MetricFamily{
-				Name: proto.String("test_summary"),
-				Type: dto.MetricType_SUMMARY.Enum(),
-				Metric: []*dto.Metric{
-					{
-						Summary: &dto.Summary{
-							Quantile: []*dto.Quantile{
-								{Quantile: proto.Float64(0.5), Value: proto.Float64(-1.0)},
-							},
-						},
-					},
-				},
-			},
-			expectedErr: "summary quantile value cannot be negative",
-		},
-		{
 			name: "Summary_InvalidCreatedTimestamp",
 			in: &dto.MetricFamily{
 				Name: proto.String("test_summary"),
@@ -1582,6 +1596,22 @@ func TestCreateOpenMetrics20_Errors(t *testing.T) {
 				},
 			},
 			expectedErr: "gaugehistogram count cannot be NaN",
+		},
+		{
+			name: "GaugeHistogramCountNegative",
+			in: &dto.MetricFamily{
+				Name: proto.String("test_gauge_histogram"),
+				Type: dto.MetricType_GAUGE_HISTOGRAM.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Histogram: &dto.Histogram{
+							SampleCountFloat: proto.Float64(-1.0),
+							SampleSum:        proto.Float64(0.0),
+						},
+					},
+				},
+			},
+			expectedErr: "gaugehistogram count cannot be negative",
 		},
 		{
 			name: "MetricHasLeLabel_ClassicHistogram",
@@ -2405,7 +2435,7 @@ func TestCreateOpenMetrics20_SummaryError_NoPartialBytes(t *testing.T) {
 			metric: &dto.Metric{
 				Summary: &dto.Summary{
 					SampleCount: proto.Uint64(1),
-					SampleSum:   proto.Float64(-1.0),
+					SampleSum:   proto.Float64(math.NaN()),
 				},
 			},
 		},
