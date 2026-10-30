@@ -57,8 +57,9 @@ var (
 		http2Enabled:      true,
 		// 5 minutes is typically above the maximum sane scrape interval. So we can
 		// use keepalive for all configurations.
-		idleConnTimeout:  5 * time.Minute,
-		newTLSConfigFunc: NewTLSConfigWithContext,
+		idleConnTimeout:     5 * time.Minute,
+		tlsHandshakeTimeout: 10 * time.Second,
+		newTLSConfigFunc:    NewTLSConfigWithContext,
 	}
 )
 
@@ -495,14 +496,15 @@ type DialContextFunc func(context.Context, string, string) (net.Conn, error)
 type NewTLSConfigFunc func(context.Context, *TLSConfig, ...TLSConfigOption) (*tls.Config, error)
 
 type httpClientOptions struct {
-	dialContextFunc   DialContextFunc
-	newTLSConfigFunc  NewTLSConfigFunc
-	keepAlivesEnabled bool
-	http2Enabled      bool
-	idleConnTimeout   time.Duration
-	userAgent         string
-	host              string
-	secretManager     SecretManager
+	dialContextFunc     DialContextFunc
+	newTLSConfigFunc    NewTLSConfigFunc
+	keepAlivesEnabled   bool
+	http2Enabled        bool
+	idleConnTimeout     time.Duration
+	tlsHandshakeTimeout time.Duration
+	userAgent           string
+	host                string
+	secretManager       SecretManager
 }
 
 // HTTPClientOption defines an option that can be applied to the HTTP client.
@@ -551,6 +553,15 @@ func WithHTTP2Disabled() HTTPClientOption {
 func WithIdleConnTimeout(timeout time.Duration) HTTPClientOption {
 	return httpClientOptionFunc(func(opts *httpClientOptions) {
 		opts.idleConnTimeout = timeout
+	})
+}
+
+// WithTLSHandshakeTimeout allows setting the maximum amount of time to wait
+// for a TLS handshake. Zero means no timeout; the handshake is then only
+// bounded by the request context. The default is 10 seconds.
+func WithTLSHandshakeTimeout(timeout time.Duration) HTTPClientOption {
+	return httpClientOptionFunc(func(opts *httpClientOptions) {
+		opts.tlsHandshakeTimeout = timeout
 	})
 }
 
@@ -658,7 +669,7 @@ func NewRoundTripperFromConfigWithContext(ctx context.Context, cfg HTTPClientCon
 			TLSClientConfig:       tlsConfig,
 			DisableCompression:    true,
 			IdleConnTimeout:       opts.idleConnTimeout,
-			TLSHandshakeTimeout:   10 * time.Second,
+			TLSHandshakeTimeout:   opts.tlsHandshakeTimeout,
 			ExpectContinueTimeout: 1 * time.Second,
 			DialContext:           dialContext,
 		}
@@ -993,7 +1004,7 @@ func (rt *oauth2RoundTripper) newOauth2TokenSource(req *http.Request, clientCred
 			MaxIdleConns:          20,
 			MaxIdleConnsPerHost:   1, // see https://github.com/golang/go/issues/13801
 			IdleConnTimeout:       10 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
+			TLSHandshakeTimeout:   rt.opts.tlsHandshakeTimeout,
 			ExpectContinueTimeout: 1 * time.Second,
 			DialContext:           rt.opts.dialContextFunc,
 		}, nil

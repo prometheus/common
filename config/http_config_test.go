@@ -662,6 +662,26 @@ func TestCustomIdleConnTimeout(t *testing.T) {
 	require.Equalf(t, transport.IdleConnTimeout, timeout, "Unexpected idle connection timeout: %+v", timeout)
 }
 
+func TestCustomTLSHandshakeTimeout(t *testing.T) {
+	cfg := HTTPClientConfig{}
+
+	// The default is 10 seconds.
+	rt, err := NewRoundTripperFromConfig(cfg, "test")
+	require.NoErrorf(t, err, "Can't create a round-tripper from this config: %+v", cfg)
+
+	transport, ok := rt.(*http.Transport)
+	require.Truef(t, ok, "Unexpected transport: %+v", transport)
+	require.Equalf(t, 10*time.Second, transport.TLSHandshakeTimeout, "Unexpected default TLS handshake timeout: %+v", transport.TLSHandshakeTimeout)
+
+	timeout := time.Second * 42
+	rt, err = NewRoundTripperFromConfig(cfg, "test", WithTLSHandshakeTimeout(timeout))
+	require.NoErrorf(t, err, "Can't create a round-tripper from this config: %+v", cfg)
+
+	transport, ok = rt.(*http.Transport)
+	require.Truef(t, ok, "Unexpected transport: %+v", transport)
+	require.Equalf(t, timeout, transport.TLSHandshakeTimeout, "Unexpected TLS handshake timeout: %+v", transport.TLSHandshakeTimeout)
+}
+
 func TestMissingBearerAuthFile(t *testing.T) {
 	cfg := HTTPClientConfig{
 		BearerTokenFile: MissingBearerTokenFile,
