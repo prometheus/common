@@ -157,6 +157,20 @@ func TestEqualSamples(t *testing.T) {
 	}
 }
 
+func TestEqualSamplesDifferentValueTypes(t *testing.T) {
+	floatSample := &Sample{Value: 0}
+	histogramSample := &Sample{Histogram: genSampleHistogram()}
+
+	t.Run("float receiver", func(t *testing.T) {
+		require.False(t, floatSample.Equal(histogramSample))
+	})
+	t.Run("histogram receiver", func(t *testing.T) {
+		require.NotPanics(t, func() {
+			require.False(t, histogramSample.Equal(floatSample))
+		})
+	})
+}
+
 func TestScalarJSON(t *testing.T) {
 	input := []struct {
 		plain string
