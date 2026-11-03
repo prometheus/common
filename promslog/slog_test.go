@@ -255,6 +255,46 @@ func TestReservedKeys(t *testing.T) {
 	}
 }
 
+func TestReservedKeysInGroup(t *testing.T) {
+	var buf bytes.Buffer
+	val := "grouped"
+
+	tests := map[string]struct {
+		logStyle       LogStyle
+		logStyleRegexp *regexp.Regexp
+		levelKey       string
+		sourceKey      string
+		timeKey        string
+	}{
+		"slog_log_style":   {logStyle: SlogStyle, logStyleRegexp: slogStyleLogRegexp, levelKey: "level", sourceKey: "source", timeKey: "time"},
+		"go-kit_log_style": {logStyle: GoKitStyle, logStyleRegexp: goKitStyleLogRegexp, levelKey: "level", sourceKey: "caller", timeKey: "ts"},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			buf.Reset()
+			logger := New(&Config{Writer: &buf, Style: tc.logStyle})
+
+			logger.Info("group test",
+				slog.Group("req",
+					slog.String(tc.levelKey, val),
+					slog.String(tc.sourceKey, val),
+					slog.String(tc.timeKey, val),
+				),
+			)
+			logger.WithGroup("sub").Info("with group test", slog.String(tc.levelKey, val))
+
+			output := buf.String()
+			require.Contains(t, output, fmt.Sprintf("req.%s=%s", tc.levelKey, val))
+			require.Contains(t, output, fmt.Sprintf("req.%s=%s", tc.sourceKey, val))
+			require.Contains(t, output, fmt.Sprintf("req.%s=%s", tc.timeKey, val))
+			require.Contains(t, output, fmt.Sprintf("sub.%s=%s", tc.levelKey, val))
+			require.NotContainsf(t, output, reservedKeyPrefix, "Grouped keys cannot collide with built-in keys and must not be renamed")
+			require.Equalf(t, 2, getLogEntryLevelCounts(output, tc.logStyleRegexp)["info"], "Built-in keys must still be written")
+		})
+	}
+}
+
 type expensiveValuer struct {
 	called *bool
 }
