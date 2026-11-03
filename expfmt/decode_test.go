@@ -23,7 +23,7 @@ import (
 	"net/http"
 	"os"
 	"reflect"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 
@@ -99,8 +99,8 @@ mf2 4
 		require.NoError(t, err)
 		all = append(all, smpls...)
 	}
-	sort.Sort(all)
-	sort.Sort(out)
+	slices.SortFunc(all, (*model.Sample).Compare)
+	slices.SortFunc(out, (*model.Sample).Compare)
 	require.Truef(t, reflect.DeepEqual(all, out), "output does not match")
 }
 
@@ -399,8 +399,8 @@ func TestProtoDecoder(t *testing.T) {
 			require.NoError(t, err)
 			all = append(all, smpls...)
 		}
-		sort.Sort(all)
-		sort.Sort(scenario.expected)
+		slices.SortFunc(all, (*model.Sample).Compare)
+		slices.SortFunc(scenario.expected, (*model.Sample).Compare)
 		require.Truef(t, reflect.DeepEqual(all, scenario.expected), "%d. output does not match, want: %#v, got %#v", i, scenario.expected, all)
 	}
 }

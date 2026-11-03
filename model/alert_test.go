@@ -15,7 +15,7 @@ package model
 
 import (
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -251,11 +251,11 @@ func TestSortAlerts(t *testing.T) {
 		},
 	}
 
-	sort.Sort(alerts)
+	slices.SortFunc(alerts, (*Alert).Compare)
 
 	expected := []string{
-		"DiskFull[5ffe595][resolved]",
 		"InternalError[09cfd46][resolved]",
+		"DiskFull[5ffe595][resolved]",
 		"OutOfMemory[d43a602][resolved]",
 		"DiskFull[5ff4595][resolved]",
 		"OutOfMemory[d444602][resolved]",

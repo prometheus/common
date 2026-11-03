@@ -14,8 +14,9 @@
 package model
 
 import (
+	"cmp"
 	"fmt"
-	"sort"
+	"slices"
 	"testing"
 )
 
@@ -35,7 +36,7 @@ func testLabelNames(t testing.TB) {
 	}
 
 	for i, scenario := range scenarios {
-		sort.Sort(scenario.in)
+		slices.SortFunc(scenario.in, cmp.Compare)
 
 		for j, expected := range scenario.out {
 			if expected != scenario.in[j] {
@@ -71,7 +72,7 @@ func testLabelValues(t testing.TB) {
 	}
 
 	for i, scenario := range scenarios {
-		sort.Sort(scenario.in)
+		slices.SortFunc(scenario.in, cmp.Compare)
 
 		for j, expected := range scenario.out {
 			if expected != scenario.in[j] {
@@ -211,7 +212,7 @@ func TestSortLabelPairs(t *testing.T) {
 		},
 	}
 
-	sort.Sort(labelPairs)
+	slices.SortFunc(labelPairs, (*LabelPair).Compare)
 
 	expectedLabelPairs := LabelPairs{
 		{
