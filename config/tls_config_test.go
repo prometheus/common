@@ -257,7 +257,7 @@ func TestTLSCipherSuiteMarshal(t *testing.T) {
 func TestTLSCipherSuitesReachRSAKeyExchangeServer(t *testing.T) {
 	// A server that only supports RSA key exchange, like many older appliances. Go removed
 	// these suites from its default client list, so they must be configured explicitly.
-	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
 	server.TLS = &tls.Config{
 		MaxVersion:   tls.VersionTLS12,
 		CipherSuites: []uint16{tls.TLS_RSA_WITH_AES_128_GCM_SHA256},
@@ -277,6 +277,6 @@ func TestTLSCipherSuitesReachRSAKeyExchangeServer(t *testing.T) {
 		return resp.Body.Close()
 	}
 
-	require.Error(t, get(TLSConfig{}), "the default cipher suites should not include RSA key exchange")
+	require.Errorf(t, get(TLSConfig{}), "the default cipher suites should not include RSA key exchange")
 	require.NoError(t, get(TLSConfig{CipherSuites: []TLSCipherSuite{TLSCipherSuite(tls.TLS_RSA_WITH_AES_128_GCM_SHA256)}}))
 }
