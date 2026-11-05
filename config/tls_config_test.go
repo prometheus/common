@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -97,6 +99,20 @@ var expectedTLSConfigs = []struct {
 		filename: "tls_config.max_and_min_version_same.good.yml",
 		config:   &tls.Config{MaxVersion: tls.VersionTLS12, MinVersion: tls.VersionTLS12},
 	},
+	{
+		filename: "tls_config.cipher_suites.good.yml",
+		config: &tls.Config{CipherSuites: []uint16{
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
+		}},
+	},
+	{
+		filename: "tls_config.cipher_suites.good.json",
+		config: &tls.Config{CipherSuites: []uint16{
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
+		}},
+	},
 }
 
 func TestValidTLSConfig(t *testing.T) {
@@ -116,6 +132,10 @@ var invalidTLSConfigs = []struct {
 	{
 		filename: "tls_config.max_and_min_version.bad.yml",
 		errMsg:   "tls_config.max_version must be greater than or equal to tls_config.min_version if both are specified",
+	},
+	{
+		filename: "tls_config.cipher_suites.bad.yml",
+		errMsg:   "unknown TLS cipher suite: TLS_NOT_A_CIPHER_SUITE",
 	},
 }
 
@@ -218,4 +238,45 @@ func TestTLSVersionMarshalJSON(t *testing.T) {
 			require.Equalf(t, test.expected, actual, "returned %s, expected %s", actual, test.expected)
 		})
 	}
+}
+
+func TestTLSCipherSuiteMarshal(t *testing.T) {
+	cs := TLSCipherSuite(tls.TLS_RSA_WITH_AES_128_GCM_SHA256)
+
+	y, err := yaml.Marshal(cs)
+	require.NoError(t, err)
+	require.Equal(t, "TLS_RSA_WITH_AES_128_GCM_SHA256\n", string(y))
+
+	j, err := json.Marshal(cs)
+	require.NoError(t, err)
+	require.JSONEq(t, `"TLS_RSA_WITH_AES_128_GCM_SHA256"`, string(j))
+
+	require.Equal(t, "TLS_RSA_WITH_AES_128_GCM_SHA256", cs.String())
+}
+
+func TestTLSCipherSuitesReachRSAKeyExchangeServer(t *testing.T) {
+	// A server that only supports RSA key exchange, like many older appliances. Go removed
+	// these suites from its default client list, so they must be configured explicitly.
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))
+	server.TLS = &tls.Config{
+		MaxVersion:   tls.VersionTLS12,
+		CipherSuites: []uint16{tls.TLS_RSA_WITH_AES_128_GCM_SHA256},
+	}
+	server.StartTLS()
+	defer server.Close()
+
+	get := func(cfg TLSConfig) error {
+		cfg.InsecureSkipVerify = true
+		tlsConfig, err := NewTLSConfig(&cfg)
+		require.NoError(t, err)
+		client := &http.Client{Transport: &http.Transport{TLSClientConfig: tlsConfig}}
+		resp, err := client.Get(server.URL)
+		if err != nil {
+			return err
+		}
+		return resp.Body.Close()
+	}
+
+	require.Error(t, get(TLSConfig{}), "the default cipher suites should not include RSA key exchange")
+	require.NoError(t, get(TLSConfig{CipherSuites: []TLSCipherSuite{TLSCipherSuite(tls.TLS_RSA_WITH_AES_128_GCM_SHA256)}}))
 }
