@@ -360,6 +360,7 @@ func TestDefaultAcceptedFormats(t *testing.T) {
 		FmtProtoText,
 		FmtProtoCompact,
 		FmtText,
+		FmtText_1_0_0,
 	}, DefaultAcceptedFormats())
 
 	require.Equal(t, []Format{
@@ -369,6 +370,7 @@ func TestDefaultAcceptedFormats(t *testing.T) {
 		FmtProtoText,
 		FmtProtoCompact,
 		FmtText,
+		FmtText_1_0_0,
 	}, DefaultOpenMetricsAcceptedFormats())
 
 	// Verify slices are cloned and mutating the returned slice doesn't alter subsequent calls.
@@ -833,6 +835,109 @@ func TestNewEncoder_OpenMetricsVersionDispatch(t *testing.T) {
 			output := buf.String()
 			require.Contains(t, output, tt.expectedLine)
 			require.True(t, strings.HasSuffix(output, "# EOF\n"))
+		})
+	}
+}
+
+func TestNegotiatePrometheusTextVersion(t *testing.T) {
+	const prometheusAccept = "application/openmetrics-text;version=1.0.0;escaping=allow-utf-8;q=0.6,application/openmetrics-text;version=0.0.1;q=0.5,text/plain;version=1.0.0;escaping=allow-utf-8;q=0.4,text/plain;version=0.0.4;q=0.3,*/*;q=0.2"
+	type testCase struct {
+		name     string
+		accept   string
+		accepted []Format
+		want     Format
+		sample   string
+	}
+	tests := []testCase{
+		{
+			name:     "Prometheus scrape preserves UTF-8 without OpenMetrics",
+			accept:   prometheusAccept,
+			accepted: DefaultAcceptedFormats(),
+			want:     FmtText_1_0_0.WithEscapingScheme(model.NoEscaping),
+			sample:   `{"my.metric","my.label"="v"} 1`,
+		},
+		{
+			name:     "explicit UTF-8 text 1.0.0 with OpenMetrics enabled",
+			accept:   "text/plain;version=1.0.0;escaping=allow-utf-8",
+			accepted: DefaultOpenMetricsAcceptedFormats(),
+			want:     FmtText_1_0_0.WithEscapingScheme(model.NoEscaping),
+			sample:   `{"my.metric","my.label"="v"} 1`,
+		},
+		{
+			name:     "text 1.0.0 honors explicit underscores",
+			accept:   "text/plain;version=1.0.0;escaping=underscores",
+			accepted: DefaultAcceptedFormats(),
+			want:     FmtText_1_0_0.WithEscapingScheme(model.UnderscoreEscaping),
+			sample:   `my_metric{my_label="v"} 1`,
+		},
+		{
+			name:     "text 1.0.0 without escaping uses the default",
+			accept:   "text/plain;version=1.0.0",
+			accepted: DefaultAcceptedFormats(),
+			want:     FmtText_1_0_0.WithEscapingScheme(model.UnderscoreEscaping),
+			sample:   `my_metric{my_label="v"} 1`,
+		},
+		{
+			name:     "higher quality legacy text wins without inheriting escaping",
+			accept:   "text/plain;version=1.0.0;escaping=allow-utf-8;q=0.4,text/plain;version=0.0.4;q=0.8",
+			accepted: DefaultAcceptedFormats(),
+			want:     FmtText.WithEscapingScheme(model.UnderscoreEscaping),
+			sample:   `my_metric{my_label="v"} 1`,
+		},
+		{
+			name:     "caller can restrict support to legacy text",
+			accept:   prometheusAccept,
+			accepted: []Format{FmtText},
+			want:     FmtText.WithEscapingScheme(model.UnderscoreEscaping),
+			sample:   `my_metric{my_label="v"} 1`,
+		},
+	}
+	for _, accept := range []string{"", "text/plain", "*/*", "application/json", "text/plain;version=9.9.9"} {
+		tests = append(tests, testCase{
+			name:     "legacy fallback for " + accept,
+			accept:   accept,
+			accepted: DefaultAcceptedFormats(),
+			want:     FmtText.WithEscapingScheme(model.UnderscoreEscaping),
+			sample:   `my_metric{my_label="v"} 1`,
+		})
+	}
+
+	mf := &dto.MetricFamily{
+		Name: proto.String("my.metric"),
+		Type: dto.MetricType_GAUGE.Enum(),
+		Metric: []*dto.Metric{{
+			Label: []*dto.LabelPair{{Name: proto.String("my.label"), Value: proto.String("v")}},
+			Gauge: &dto.Gauge{Value: proto.Float64(1)},
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := http.Header{}
+			h.Set(hdrAccept, tt.accept)
+			format := NegotiateAccept(h, tt.accepted...)
+			require.Equal(t, tt.want, format)
+			var buf bytes.Buffer
+			enc := NewEncoder(&buf, format)
+			require.NoError(t, enc.Encode(mf))
+			require.NoError(t, enc.(Closer).Close())
+			require.Contains(t, buf.String(), "\n"+tt.sample+"\n")
+			require.NotContains(t, buf.String(), "# EOF")
+
+			h.Set(hdrContentType, string(format))
+			responseFormat := ResponseFormat(h)
+			require.Equal(t, format.FormatType(), responseFormat.FormatType())
+			require.Equal(t, format.Version(), responseFormat.Version())
+			var decoded dto.MetricFamily
+			require.NoError(t, NewDecoder(&buf, responseFormat).Decode(&decoded))
+			if format.ToEscapingScheme() == model.NoEscaping {
+				require.Equal(t, "my.metric", decoded.GetName())
+				require.Equal(t, "my.label", decoded.Metric[0].Label[0].GetName())
+			} else {
+				require.Equal(t, "my_metric", decoded.GetName())
+				require.Equal(t, "my_label", decoded.Metric[0].Label[0].GetName())
+			}
+			require.Equal(t, "v", decoded.Metric[0].Label[0].GetValue())
+			require.Equal(t, float64(1), decoded.Metric[0].Gauge.GetValue())
 		})
 	}
 }
