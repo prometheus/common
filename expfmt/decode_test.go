@@ -448,6 +448,26 @@ func testDiscriminatorHTTPHeader(t testing.TB) {
 			output: FmtText,
 		},
 		{
+			input:  map[string]string{"Content-Type": `text/plain; version=1.0.0`},
+			output: FmtText_1_0_0,
+		},
+		{
+			input:  map[string]string{"Content-Type": `text/plain; version=1.0.0; escaping=allow-utf-8`},
+			output: FmtText_1_0_0.WithEscapingScheme(model.NoEscaping),
+		},
+		{
+			input:  map[string]string{"Content-Type": `text/plain; version=1.0.0; escaping=underscores`},
+			output: FmtText_1_0_0.WithEscapingScheme(model.UnderscoreEscaping),
+		},
+		{
+			input:  map[string]string{"Content-Type": `text/plain; version=1.0.0; escaping=dots`},
+			output: FmtText_1_0_0.WithEscapingScheme(model.DotsEscaping),
+		},
+		{
+			input:  map[string]string{"Content-Type": `text/plain; version=1.0.0; escaping=values`},
+			output: FmtText_1_0_0.WithEscapingScheme(model.ValueEncodingEscaping),
+		},
+		{
 			input:  map[string]string{"Content-Type": `text/plain`},
 			output: FmtText,
 		},

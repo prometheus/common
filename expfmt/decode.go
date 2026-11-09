@@ -62,7 +62,10 @@ func ResponseFormat(h http.Header) Format {
 
 	case textType:
 		if params["version"] == TextVersion_1_0_0 {
-			return FmtText_1_0_0.WithEscapingScheme(Format(ct).ToEscapingScheme())
+			if _, ok := params[model.EscapingKey]; ok {
+				return FmtText_1_0_0.WithEscapingScheme(Format(ct).ToEscapingScheme())
+			}
+			return FmtText_1_0_0
 		}
 		if v, ok := params["version"]; ok && v != TextVersion {
 			return FmtUnknown
