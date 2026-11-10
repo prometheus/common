@@ -17,6 +17,7 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"net/http"
@@ -454,6 +455,30 @@ func testDiscriminatorHTTPHeader(t testing.TB) {
 			input:  map[string]string{"Content-Type": `text/plain; version=0.0.3`},
 			output: FmtUnknown,
 		},
+		{
+			input:  map[string]string{"Content-Type": `application/openmetrics-text`},
+			output: FmtOpenMetrics_0_0_1,
+		},
+		{
+			input:  map[string]string{"Content-Type": `application/openmetrics-text; version=0.0.1`},
+			output: FmtOpenMetrics_0_0_1,
+		},
+		{
+			input:  map[string]string{"Content-Type": `application/openmetrics-text; version=1.0.0`},
+			output: FmtOpenMetrics_1_0_0,
+		},
+		{
+			input:  map[string]string{"Content-Type": `application/openmetrics-text; version=2.0.0-rc`},
+			output: FmtOpenMetrics_2_0_0_rc,
+		},
+		{
+			input:  map[string]string{"Content-Type": `application/openmetrics-text; version=2.0.0`},
+			output: FmtOpenMetrics_2_0_0,
+		},
+		{
+			input:  map[string]string{"Content-Type": `application/openmetrics-text; version=0.0.2`},
+			output: FmtUnknown,
+		},
 	}
 
 	for i, scenario := range scenarios {
@@ -576,4 +601,219 @@ func TestTextDecoderWithBufioReader(t *testing.T) {
 		decoded = true
 	}
 	require.Truef(t, decoded, "Metric foo not decoded")
+}
+
+func TestNewDecoder(t *testing.T) {
+	om20RCFormat, err := NewOpenMetricsFormat(OpenMetricsVersion_2_0_0_rc)
+	require.NoError(t, err)
+	om20Format, err := NewOpenMetricsFormat(OpenMetricsVersion_2_0_0)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name        string
+		format      Format
+		input       string
+		expectError bool
+	}{
+		{
+			name:        "Text format",
+			format:      FmtText,
+			expectError: false,
+		},
+		{
+			name:        "ProtoDelim format",
+			format:      FmtProtoDelim,
+			expectError: false,
+		},
+		{
+			name:        "ProtoText format",
+			format:      FmtProtoText,
+			expectError: true,
+		},
+		{
+			name:        "ProtoCompact format",
+			format:      FmtProtoCompact,
+			expectError: true,
+		},
+		{
+			name:        "OpenMetrics 0.0.1",
+			format:      FmtOpenMetrics_0_0_1,
+			input:       "# EOF\n",
+			expectError: false,
+		},
+		{
+			name:        "OpenMetrics 1.0.0",
+			format:      FmtOpenMetrics_1_0_0,
+			input:       "# EOF\n",
+			expectError: false,
+		},
+		{
+			name:        "OpenMetrics 2.0.0-rc",
+			format:      om20RCFormat,
+			input:       "# EOF\n",
+			expectError: false,
+		},
+		{
+			name:        "OpenMetrics 2.0.0-rc with escaping",
+			format:      om20RCFormat.WithEscapingScheme(model.ValueEncodingEscaping),
+			input:       "# EOF\n",
+			expectError: false,
+		},
+		{
+			name:        "OpenMetrics 2.0.0",
+			format:      om20Format,
+			input:       "# EOF\n",
+			expectError: false,
+		},
+		{
+			name:        "OpenMetrics 2.0.0 with escaping",
+			format:      om20Format.WithEscapingScheme(model.ValueEncodingEscaping),
+			input:       "# EOF\n",
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dec := NewDecoder(strings.NewReader(tt.input), tt.format)
+			var mf dto.MetricFamily
+			err := dec.Decode(&mf)
+			if tt.expectError {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), fmt.Sprintf("format %s not supported for decoding", tt.format))
+			} else if err != nil {
+				require.ErrorIs(t, err, io.EOF)
+			}
+		})
+	}
+}
+
+func TestOpenMetricsDecoder(t *testing.T) {
+	var (
+		ts = model.Now()
+		in = `# TYPE mf2 counter
+mf2_total 3
+mf2_total 4
+mf1{label="value1"} -3.14 123.456
+mf1{label="value2"} 42
+# EOF
+`
+		out = model.Vector{
+			&model.Sample{
+				Metric: model.Metric{
+					model.MetricNameLabel: "mf1",
+					"label":               "value1",
+				},
+				Value:     -3.14,
+				Timestamp: 123456,
+			},
+			&model.Sample{
+				Metric: model.Metric{
+					model.MetricNameLabel: "mf1",
+					"label":               "value2",
+				},
+				Value:     42,
+				Timestamp: ts,
+			},
+			&model.Sample{
+				Metric: model.Metric{
+					model.MetricNameLabel: "mf2_total",
+				},
+				Value:     3,
+				Timestamp: ts,
+			},
+			&model.Sample{
+				Metric: model.Metric{
+					model.MetricNameLabel: "mf2_total",
+				},
+				Value:     4,
+				Timestamp: ts,
+			},
+		}
+	)
+
+	dec := &SampleDecoder{
+		Dec: NewDecoder(strings.NewReader(in), FmtOpenMetrics_1_0_0),
+		Opts: &DecodeOptions{
+			Timestamp: ts,
+		},
+	}
+	var all model.Vector
+	for {
+		var smpls model.Vector
+		err := dec.Decode(&smpls)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		require.NoError(t, err)
+		all = append(all, smpls...)
+	}
+	sort.Sort(all)
+	sort.Sort(out)
+	require.Equal(t, out, all)
+}
+
+func TestOpenMetrics20Decoder(t *testing.T) {
+	var (
+		ts = model.Now()
+		in = `# TYPE mf2_total counter
+mf2_total 3
+mf2_total 4
+mf1{label="value1"} -3.14 123.456
+mf1{label="value2"} 42
+# EOF
+`
+		out = model.Vector{
+			&model.Sample{
+				Metric: model.Metric{
+					model.MetricNameLabel: "mf1",
+					"label":               "value1",
+				},
+				Value:     -3.14,
+				Timestamp: 123456,
+			},
+			&model.Sample{
+				Metric: model.Metric{
+					model.MetricNameLabel: "mf1",
+					"label":               "value2",
+				},
+				Value:     42,
+				Timestamp: ts,
+			},
+			&model.Sample{
+				Metric: model.Metric{
+					model.MetricNameLabel: "mf2_total",
+				},
+				Value:     3,
+				Timestamp: ts,
+			},
+			&model.Sample{
+				Metric: model.Metric{
+					model.MetricNameLabel: "mf2_total",
+				},
+				Value:     4,
+				Timestamp: ts,
+			},
+		}
+	)
+
+	dec := &SampleDecoder{
+		Dec: NewDecoder(strings.NewReader(in), FmtOpenMetrics_2_0_0),
+		Opts: &DecodeOptions{
+			Timestamp: ts,
+		},
+	}
+	var all model.Vector
+	for {
+		var smpls model.Vector
+		err := dec.Decode(&smpls)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		require.NoError(t, err)
+		all = append(all, smpls...)
+	}
+	sort.Sort(all)
+	sort.Sort(out)
+	require.Equal(t, out, all)
 }

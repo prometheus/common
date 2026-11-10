@@ -5,7 +5,7 @@
 While `prometheus/common` does not have a formal release process. We strongly encourage you follow these steps:
 
 1. Scan the list of available issues / PRs and make sure that You attempt to merge any pull requests that appear to be ready or almost ready
-2. Notify the maintainers listed as part of [`MANTAINERS.md`](MAINTAINERS.md) that you're going to do a release.
+2. Notify the maintainers listed as part of [`MAINTAINERS.md`](MAINTAINERS.md) that you're going to do a release.
 
 With those steps done, you can proceed to cut a release.
 
