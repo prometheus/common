@@ -123,6 +123,7 @@ func (rt *headersRoundTripper) RoundTrip(req *http.Request) (*http.Response, err
 		for _, v := range h.Files {
 			b, err := os.ReadFile(v)
 			if err != nil {
+				closeRequestBody(req)
 				return nil, fmt.Errorf("unable to read headers file %s: %w", v, err)
 			}
 			req.Header.Add(n, strings.TrimSpace(string(b)))
