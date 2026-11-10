@@ -2345,6 +2345,10 @@ http_headers:
 			"enable_http2":false,
 			"http_headers":{"X-Test":{"values":["Value-1","Value-2"]}}
 		}`, string(actualJSON))
+
+		actual := &HTTPClientConfig{}
+		require.NoError(t, json.Unmarshal(actualJSON, actual))
+		require.Equal(t, config, actual)
 	})
 }
 
@@ -2688,13 +2692,25 @@ func TestHeaders(t *testing.T) {
 	}))
 	t.Cleanup(ts.Close)
 
-	cfg, _, err := LoadHTTPConfigFile("testdata/http.conf.headers.good.yaml")
-	require.NoErrorf(t, err, "Error loading HTTP client config: %v", err)
-	client, err := NewClientFromConfig(*cfg, "test")
-	require.NoErrorf(t, err, "Error creating HTTP Client: %v", err)
+	for _, tc := range []struct {
+		name   string
+		loader func(string) (*HTTPClientConfig, []byte, error)
+	}{
+		{name: "yaml", loader: LoadHTTPConfigFile},
+		{name: "json", loader: loadHTTPConfigJSONFile},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, _, err := tc.loader("testdata/http.conf.headers.good." + tc.name)
+			require.NoError(t, err)
+			client, err := NewClientFromConfig(*cfg, "test")
+			require.NoError(t, err)
+			t.Cleanup(client.CloseIdleConnections)
 
-	_, err = client.Get(ts.URL)
-	require.NoErrorf(t, err, "can't fetch URL: %v", err)
+			resp, err := client.Get(ts.URL)
+			require.NoError(t, err)
+			resp.Body.Close()
+		})
+	}
 }
 
 func TestMultipleHeaders(t *testing.T) {
