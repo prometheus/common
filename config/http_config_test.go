@@ -1797,6 +1797,72 @@ type oauth2TestServerResponse struct {
 	TokenType   string `json:"token_type"`
 }
 
+type rotatingSecretManager struct {
+	version atomic.Uint64
+}
+
+func (m *rotatingSecretManager) Fetch(context.Context, string) (string, error) {
+	return strconv.FormatUint(m.version.Add(1), 10), nil
+}
+
+func TestOAuth2ConcurrentRequestsAndCloseIdleConnections(t *testing.T) {
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"access_token":"token","token_type":"Bearer"}`)
+	}))
+	t.Cleanup(tokenServer.Close)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer token" {
+			t.Error("missing OAuth2 token")
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(server.Close)
+	client, err := NewClientFromConfig(HTTPClientConfig{
+		OAuth2: &OAuth2{
+			ClientID:        "client",
+			ClientSecretRef: "rotating-secret",
+			TokenURL:        tokenServer.URL,
+		},
+	}, "test", WithSecretManager(&rotatingSecretManager{}))
+	require.NoError(t, err)
+	t.Cleanup(client.CloseIdleConnections)
+
+	start := make(chan struct{})
+	stopClosing := make(chan struct{})
+	closed := make(chan struct{})
+	go func() {
+		defer close(closed)
+		<-start
+		for {
+			select {
+			case <-stopClosing:
+				return
+			default:
+				client.CloseIdleConnections()
+			}
+		}
+	}()
+	var requests sync.WaitGroup
+	for range 4 {
+		requests.Go(func() {
+			<-start
+			for range 25 {
+				resp, err := client.Get(server.URL)
+				if err != nil {
+					t.Error(err)
+					return
+				}
+				resp.Body.Close()
+			}
+		})
+	}
+	close(start)
+	requests.Wait()
+	close(stopClosing)
+	<-closed
+}
+
 type testOAuthServer struct {
 	tokenTS *httptest.Server
 	ts      *httptest.Server
