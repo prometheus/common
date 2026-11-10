@@ -325,7 +325,7 @@ func extractCounter(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 		}
 
 		if m.TimestampMs != nil {
-			smpl.Timestamp = model.TimeFromUnixNano(*m.TimestampMs * 1000000)
+			smpl.Timestamp = model.Time(*m.TimestampMs)
 		} else {
 			smpl.Timestamp = o.Timestamp
 		}
@@ -356,7 +356,7 @@ func extractGauge(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 		}
 
 		if m.TimestampMs != nil {
-			smpl.Timestamp = model.TimeFromUnixNano(*m.TimestampMs * 1000000)
+			smpl.Timestamp = model.Time(*m.TimestampMs)
 		} else {
 			smpl.Timestamp = o.Timestamp
 		}
@@ -387,7 +387,7 @@ func extractUntyped(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 		}
 
 		if m.TimestampMs != nil {
-			smpl.Timestamp = model.TimeFromUnixNano(*m.TimestampMs * 1000000)
+			smpl.Timestamp = model.Time(*m.TimestampMs)
 		} else {
 			smpl.Timestamp = o.Timestamp
 		}
@@ -408,7 +408,7 @@ func extractSummary(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 
 		timestamp := o.Timestamp
 		if m.TimestampMs != nil {
-			timestamp = model.TimeFromUnixNano(*m.TimestampMs * 1000000)
+			timestamp = model.Time(*m.TimestampMs)
 		}
 
 		for _, q := range m.Summary.Quantile {
@@ -465,7 +465,7 @@ func extractHistogram(o *DecodeOptions, f *dto.MetricFamily) model.Vector {
 
 		timestamp := o.Timestamp
 		if m.TimestampMs != nil {
-			timestamp = model.TimeFromUnixNano(*m.TimestampMs * 1000000)
+			timestamp = model.Time(*m.TimestampMs)
 		}
 
 		infSeen := false
