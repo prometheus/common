@@ -52,6 +52,14 @@ func TestToFormatType(t *testing.T) {
 			expected: TypeOpenMetrics,
 		},
 		{
+			format:   FmtText_1_0_0,
+			expected: TypeTextPlain,
+		},
+		{
+			format:   FmtText_1_0_0.WithEscapingScheme(model.NoEscaping),
+			expected: TypeTextPlain,
+		},
+		{
 			format:   FmtText,
 			expected: TypeTextPlain,
 		},
