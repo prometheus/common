@@ -4,6 +4,46 @@
 
 ### What's Changed
 
+## v0.74.0 / 2026-11-11
+
+### What's Changed
+* expfmt: add ABNF parser for OpenMetrics 2.0 by @bwplotka in https://github.com/prometheus/common/pull/1016
+* build(deps): bump ossf/scorecard-action from 2.4.4 to 2.5.0 by @dependabot[bot] in https://github.com/prometheus/common/pull/1032
+* build(deps): bump actions/upload-artifact from 7.0.1 to 7.0.2 by @dependabot[bot] in https://github.com/prometheus/common/pull/1033
+* build(deps): bump golang.org/x/net from 0.61.0 to 0.62.0 in the golang-org-x group across 1 directory by @dependabot[bot] in https://github.com/prometheus/common/pull/1030
+* expfmt: bump go-abnf to v0.5.5 by @PerryLink in https://github.com/prometheus/common/pull/1029
+* config: move Secret into its own package by @mrueg in https://github.com/prometheus/common/pull/1024
+* build(deps): bump the codeql group with 4 updates by @dependabot[bot] in https://github.com/prometheus/common/pull/1031
+* version: fix Slog godoc example to compile by @sueun-dev in https://github.com/prometheus/common/pull/935
+* build(deps): bump go.yaml.in/yaml/v2 from 2.4.4 to 2.4.5 by @dependabot[bot] in https://github.com/prometheus/common/pull/1043
+* build(deps): bump golang.org/x/oauth2 from 0.37.0 to 0.38.0 in the golang-org-x group across 1 directory by @dependabot[bot] in https://github.com/prometheus/common/pull/1042
+* expfmt: support Prometheus text format 1.0.0 by @ArthurSens in https://github.com/prometheus/common/pull/1035
+
+### New Contributors
+* @PerryLink made their first contribution in https://github.com/prometheus/common/pull/1029
+* @sueun-dev made their first contribution in https://github.com/prometheus/common/pull/935
+
+**Full Changelog**: https://github.com/prometheus/common/compare/v0.73.1...v0.74.0
+
+## v0.73.1 / 2026-10-30
+
+### What's Changed
+* build(deps): bump github.com/pandatix/go-abnf from 0.5.1 to 0.5.3 by @bwplotka in https://github.com/prometheus/common/pull/1027
+
+**Full Changelog**: https://github.com/prometheus/common/compare/v0.73.0...v0.73.1
+
+## v0.73.0 / 2026-10-28
+
+### What's Changed
+* expfmt: default to allow-utf-8 escaping for OpenMetrics 2.0 by @KR-Ravindra in https://github.com/prometheus/common/pull/1008
+* expfmt: add FmtOpenMetrics_2_0_0_rc format constant by @bwplotka in https://github.com/prometheus/common/pull/1020
+* expfmt: add ABNF-based OpenMetrics 1.0 parser by @bwplotka in https://github.com/prometheus/common/pull/1015
+
+### New Contributors
+* @KR-Ravindra made their first contribution in https://github.com/prometheus/common/pull/1008
+
+**Full Changelog**: https://github.com/prometheus/common/compare/v0.72.1...v0.73.0
+
 ## v0.72.1 / 2026-10-10
 
 ### Bugfixes
