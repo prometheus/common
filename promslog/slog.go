@@ -147,8 +147,13 @@ type Config struct {
 }
 
 func newGoKitStyleReplaceAttrFunc(lvl *Level) func(groups []string, a slog.Attr) slog.Attr {
-	return func(_ []string, a slog.Attr) slog.Attr {
+	return func(groups []string, a slog.Attr) slog.Attr {
 		key := a.Key
+		if len(groups) > 0 {
+			// Attributes inside a group cannot collide with the
+			// built-in top-level keys, so leave them untouched.
+			key = ""
+		}
 		switch key {
 		case slog.TimeKey, "ts":
 			if t, ok := a.Value.Any().(time.Time); ok {
@@ -208,8 +213,13 @@ func newGoKitStyleReplaceAttrFunc(lvl *Level) func(groups []string, a slog.Attr)
 	}
 }
 
-func defaultReplaceAttr(_ []string, a slog.Attr) slog.Attr {
+func defaultReplaceAttr(groups []string, a slog.Attr) slog.Attr {
 	key := a.Key
+	if len(groups) > 0 {
+		// Attributes inside a group cannot collide with the built-in
+		// top-level keys, so leave them untouched.
+		key = ""
+	}
 	switch key {
 	case slog.TimeKey:
 		// Note that we do not change the timezone to UTC anymore.
