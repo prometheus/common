@@ -436,6 +436,18 @@ func testDiscriminatorHTTPHeader(t testing.TB) {
 			output: FmtProtoDelim,
 		},
 		{
+			input:  map[string]string{"Content-Type": `application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited; escaping=allow-utf-8`},
+			output: FmtProtoDelim.WithEscapingScheme(model.NoEscaping),
+		},
+		{
+			input:  map[string]string{"Content-Type": `application/vnd.google.protobuf; proto="io.prometheus.client.MetricFamily"; encoding="delimited"; escaping="underscores"`},
+			output: FmtProtoDelim.WithEscapingScheme(model.UnderscoreEscaping),
+		},
+		{
+			input:  map[string]string{"Content-Type": `application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited; escaping=illegal`},
+			output: FmtProtoDelim.WithEscapingScheme(model.NameEscapingScheme),
+		},
+		{
 			input:  map[string]string{"Content-Type": `application/vnd.google.protobuf; proto="illegal"; encoding="delimited"`},
 			output: FmtUnknown,
 		},
@@ -468,6 +480,10 @@ func testDiscriminatorHTTPHeader(t testing.TB) {
 			output: FmtText_1_0_0.WithEscapingScheme(model.ValueEncodingEscaping),
 		},
 		{
+			input:  map[string]string{"Content-Type": `text/plain; version=1.0.0; escaping="allow-utf-8"`},
+			output: FmtText_1_0_0.WithEscapingScheme(model.NoEscaping),
+		},
+		{
 			input:  map[string]string{"Content-Type": `text/plain`},
 			output: FmtText,
 		},
@@ -488,12 +504,20 @@ func testDiscriminatorHTTPHeader(t testing.TB) {
 			output: FmtOpenMetrics_1_0_0,
 		},
 		{
+			input:  map[string]string{"Content-Type": `application/openmetrics-text; version=1.0.0; charset=utf-8; escaping=allow-utf-8`},
+			output: FmtOpenMetrics_1_0_0.WithEscapingScheme(model.NoEscaping),
+		},
+		{
 			input:  map[string]string{"Content-Type": `application/openmetrics-text; version=2.0.0-rc`},
 			output: FmtOpenMetrics_2_0_0_rc,
 		},
 		{
 			input:  map[string]string{"Content-Type": `application/openmetrics-text; version=2.0.0`},
 			output: FmtOpenMetrics_2_0_0,
+		},
+		{
+			input:  map[string]string{"Content-Type": `application/openmetrics-text; version=2.0.0; escaping=underscores`},
+			output: FmtOpenMetrics_2_0_0.WithEscapingScheme(model.UnderscoreEscaping),
 		},
 		{
 			input:  map[string]string{"Content-Type": `application/openmetrics-text; version=0.0.2`},
@@ -527,6 +551,36 @@ func TestDiscriminatorHTTPHeader(t *testing.T) {
 func BenchmarkDiscriminatorHTTPHeader(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		testDiscriminatorHTTPHeader(b)
+	}
+}
+
+func TestNewDecoderWithResponseFormatAcceptsUTF8Names(t *testing.T) {
+	mf := &dto.MetricFamily{
+		Name: proto.String("http.server.request.duration"),
+		Type: dto.MetricType_GAUGE.Enum(),
+		Metric: []*dto.Metric{
+			{Gauge: &dto.Gauge{Value: proto.Float64(1)}},
+		},
+	}
+	for _, format := range []Format{
+		FmtProtoDelim.WithEscapingScheme(model.NoEscaping),
+		FmtText_1_0_0.WithEscapingScheme(model.NoEscaping),
+		FmtOpenMetrics_1_0_0.WithEscapingScheme(model.NoEscaping),
+	} {
+		t.Run(string(format), func(t *testing.T) {
+			var buf bytes.Buffer
+			enc := NewEncoder(&buf, format)
+			require.NoError(t, enc.Encode(mf))
+			if closer, ok := enc.(Closer); ok {
+				require.NoError(t, closer.Close())
+			}
+
+			header := http.Header{}
+			header.Set("Content-Type", string(format))
+			var got dto.MetricFamily
+			require.NoError(t, NewDecoder(&buf, ResponseFormat(header)).Decode(&got))
+			require.Equal(t, mf.GetName(), got.GetName())
+		})
 	}
 }
 
