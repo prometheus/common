@@ -399,7 +399,7 @@ func writeNameAndLabelPairs(
 		if err != nil {
 			return written, err
 		}
-		n, err := writeName(w, lp.GetName())
+		n, err := writeLabelName(w, lp.GetName())
 		written += n
 		if err != nil {
 			return written, err
@@ -507,12 +507,27 @@ func writeInt(w enhancedWriter, i int64) (int, error) {
 	return written, err
 }
 
-// writeName writes a string as-is if it complies with the legacy naming
-// scheme, or escapes it in double quotes if not.
+// writeName writes a metric name as-is if it complies with the legacy metric
+// naming scheme, or escapes it in double quotes if not.
 func writeName(w enhancedWriter, name string) (int, error) {
 	if model.LegacyValidation.IsValidMetricName(name) {
 		return w.WriteString(name)
 	}
+	return writeQuotedName(w, name)
+}
+
+// writeLabelName writes a label name as-is if it complies with the legacy
+// label naming scheme, or escapes it in double quotes if not. Unlike metric
+// names, legacy label names must not contain colons.
+func writeLabelName(w enhancedWriter, name string) (int, error) {
+	if model.LegacyValidation.IsValidLabelName(name) {
+		return w.WriteString(name)
+	}
+	return writeQuotedName(w, name)
+}
+
+// writeQuotedName writes a name escaped in double quotes.
+func writeQuotedName(w enhancedWriter, name string) (int, error) {
 	var written int
 	var err error
 	err = w.WriteByte('"')
