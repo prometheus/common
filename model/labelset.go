@@ -14,10 +14,11 @@
 package model
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"maps"
-	"sort"
+	"slices"
 )
 
 // A LabelSet is a collection of LabelName and LabelValue pairs.  The LabelSet
@@ -85,7 +86,7 @@ func (ls LabelSet) Before(o LabelSet) bool {
 		lns = append(lns, ln)
 	}
 	// It's probably not worth it to de-dup lns.
-	sort.Sort(lns)
+	slices.SortFunc(lns, cmp.Compare)
 	for _, ln := range lns {
 		mlv, ok := ls[ln]
 		if !ok {

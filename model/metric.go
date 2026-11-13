@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"maps"
 	"regexp"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -283,7 +283,7 @@ func (m Metric) String() string {
 		}
 		return "{}"
 	default:
-		sort.Strings(labelStrings)
+		slices.Sort(labelStrings)
 		return fmt.Sprintf("%s{%s}", metricName, strings.Join(labelStrings, ", "))
 	}
 }

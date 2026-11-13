@@ -149,20 +149,8 @@ func (ln *LabelName) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// LabelNames is a sortable LabelName slice. In implements sort.Interface.
+// LabelNames is a sortable LabelName slice.
 type LabelNames []LabelName
-
-func (l LabelNames) Len() int {
-	return len(l)
-}
-
-func (l LabelNames) Less(i, j int) bool {
-	return l[i] < l[j]
-}
-
-func (l LabelNames) Swap(i, j int) {
-	l[i], l[j] = l[j], l[i]
-}
 
 func (l LabelNames) String() string {
 	labelStrings := make([]string, 0, len(l))
@@ -180,20 +168,8 @@ func (lv LabelValue) IsValid() bool {
 	return utf8.ValidString(string(lv))
 }
 
-// LabelValues is a sortable LabelValue slice. It implements sort.Interface.
+// LabelValues is a sortable LabelValue slice.
 type LabelValues []LabelValue
-
-func (l LabelValues) Len() int {
-	return len(l)
-}
-
-func (l LabelValues) Less(i, j int) bool {
-	return string(l[i]) < string(l[j])
-}
-
-func (l LabelValues) Swap(i, j int) {
-	l[i], l[j] = l[j], l[i]
-}
 
 // LabelPair pairs a name with a value.
 type LabelPair struct {
@@ -201,29 +177,22 @@ type LabelPair struct {
 	Value LabelValue
 }
 
-// LabelPairs is a sortable slice of LabelPair pointers. It implements
-// sort.Interface.
-type LabelPairs []*LabelPair
-
-func (l LabelPairs) Len() int {
-	return len(l)
-}
-
-func (l LabelPairs) Less(i, j int) bool {
+// Compare implements the cmp.Comparator interface for LabelPair pointers.
+// It compares by Name, then by Value.
+func (l *LabelPair) Compare(o *LabelPair) int {
 	switch {
-	case l[i].Name > l[j].Name:
-		return false
-	case l[i].Name < l[j].Name:
-		return true
-	case l[i].Value > l[j].Value:
-		return false
-	case l[i].Value < l[j].Value:
-		return true
+	case l.Name < o.Name:
+		return -1
+	case l.Name > o.Name:
+		return 1
+	case l.Value < o.Value:
+		return -1
+	case l.Value > o.Value:
+		return 1
 	default:
-		return false
+		return 0
 	}
 }
 
-func (l LabelPairs) Swap(i, j int) {
-	l[i], l[j] = l[j], l[i]
-}
+// LabelPairs is a sortable slice of LabelPair pointers.
+type LabelPairs []*LabelPair
