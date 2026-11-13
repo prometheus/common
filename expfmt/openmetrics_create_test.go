@@ -668,7 +668,7 @@ request_duration_microseconds_sum 1.7560473e+06
 request_duration_microseconds_count 2693
 `,
 		},
-		// 16: Counter, timestamp given, unit given, _total suffix.
+		// 16: Counter, timestamp given, unit given but not suffix in name, _total suffix.
 		{
 			in: &dto.MetricFamily{
 				Name: proto.String("some_measure_total"),
@@ -711,12 +711,99 @@ request_duration_microseconds_count 2693
 			},
 			out: `# HELP some_measure some testing measurement
 # TYPE some_measure counter
-# UNIT some_measure seconds
 some_measure_total{labelname="val1",basename="basevalue"} 42.0
 some_measure_total{labelname="val2",basename="basevalue"} 0.23 1.23456789e+06
 `,
 		},
-		// 17: Gauge histogram.
+		// 17: Counter, timestamp given, unit given and suffix in name, _total suffix.
+		{
+			in: &dto.MetricFamily{
+				Name: proto.String("some_measure_seconds_total"),
+				Help: proto.String("some testing measurement"),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Unit: proto.String("seconds"),
+				Metric: []*dto.Metric{
+					{
+						Label: []*dto.LabelPair{
+							{
+								Name:  proto.String("labelname"),
+								Value: proto.String("val1"),
+							},
+							{
+								Name:  proto.String("basename"),
+								Value: proto.String("basevalue"),
+							},
+						},
+						Counter: &dto.Counter{
+							Value: proto.Float64(42),
+						},
+					},
+					{
+						Label: []*dto.LabelPair{
+							{
+								Name:  proto.String("labelname"),
+								Value: proto.String("val2"),
+							},
+							{
+								Name:  proto.String("basename"),
+								Value: proto.String("basevalue"),
+							},
+						},
+						Counter: &dto.Counter{
+							Value: proto.Float64(.23),
+						},
+						TimestampMs: proto.Int64(1234567890),
+					},
+				},
+			},
+			out: `# HELP some_measure_seconds some testing measurement
+# TYPE some_measure_seconds counter
+# UNIT some_measure_seconds seconds
+some_measure_seconds_total{labelname="val1",basename="basevalue"} 42.0
+some_measure_seconds_total{labelname="val2",basename="basevalue"} 0.23 1.23456789e+06
+`,
+		},
+		// 18: Gauge, unit given but not suffix in name.
+		{
+			in: &dto.MetricFamily{
+				Name: proto.String("request_duration"),
+				Help: proto.String("some testing measurement"),
+				Type: dto.MetricType_GAUGE.Enum(),
+				Unit: proto.String("seconds"),
+				Metric: []*dto.Metric{
+					{
+						Gauge: &dto.Gauge{
+							Value: proto.Float64(42),
+						},
+					},
+				},
+			},
+			out: `# HELP request_duration some testing measurement
+# TYPE request_duration gauge
+request_duration 42.0
+`,
+		},
+		// 19: Gauge, empty unit.
+		{
+			in: &dto.MetricFamily{
+				Name: proto.String("request_duration_seconds"),
+				Help: proto.String("some testing measurement"),
+				Type: dto.MetricType_GAUGE.Enum(),
+				Unit: proto.String(""),
+				Metric: []*dto.Metric{
+					{
+						Gauge: &dto.Gauge{
+							Value: proto.Float64(42),
+						},
+					},
+				},
+			},
+			out: `# HELP request_duration_seconds some testing measurement
+# TYPE request_duration_seconds gauge
+request_duration_seconds 42.0
+`,
+		},
+		// 20: Gauge histogram.
 		{
 			in: &dto.MetricFamily{
 				Name: proto.String("name"),
