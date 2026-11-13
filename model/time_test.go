@@ -55,6 +55,30 @@ func TestTimeConversions(t *testing.T) {
 	require.Equalf(t, ts.UnixNano(), unixNano-unixNano%nanosPerTick, "Expected %d, got %d", unixNano, ts.UnixNano())
 }
 
+func TestTimeUnix(t *testing.T) {
+	for _, tc := range []struct {
+		milliseconds Time
+		seconds      int64
+	}{
+		{Earliest, -9223372036854776},
+		{-1001, -2},
+		{-1000, -1},
+		{-999, -1},
+		{-1, -1},
+		{0, 0},
+		{1, 0},
+		{999, 0},
+		{1000, 1},
+		{1001, 1},
+		{Latest, 9223372036854775},
+	} {
+		t.Run(strconv.FormatInt(int64(tc.milliseconds), 10), func(t *testing.T) {
+			require.Equal(t, tc.seconds, tc.milliseconds.Unix())
+			require.Equal(t, tc.milliseconds.Time().Unix(), tc.milliseconds.Unix())
+		})
+	}
+}
+
 func TestDuration(t *testing.T) {
 	duration := time.Second + time.Minute + time.Hour
 	goTime := time.Unix(1136239445, 0)
