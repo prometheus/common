@@ -503,7 +503,7 @@ func writeOpenMetricsNameAndLabelPairs(
 		if err != nil {
 			return written, err
 		}
-		n, err := writeName(w, lp.GetName())
+		n, err := writeLabelName(w, lp.GetName())
 		written += n
 		if err != nil {
 			return written, err

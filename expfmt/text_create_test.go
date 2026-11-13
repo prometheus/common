@@ -565,6 +565,24 @@ name_sum 1.7560473e+06
 name_count 2693.123
 `,
 		},
+		// 12: Colons are valid in legacy metric names but not in legacy label names.
+		{
+			in: &dto.MetricFamily{
+				Name: proto.String("name:with:colons"),
+				Type: dto.MetricType_GAUGE.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Label: []*dto.LabelPair{
+							{Name: proto.String("label:name"), Value: proto.String("val")},
+						},
+						Gauge: &dto.Gauge{Value: proto.Float64(1)},
+					},
+				},
+			},
+			out: `# TYPE name:with:colons gauge
+name:with:colons{"label:name"="val"} 1
+`,
+		},
 	}
 
 	for i, scenario := range scenarios {

@@ -1223,6 +1223,24 @@ acme_http_router_request_seconds{path="/api/v1",method="GET"} {count:807283,sum:
 acme_http_router_request_seconds{path="/api/v2",method="GET"} {count:34,sum:479.3,quantile:[0.95:2.5,0.99:2.9]}
 `,
 		},
+		{
+			name: "LabelNameWithColon",
+			in: &dto.MetricFamily{
+				Name: proto.String("name:with:colons"),
+				Type: dto.MetricType_GAUGE.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Label: []*dto.LabelPair{
+							{Name: proto.String("label:name"), Value: proto.String("val")},
+						},
+						Gauge: &dto.Gauge{Value: proto.Float64(1)},
+					},
+				},
+			},
+			out: `# TYPE name:with:colons gauge
+name:with:colons{"label:name"="val"} 1.0
+`,
+		},
 	}
 
 	for _, scenario := range scenarios {
