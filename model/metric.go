@@ -510,11 +510,6 @@ func UnescapeName(name string, scheme EscapingScheme) string {
 			// We think we are in a UTF-8 code, process it.
 			var utf8Val uint
 			for j := 0; i < len(escapedName); j++ {
-				// This is too many characters for a utf8 value based on the MaxRune
-				// value of '\U0010FFFF'.
-				if j >= 6 {
-					return name
-				}
 				// Found a closing underscore, convert to a rune, check validity, and append.
 				if escapedName[i] == '_' {
 					utf8Rune := rune(utf8Val)
@@ -523,6 +518,11 @@ func UnescapeName(name string, scheme EscapingScheme) string {
 					}
 					unescaped.WriteRune(utf8Rune)
 					continue TOP
+				}
+				// This is too many characters for a utf8 value based on the MaxRune
+				// value of '\U0010FFFF'.
+				if j >= 6 {
+					return name
 				}
 				r := lower(escapedName[i])
 				utf8Val *= 16
