@@ -1761,6 +1761,93 @@ func TestInvalidHTTPConfigs(t *testing.T) {
 	}
 }
 
+type trackedRequestBody struct {
+	io.Reader
+	closed bool
+}
+
+func (b *trackedRequestBody) Close() error {
+	b.closed = true
+	return nil
+}
+
+func TestRoundTrippersCloseRequestBodyOnError(t *testing.T) {
+	missingFile := filepath.Join(t.TempDir(), "missing")
+	missingSecret := NewFileSecret(missingFile)
+	next := NewRoundTripCheckRequest(func(*http.Request) {
+		t.Error("request was forwarded despite a configuration error")
+	}, nil, errors.New("unexpected request"))
+
+	for _, tc := range []struct {
+		name string
+		rt   http.RoundTripper
+	}{
+		{"authorization credentials", NewAuthorizationCredentialsRoundTripper("Bearer", missingSecret, next)},
+		{"basic auth username", NewBasicAuthRoundTripper(missingSecret, nil, next)},
+		{"basic auth password", NewBasicAuthRoundTripper(nil, missingSecret, next)},
+		{"HTTP headers", NewHeadersRoundTripper(&Headers{Headers: map[string]Header{
+			"X-Test": {Files: []string{missingFile}},
+		}}, next)},
+		{"OAuth2 credentials", NewOAuth2RoundTripper(missingSecret, &OAuth2{}, next)},
+		{"OAuth2 TLS config", NewOAuth2RoundTripper(NewInlineSecret("secret"), &OAuth2{
+			TLSConfig: TLSConfig{CAFile: missingFile},
+		}, next)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			body := &trackedRequestBody{Reader: strings.NewReader("request body")}
+			req, err := http.NewRequest(http.MethodPost, "http://example.com", body)
+			require.NoError(t, err)
+			_, err = tc.rt.RoundTrip(req)
+			require.Error(t, err)
+			require.Truef(t, body.closed, "request body was not closed")
+
+			req, err = http.NewRequest(http.MethodGet, "http://example.com", nil)
+			require.NoError(t, err)
+			_, err = tc.rt.RoundTrip(req)
+			require.Error(t, err)
+		})
+	}
+}
+
+func TestTLSRoundTripperClosesRequestBodyOnError(t *testing.T) {
+	for _, mode := range []string{"missing CA", "invalid CA", "transport construction"} {
+		t.Run(mode, func(t *testing.T) {
+			caFile := filepath.Join(t.TempDir(), "ca.pem")
+			ca := readFile(t, TLSCAChainPath)
+			require.NoError(t, os.WriteFile(caFile, []byte(ca), 0o600))
+			next := NewRoundTripCheckRequest(func(*http.Request) {
+				t.Error("request was forwarded despite a TLS error")
+			}, nil, errors.New("unexpected request"))
+			initialized := false
+			rt, err := NewTLSRoundTripper(&tls.Config{}, TLSRoundTripperSettings{
+				CA: NewFileSecret(caFile),
+			}, func(*tls.Config) (http.RoundTripper, error) {
+				if initialized && mode == "transport construction" {
+					return nil, errors.New("cannot construct transport")
+				}
+				initialized = true
+				return next, nil
+			})
+			require.NoError(t, err)
+			switch mode {
+			case "missing CA":
+				require.NoError(t, os.Remove(caFile))
+			case "invalid CA":
+				require.NoError(t, os.WriteFile(caFile, []byte("invalid certificate"), 0o600))
+			case "transport construction":
+				require.NoError(t, os.WriteFile(caFile, []byte(ca+"\n"+ca), 0o600))
+			}
+
+			body := &trackedRequestBody{Reader: strings.NewReader("request body")}
+			req, err := http.NewRequest(http.MethodPost, "https://example.com", body)
+			require.NoError(t, err)
+			_, err = rt.RoundTrip(req)
+			require.Error(t, err)
+			require.Truef(t, body.closed, "request body was not closed")
+		})
+	}
+}
+
 type roundTrip struct {
 	theResponse *http.Response
 	theError    error
