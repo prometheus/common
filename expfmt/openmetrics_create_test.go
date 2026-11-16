@@ -778,6 +778,45 @@ name_count 2693
 name:with:colons{"label:name"="val"} 1.0
 `,
 		},
+		// 19: Counter without _total suffix is unknown, so it gets neither
+		// an exemplar nor a created line.
+		{
+			in: &dto.MetricFamily{
+				Name: proto.String("foos"),
+				Help: proto.String("Number of foos."),
+				Type: dto.MetricType_COUNTER.Enum(),
+				Metric: []*dto.Metric{
+					{
+						Counter: &dto.Counter{
+							Value:            proto.Float64(42),
+							CreatedTimestamp: openMetricsTimestamp,
+							Exemplar: &dto.Exemplar{
+								Label: []*dto.LabelPair{
+									{Name: proto.String("foo"), Value: proto.String("bar")},
+								},
+								Value:     proto.Float64(1),
+								Timestamp: openMetricsTimestamp,
+							},
+						},
+					},
+					{
+						Label: []*dto.LabelPair{
+							{Name: proto.String("code"), Value: proto.String("500")},
+						},
+						Counter: &dto.Counter{
+							Value:            proto.Float64(1),
+							CreatedTimestamp: openMetricsTimestamp,
+						},
+					},
+				},
+			},
+			options: []EncoderOption{WithCreatedLines()},
+			out: `# HELP foos Number of foos.
+# TYPE foos unknown
+foos 42.0
+foos{code="500"} 1.0
+`,
+		},
 	}
 
 	for i, scenario := range scenarios {
