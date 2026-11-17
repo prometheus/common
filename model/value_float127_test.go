@@ -16,10 +16,21 @@
 package model
 
 import (
+	"encoding/json/v2"
 	"fmt"
 	"math"
 	"testing"
 )
+
+func TestQuotedFloatJSONEscapesV2(t *testing.T) {
+	unmarshal := func(b []byte, v any) error { return json.Unmarshal(b, v) }
+	t.Run("sample", func(t *testing.T) {
+		testQuotedFloatJSONEscapes[SampleValue](t, unmarshal)
+	})
+	t.Run("histogram", func(t *testing.T) {
+		testQuotedFloatJSONEscapes[FloatString](t, unmarshal)
+	})
+}
 
 func TestSampleValueJSONV2(t *testing.T) {
 	cases := []float64{

@@ -35,7 +35,7 @@ func (v *FloatString) UnmarshalJSON(b []byte) error {
 	if len(b) < 2 || b[0] != '"' || b[len(b)-1] != '"' {
 		return errors.New("float value must be a quoted string")
 	}
-	f, err := strconv.ParseFloat(string(b[1:len(b)-1]), 64)
+	f, err := parseFloatString(b)
 	if err != nil {
 		return err
 	}
