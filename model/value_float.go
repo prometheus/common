@@ -14,6 +14,7 @@
 package model
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -42,12 +43,25 @@ func (v *SampleValue) UnmarshalJSON(b []byte) error {
 	if len(b) < 2 || b[0] != '"' || b[len(b)-1] != '"' {
 		return errors.New("sample value must be a quoted string")
 	}
-	f, err := strconv.ParseFloat(string(b[1:len(b)-1]), 64)
+	f, err := parseFloatString(b)
 	if err != nil {
 		return err
 	}
 	*v = SampleValue(f)
 	return nil
+}
+
+// parseFloatString parses a float from a quoted JSON string.
+// Callers must check that b starts and ends with a quote.
+func parseFloatString(b []byte) (float64, error) {
+	if bytes.IndexByte(b, '\\') < 0 {
+		return strconv.ParseFloat(string(b[1:len(b)-1]), 64)
+	}
+	var text string
+	if err := json.Unmarshal(b, &text); err != nil {
+		return 0, err
+	}
+	return strconv.ParseFloat(text, 64)
 }
 
 // Equal returns true if the value of v and o is equal or if both are NaN. Note

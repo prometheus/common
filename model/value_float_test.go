@@ -305,3 +305,68 @@ func BenchmarkJSONMarshallingSamplePairMatrix(b *testing.B) {
 		require.NoErrorf(b, err, "error marshalling")
 	}
 }
+
+func TestQuotedFloatJSONEscapes(t *testing.T) {
+	t.Run("sample", func(t *testing.T) {
+		testQuotedFloatJSONEscapes[SampleValue](t, json.Unmarshal)
+	})
+	t.Run("histogram", func(t *testing.T) {
+		testQuotedFloatJSONEscapes[FloatString](t, json.Unmarshal)
+	})
+}
+
+func testQuotedFloatJSONEscapes[T ~float64](t *testing.T, unmarshal func([]byte, any) error) {
+	t.Helper()
+	for _, tc := range []struct {
+		name, input string
+		want        float64
+		wantErr     bool
+	}{
+		{"one", `"\u0031"`, 1, false},
+		{"zero", `"\u0030"`, 0, false},
+		{"negative_zero", `"\u002d0"`, math.Copysign(0, -1), false},
+		{"max_float", `"\u0031.7976931348623157e308"`, math.MaxFloat64, false},
+		{"subnormal", `"\u0035e-324"`, math.SmallestNonzeroFloat64, false},
+		{"positive_inf", `"\u002bInf"`, math.Inf(1), false},
+		{"negative_inf", `"\u002dInf"`, math.Inf(-1), false},
+		{"nan", `"\u004eaN"`, math.NaN(), false},
+		{"overflow", `"\u0031e309"`, 0, true},
+		{"invalid_number", `"\u0031x"`, 0, true},
+		{"unquoted", `1`, 0, true},
+		{"null", `null`, 0, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var got T
+			err := unmarshal([]byte(tc.input), &got)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			if math.IsNaN(tc.want) {
+				require.True(t, math.IsNaN(float64(got)))
+			} else {
+				require.Equal(t, tc.want, float64(got))
+				require.Equal(t, math.Signbit(tc.want), math.Signbit(float64(got)))
+			}
+		})
+	}
+}
+
+func BenchmarkSampleValueUnmarshalJSON(b *testing.B) {
+	for name, input := range map[string]string{
+		"plain":   `"123.456"`,
+		"escaped": `"\u003123.456"`,
+	} {
+		b.Run(name, func(b *testing.B) {
+			data := []byte(input)
+			var value SampleValue
+			b.ReportAllocs()
+			for b.Loop() {
+				if err := value.UnmarshalJSON(data); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
