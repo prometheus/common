@@ -16,6 +16,7 @@ package model
 import (
 	"fmt"
 	"runtime"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -68,6 +69,49 @@ func TestMetricToFingerprint(t *testing.T) {
 			t.Errorf("%d. expected %d, got %d", i, scenario.out, actual)
 		}
 	}
+}
+
+func TestLabelSetFingerprintForLabels(t *testing.T) {
+	ls := LabelSet{"alertname": "HighLatency", "job": "api", "instance": "host-1:9090"}
+	wide := LabelSet{}
+	wideNames := make([]LabelName, 0, 2*fingerprintNamesBuffer)
+	for i := range 2 * fingerprintNamesBuffer {
+		name := LabelName(fmt.Sprintf("label_%02d", i))
+		wide[name] = LabelValue(strconv.Itoa(i))
+		wideNames = append(wideNames, name)
+	}
+
+	for _, scenario := range []struct {
+		desc  string
+		in    LabelSet
+		names []LabelName
+	}{
+		{desc: "no names", in: ls},
+		{desc: "all names", in: ls, names: []LabelName{"alertname", "job", "instance"}},
+		{desc: "unsorted subset", in: ls, names: []LabelName{"job", "alertname"}},
+		{desc: "absent names", in: ls, names: []LabelName{"missing", "job", "other"}},
+		{desc: "only absent names", in: ls, names: []LabelName{"missing"}},
+		{desc: "repeated names", in: ls, names: []LabelName{"job", "job", "instance"}},
+		{desc: "empty set", in: LabelSet{}, names: []LabelName{"job"}},
+		{desc: "small subset of a wide set", in: wide, names: []LabelName{"label_40", "label_03"}},
+		{desc: "more names than the stack buffer", in: wide, names: wideNames},
+	} {
+		t.Run(scenario.desc, func(t *testing.T) {
+			subset := LabelSet{}
+			for _, name := range scenario.names {
+				if value, ok := scenario.in[name]; ok {
+					subset[name] = value
+				}
+			}
+			require.Equal(t, subset.Fingerprint(), scenario.in.FingerprintForLabels(scenario.names...))
+		})
+	}
+}
+
+func TestFingerprintAllocations(t *testing.T) {
+	ls := LabelSet{"alertname": "HighLatency", "job": "api", "instance": "host-1:9090"}
+	require.Zero(t, testing.AllocsPerRun(100, func() { ls.Fingerprint() }))
+	require.Zero(t, testing.AllocsPerRun(100, func() { ls.FingerprintForLabels("job", "alertname", "missing") }))
 }
 
 func TestMetricToFastFingerprint(t *testing.T) {
@@ -232,6 +276,24 @@ func BenchmarkMetricToFingerprintDouble(b *testing.B) {
 
 func BenchmarkMetricToFingerprintTriple(b *testing.B) {
 	benchmarkMetricToFingerprint(b, LabelSet{"first-label": "first-label-value", "second-label": "second-label-value", "third-label": "third-label-value"}, 13843036195897128121)
+}
+
+// BenchmarkMetricToFingerprintTwenty uses a label count typical of alerts
+// carrying external and Kubernetes labels.
+func BenchmarkMetricToFingerprintTwenty(b *testing.B) {
+	ls := LabelSet{}
+	for i := range 20 {
+		ls[LabelName("label_"+strconv.Itoa(i))] = LabelValue("value_" + strconv.Itoa(i))
+	}
+	benchmarkMetricToFingerprint(b, ls, ls.Fingerprint())
+}
+
+func BenchmarkLabelSetFingerprintForLabels(b *testing.B) {
+	ls := LabelSet{"first-label": "first-label-value", "second-label": "second-label-value", "third-label": "third-label-value"}
+	b.ReportAllocs()
+	for b.Loop() {
+		ls.FingerprintForLabels("third-label", "first-label")
+	}
 }
 
 func benchmarkMetricToFastFingerprint(b *testing.B, ls LabelSet, e Fingerprint) {

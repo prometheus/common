@@ -49,21 +49,55 @@ func LabelsToSignature(labels map[string]string) uint64 {
 	return sum
 }
 
+// fingerprintNamesBuffer is the number of label names sorted on the stack when
+// computing a fingerprint; larger sets allocate.
+const fingerprintNamesBuffer = 32
+
 // labelSetToFingerprint works exactly as LabelsToSignature but takes a LabelSet as
 // parameter (rather than a label map) and returns a Fingerprint.
 func labelSetToFingerprint(ls LabelSet) Fingerprint {
+	return labelsToFingerprint(ls, nil)
+}
+
+// labelsToFingerprint returns the fingerprint of the LabelSet made of the
+// labels of ls with the given names, which may repeat, be unsorted or be
+// absent from ls, or of all its labels when names is nil.
+func labelsToFingerprint(ls LabelSet, names []LabelName) Fingerprint {
 	if len(ls) == 0 {
 		return Fingerprint(emptyLabelSignature)
 	}
 
-	labelNames := make(LabelNames, 0, len(ls))
-	for labelName := range ls {
-		labelNames = append(labelNames, labelName)
+	// Upper bound on the number of names collected: absent and repeated
+	// names only make the result smaller.
+	n := len(ls)
+	if names != nil {
+		n = len(names)
+	}
+	var buf [fingerprintNamesBuffer]LabelName
+	var labelNames []LabelName
+	if n <= fingerprintNamesBuffer {
+		labelNames = buf[:0]
+	} else {
+		labelNames = make([]LabelName, 0, n)
+	}
+	if names == nil {
+		for labelName := range ls {
+			labelNames = append(labelNames, labelName)
+		}
+	} else {
+		for _, labelName := range names {
+			if _, ok := ls[labelName]; ok {
+				labelNames = append(labelNames, labelName)
+			}
+		}
 	}
 	slices.Sort(labelNames)
 
 	sum := hashNew()
-	for _, labelName := range labelNames {
+	for i, labelName := range labelNames {
+		if i > 0 && labelName == labelNames[i-1] {
+			continue // Repeated name.
+		}
 		sum = hashAdd(sum, string(labelName))
 		sum = hashAddByte(sum, SeparatorByte)
 		sum = hashAdd(sum, string(ls[labelName]))

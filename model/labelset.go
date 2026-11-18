@@ -128,6 +128,18 @@ func (ls LabelSet) Fingerprint() Fingerprint {
 	return labelSetToFingerprint(ls)
 }
 
+// FingerprintForLabels returns the Fingerprint of the LabelSet made of the
+// labels of ls with the given names, without building it. Names absent from
+// ls are ignored, so the result equals the Fingerprint of that subset.
+func (ls LabelSet) FingerprintForLabels(names ...LabelName) Fingerprint {
+	// No names means an empty subset. labelsToFingerprint would instead
+	// take a nil names as a request for all labels.
+	if len(names) == 0 {
+		return Fingerprint(emptyLabelSignature)
+	}
+	return labelsToFingerprint(ls, names)
+}
+
 // FastFingerprint returns the LabelSet's Fingerprint calculated by a faster hashing
 // algorithm, which is, however, more susceptible to hash collisions.
 func (ls LabelSet) FastFingerprint() Fingerprint {
