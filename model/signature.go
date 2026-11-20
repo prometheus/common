@@ -67,11 +67,12 @@ func labelsToFingerprint(ls LabelSet, names []LabelName) Fingerprint {
 		return Fingerprint(emptyLabelSignature)
 	}
 
-	// Upper bound on the number of names collected: absent and repeated
-	// names only make the result smaller.
+	// Sizing hint for the names collected: at most every label of ls, or
+	// every requested name. Only repeated present names can exceed it, in
+	// which case append grows the slice.
 	n := len(ls)
 	if names != nil {
-		n = len(names)
+		n = min(n, len(names))
 	}
 	var buf [fingerprintNamesBuffer]LabelName
 	var labelNames []LabelName

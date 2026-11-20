@@ -16,6 +16,7 @@ package model
 import (
 	"fmt"
 	"runtime"
+	"slices"
 	"strconv"
 	"sync"
 	"testing"
@@ -80,6 +81,10 @@ func TestLabelSetFingerprintForLabels(t *testing.T) {
 		wide[name] = LabelValue(strconv.Itoa(i))
 		wideNames = append(wideNames, name)
 	}
+	// In reverse order, with repeated and absent names, so that the heap
+	// path sorts and deduplicates too.
+	unsortedWideNames := append(slices.Clone(wideNames), "missing", "label_07", "label_42", "other")
+	slices.Reverse(unsortedWideNames)
 
 	for _, scenario := range []struct {
 		desc  string
@@ -95,23 +100,49 @@ func TestLabelSetFingerprintForLabels(t *testing.T) {
 		{desc: "empty set", in: LabelSet{}, names: []LabelName{"job"}},
 		{desc: "small subset of a wide set", in: wide, names: []LabelName{"label_40", "label_03"}},
 		{desc: "more names than the stack buffer", in: wide, names: wideNames},
+		{desc: "unsorted, repeated and absent names, more than the stack buffer", in: wide, names: unsortedWideNames},
+		{desc: "empty label value", in: LabelSet{"job": "", "instance": "host-1:9090"}, names: []LabelName{"job", "missing"}},
 	} {
 		t.Run(scenario.desc, func(t *testing.T) {
 			subset := LabelSet{}
+			subsetMap := map[string]string{}
 			for _, name := range scenario.names {
 				if value, ok := scenario.in[name]; ok {
 					subset[name] = value
+					subsetMap[string(name)] = string(value)
 				}
 			}
-			require.Equal(t, subset.Fingerprint(), scenario.in.FingerprintForLabels(scenario.names...))
+			names := slices.Clone(scenario.names)
+			got := scenario.in.FingerprintForLabels(names...)
+			require.Equalf(t, scenario.names, names, "names must not be modified")
+			require.Equal(t, subset.Fingerprint(), got)
+			// LabelsToSignature is an independent implementation.
+			require.Equal(t, Fingerprint(LabelsToSignature(subsetMap)), got)
 		})
 	}
 }
 
 func TestFingerprintAllocations(t *testing.T) {
 	ls := LabelSet{"alertname": "HighLatency", "job": "api", "instance": "host-1:9090"}
+	sized := func(n int) LabelSet {
+		ls := LabelSet{}
+		for i := range n {
+			ls[LabelName("label_"+strconv.Itoa(i))] = LabelValue(strconv.Itoa(i))
+		}
+		return ls
+	}
+	atBuffer, overBuffer := sized(fingerprintNamesBuffer), sized(fingerprintNamesBuffer+1)
+	mostlyAbsent := []LabelName{"label_3", "label_1"}
+	for i := range 2 * fingerprintNamesBuffer {
+		mostlyAbsent = append(mostlyAbsent, LabelName("missing_"+strconv.Itoa(i)))
+	}
+
 	require.Zero(t, testing.AllocsPerRun(100, func() { ls.Fingerprint() }))
 	require.Zero(t, testing.AllocsPerRun(100, func() { ls.FingerprintForLabels("job", "alertname", "missing") }))
+	require.Zero(t, testing.AllocsPerRun(100, func() { atBuffer.Fingerprint() }))
+	require.Equalf(t, 1, int(testing.AllocsPerRun(100, func() { overBuffer.Fingerprint() })), "one exact allocation past the stack buffer")
+	require.Zero(t, testing.AllocsPerRun(100, func() { overBuffer.FingerprintForLabels(mostlyAbsent[:2]...) }))
+	require.Zero(t, testing.AllocsPerRun(100, func() { ls.FingerprintForLabels(mostlyAbsent...) }))
 }
 
 func TestMetricToFastFingerprint(t *testing.T) {
@@ -256,9 +287,11 @@ func BenchmarkLabelToSignatureTriple(b *testing.B) {
 }
 
 func benchmarkMetricToFingerprint(b *testing.B, ls LabelSet, e Fingerprint) {
-	for i := 0; i < b.N; i++ {
-		a := labelSetToFingerprint(ls)
-		require.Equalf(b, a, e, "expected signature of %d for %s, got %d", e, ls, a)
+	b.ReportAllocs()
+	for b.Loop() {
+		if a := labelSetToFingerprint(ls); a != e {
+			b.Fatalf("expected signature of %d for %s, got %d", e, ls, a)
+		}
 	}
 }
 
@@ -282,10 +315,12 @@ func BenchmarkMetricToFingerprintTriple(b *testing.B) {
 // carrying external and Kubernetes labels.
 func BenchmarkMetricToFingerprintTwenty(b *testing.B) {
 	ls := LabelSet{}
+	m := map[string]string{}
 	for i := range 20 {
 		ls[LabelName("label_"+strconv.Itoa(i))] = LabelValue("value_" + strconv.Itoa(i))
+		m["label_"+strconv.Itoa(i)] = "value_" + strconv.Itoa(i)
 	}
-	benchmarkMetricToFingerprint(b, ls, ls.Fingerprint())
+	benchmarkMetricToFingerprint(b, ls, Fingerprint(LabelsToSignature(m)))
 }
 
 func BenchmarkLabelSetFingerprintForLabels(b *testing.B) {
