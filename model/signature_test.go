@@ -139,6 +139,9 @@ func TestFingerprintAllocations(t *testing.T) {
 
 	require.Zero(t, testing.AllocsPerRun(100, func() { ls.Fingerprint() }))
 	require.Zero(t, testing.AllocsPerRun(100, func() { ls.FingerprintForLabels("job", "alertname", "missing") }))
+	for _, small := range []LabelSet{sized(1), sized(2)} {
+		require.Zero(t, testing.AllocsPerRun(100, func() { small.Fingerprint() }))
+	}
 	require.Zero(t, testing.AllocsPerRun(100, func() { atBuffer.Fingerprint() }))
 	require.Equalf(t, 1, int(testing.AllocsPerRun(100, func() { overBuffer.Fingerprint() })), "one exact allocation past the stack buffer")
 	require.Zero(t, testing.AllocsPerRun(100, func() { overBuffer.FingerprintForLabels(mostlyAbsent[:2]...) }))
