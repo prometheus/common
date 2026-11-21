@@ -75,15 +75,15 @@ func TestMetricToFingerprint(t *testing.T) {
 func TestLabelSetFingerprintForLabels(t *testing.T) {
 	ls := LabelSet{"alertname": "HighLatency", "job": "api", "instance": "host-1:9090"}
 	wide := LabelSet{}
-	wideNames := make([]LabelName, 0, 2*fingerprintNamesBuffer)
-	for i := range 2 * fingerprintNamesBuffer {
-		name := LabelName(fmt.Sprintf("label_%02d", i))
+	wideNames := make([]LabelName, 0, 2*fingerprintNamesLargeBuffer)
+	for i := range 2 * fingerprintNamesLargeBuffer {
+		name := LabelName(fmt.Sprintf("label_%03d", i))
 		wide[name] = LabelValue(strconv.Itoa(i))
 		wideNames = append(wideNames, name)
 	}
 	// In reverse order, with repeated and absent names, so that the heap
 	// path sorts and deduplicates too.
-	unsortedWideNames := append(slices.Clone(wideNames), "missing", "label_07", "label_42", "other")
+	unsortedWideNames := append(slices.Clone(wideNames), "missing", "label_007", "label_042", "other")
 	slices.Reverse(unsortedWideNames)
 	// Repeated present names are appended before deduplication, so enough of
 	// them grow labelNames past the buffer chosen from the set and name counts.
@@ -95,6 +95,13 @@ func TestLabelSetFingerprintForLabels(t *testing.T) {
 		return out
 	}
 	two := LabelSet{"job": "api", "instance": "host-1:9090"}
+	mid := LabelSet{}
+	midNames := make([]LabelName, 0, fingerprintNamesBuffer+8)
+	for i := range fingerprintNamesBuffer + 8 {
+		name := LabelName(fmt.Sprintf("mid_%02d", i))
+		mid[name] = LabelValue(strconv.Itoa(i))
+		midNames = append(midNames, name)
+	}
 
 	for _, scenario := range []struct {
 		desc  string
@@ -109,10 +116,11 @@ func TestLabelSetFingerprintForLabels(t *testing.T) {
 		{desc: "repeated names", in: ls, names: []LabelName{"job", "job", "instance"}},
 		{desc: "repeated names past the small buffer", in: two, names: repeated([]LabelName{"job", "instance"}, fingerprintNamesSmallBuffer+1)},
 		{desc: "repeated names past the stack buffer", in: ls, names: repeated([]LabelName{"job", "alertname", "instance"}, fingerprintNamesBuffer+8)},
+		{desc: "repeated names past the large buffer", in: mid, names: repeated(midNames, fingerprintNamesLargeBuffer+8)},
 		{desc: "empty set", in: LabelSet{}, names: []LabelName{"job"}},
-		{desc: "small subset of a wide set", in: wide, names: []LabelName{"label_40", "label_03"}},
-		{desc: "more names than the stack buffer", in: wide, names: wideNames},
-		{desc: "unsorted, repeated and absent names, more than the stack buffer", in: wide, names: unsortedWideNames},
+		{desc: "small subset of a wide set", in: wide, names: []LabelName{"label_040", "label_003"}},
+		{desc: "more names than the large stack buffer", in: wide, names: wideNames},
+		{desc: "unsorted, repeated and absent names, more than the large stack buffer", in: wide, names: unsortedWideNames},
 		{desc: "empty label value", in: LabelSet{"job": "", "instance": "host-1:9090"}, names: []LabelName{"job", "missing"}},
 	} {
 		t.Run(scenario.desc, func(t *testing.T) {
@@ -144,8 +152,9 @@ func TestFingerprintAllocations(t *testing.T) {
 		return ls
 	}
 	atBuffer, overBuffer := sized(fingerprintNamesBuffer), sized(fingerprintNamesBuffer+1)
+	atLarge, overLarge := sized(fingerprintNamesLargeBuffer), sized(fingerprintNamesLargeBuffer+1)
 	mostlyAbsent := []LabelName{"label_3", "label_1"}
-	for i := range 2 * fingerprintNamesBuffer {
+	for i := range 2 * fingerprintNamesLargeBuffer {
 		mostlyAbsent = append(mostlyAbsent, LabelName("missing_"+strconv.Itoa(i)))
 	}
 
@@ -156,8 +165,10 @@ func TestFingerprintAllocations(t *testing.T) {
 		require.Zero(t, testing.AllocsPerRun(100, func() { small.Fingerprint() }))
 	}
 	require.Zero(t, testing.AllocsPerRun(100, func() { atBuffer.Fingerprint() }))
-	require.Equalf(t, 1, int(testing.AllocsPerRun(100, func() { overBuffer.Fingerprint() })), "one exact allocation past the stack buffer")
-	require.Zero(t, testing.AllocsPerRun(100, func() { overBuffer.FingerprintForLabels(mostlyAbsent[:2]...) }))
+	require.Zero(t, testing.AllocsPerRun(100, func() { overBuffer.Fingerprint() }))
+	require.Zero(t, testing.AllocsPerRun(100, func() { atLarge.Fingerprint() }))
+	require.Equalf(t, 1, int(testing.AllocsPerRun(100, func() { overLarge.Fingerprint() })), "one exact allocation past the large stack buffer")
+	require.Zero(t, testing.AllocsPerRun(100, func() { overLarge.FingerprintForLabels(mostlyAbsent[:2]...) }))
 	require.Zero(t, testing.AllocsPerRun(100, func() { atBuffer.FingerprintForLabels(mostlyAbsent...) }))
 }
 
@@ -337,6 +348,26 @@ func BenchmarkMetricToFingerprintTwenty(b *testing.B) {
 		m["label_"+strconv.Itoa(i)] = "value_" + strconv.Itoa(i)
 	}
 	benchmarkMetricToFingerprint(b, ls, Fingerprint(LabelsToSignature(m)))
+}
+
+func benchmarkMetricToFingerprintN(b *testing.B, n int) {
+	ls := LabelSet{}
+	m := map[string]string{}
+	for i := range n {
+		ls[LabelName("label_"+strconv.Itoa(i))] = LabelValue("value_" + strconv.Itoa(i))
+		m["label_"+strconv.Itoa(i)] = "value_" + strconv.Itoa(i)
+	}
+	benchmarkMetricToFingerprint(b, ls, Fingerprint(LabelsToSignature(m)))
+}
+
+// BenchmarkMetricToFingerprintThirtyThree and SixtyFour sit just past the
+// smaller stack buffer and at the edge of the larger one.
+func BenchmarkMetricToFingerprintThirtyThree(b *testing.B) {
+	benchmarkMetricToFingerprintN(b, 33)
+}
+
+func BenchmarkMetricToFingerprintSixtyFour(b *testing.B) {
+	benchmarkMetricToFingerprintN(b, 64)
 }
 
 func BenchmarkLabelSetFingerprintForLabels(b *testing.B) {

@@ -52,10 +52,13 @@ func LabelsToSignature(labels map[string]string) uint64 {
 // The label names are sorted in a stack buffer when computing a fingerprint.
 // Sets of up to fingerprintNamesSmallBuffer names use a buffer of that size,
 // so that they do not zero the whole fingerprintNamesBuffer, which is worth
-// around 10ns to them. Larger sets allocate.
+// around 10ns to them. Sets of up to fingerprintNamesLargeBuffer names use a
+// larger buffer in a separate frame, so that the common path does not carry
+// it. Larger sets allocate.
 const (
 	fingerprintNamesSmallBuffer = 8
 	fingerprintNamesBuffer      = 32
+	fingerprintNamesLargeBuffer = 64
 )
 
 // labelSetToFingerprint works exactly as LabelsToSignature but takes a LabelSet as
@@ -79,17 +82,33 @@ func labelsToFingerprint(ls LabelSet, names []LabelName) Fingerprint {
 	if names != nil {
 		n = min(n, len(names))
 	}
-	var labelNames []LabelName
 	switch {
-	case n > fingerprintNamesBuffer:
-		labelNames = make([]LabelName, 0, n)
+	case n > fingerprintNamesLargeBuffer:
+		return hashLabelNames(ls, names, make([]LabelName, 0, n))
 	case n <= fingerprintNamesSmallBuffer:
 		var buf [fingerprintNamesSmallBuffer]LabelName
-		labelNames = buf[:0]
-	default:
+		return hashLabelNames(ls, names, buf[:0])
+	case n <= fingerprintNamesBuffer:
 		var buf [fingerprintNamesBuffer]LabelName
-		labelNames = buf[:0]
+		return hashLabelNames(ls, names, buf[:0])
+	default:
+		return labelsToFingerprintLarge(ls, names)
 	}
+}
+
+// labelsToFingerprintLarge keeps the large stack buffer in its own frame, so
+// that it is only reserved, and zeroed, when needed. It must not be inlined
+// into labelsToFingerprint, or the buffer would end up in its frame.
+//
+//go:noinline
+func labelsToFingerprintLarge(ls LabelSet, names []LabelName) Fingerprint {
+	var buf [fingerprintNamesLargeBuffer]LabelName
+	return hashLabelNames(ls, names, buf[:0])
+}
+
+// hashLabelNames collects into labelNames the names of ls, or those of names
+// present in ls, sorts them and hashes them with their values.
+func hashLabelNames(ls LabelSet, names, labelNames []LabelName) Fingerprint {
 	if names == nil {
 		for labelName := range ls {
 			labelNames = append(labelNames, labelName)
