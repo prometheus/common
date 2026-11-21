@@ -132,13 +132,9 @@ func (ls LabelSet) Fingerprint() Fingerprint {
 // labels of ls with the given names, without building it. Names absent from
 // ls are ignored, so the result equals the Fingerprint of that subset. The
 // names may be unsorted or repeated and, unlike with SignatureForLabels, are
-// not modified, so a shared slice can be passed concurrently.
+// not modified, so a shared slice can be passed concurrently. Sorted names
+// are hashed in place, without sorting them in a buffer first.
 func (ls LabelSet) FingerprintForLabels(names ...LabelName) Fingerprint {
-	// No names means an empty subset. labelsToFingerprint would instead
-	// take a nil names as a request for all labels.
-	if len(names) == 0 {
-		return Fingerprint(emptyLabelSignature)
-	}
 	return labelsToFingerprint(ls, names)
 }
 
