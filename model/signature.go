@@ -50,8 +50,13 @@ func LabelsToSignature(labels map[string]string) uint64 {
 }
 
 // fingerprintNamesBuffer is the number of label names sorted on the stack when
-// computing a fingerprint; larger sets allocate.
-const fingerprintNamesBuffer = 32
+// computing a fingerprint. Up to fingerprintNamesLargeBuffer names use a larger
+// stack buffer in a separate frame, so that the common path does not carry it;
+// larger sets allocate.
+const (
+	fingerprintNamesBuffer      = 32
+	fingerprintNamesLargeBuffer = 64
+)
 
 // fingerprintNamesSmallMake is the number of label names, up to which
 // the compiler keeps a variable-sized make on the stack by itself, which is
@@ -79,13 +84,30 @@ func labelsToFingerprint(ls LabelSet, names []LabelName) Fingerprint {
 	if names != nil {
 		n = min(n, len(names))
 	}
-	var labelNames []LabelName
-	if n <= fingerprintNamesSmallMake || n > fingerprintNamesBuffer {
-		labelNames = make([]LabelName, 0, n)
-	} else {
+	switch {
+	case n <= fingerprintNamesSmallMake || n > fingerprintNamesLargeBuffer:
+		return hashLabelNames(ls, names, make([]LabelName, 0, n))
+	case n <= fingerprintNamesBuffer:
 		var buf [fingerprintNamesBuffer]LabelName
-		labelNames = buf[:0]
+		return hashLabelNames(ls, names, buf[:0])
+	default:
+		return labelsToFingerprintLarge(ls, names)
 	}
+}
+
+// labelsToFingerprintLarge keeps the large stack buffer in its own frame, so
+// that it is only reserved, and zeroed, when needed. It must not be inlined
+// into labelsToFingerprint, or the buffer would end up in its frame.
+//
+//go:noinline
+func labelsToFingerprintLarge(ls LabelSet, names []LabelName) Fingerprint {
+	var buf [fingerprintNamesLargeBuffer]LabelName
+	return hashLabelNames(ls, names, buf[:0])
+}
+
+// hashLabelNames collects into labelNames the names of ls, or those of names
+// present in ls, sorts them and hashes them with their values.
+func hashLabelNames(ls LabelSet, names, labelNames []LabelName) Fingerprint {
 	if names == nil {
 		for labelName := range ls {
 			labelNames = append(labelNames, labelName)
