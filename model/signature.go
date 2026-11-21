@@ -49,21 +49,83 @@ func LabelsToSignature(labels map[string]string) uint64 {
 	return sum
 }
 
+// fingerprintNamesBuffer is the number of label names sorted on the stack when
+// computing a fingerprint. Up to fingerprintNamesLargeBuffer names use a larger
+// stack buffer in a separate frame, so that the common path does not carry it;
+// larger sets allocate.
+const (
+	fingerprintNamesBuffer      = 32
+	fingerprintNamesLargeBuffer = 64
+)
+
+// fingerprintNamesSmallMake is the number of label names, up to which
+// the compiler keeps a variable-sized make on the stack by itself, which is
+// cheaper than zeroing the whole fingerprintNamesBuffer. This is 32 bytes.
+const fingerprintNamesSmallMake = 2
+
 // labelSetToFingerprint works exactly as LabelsToSignature but takes a LabelSet as
 // parameter (rather than a label map) and returns a Fingerprint.
 func labelSetToFingerprint(ls LabelSet) Fingerprint {
+	return labelsToFingerprint(ls, nil)
+}
+
+// labelsToFingerprint returns the fingerprint of the LabelSet made of the
+// labels of ls with the given names, which may repeat, be unsorted or be
+// absent from ls, or of all its labels when names is nil.
+func labelsToFingerprint(ls LabelSet, names []LabelName) Fingerprint {
 	if len(ls) == 0 {
 		return Fingerprint(emptyLabelSignature)
 	}
 
-	labelNames := make(LabelNames, 0, len(ls))
-	for labelName := range ls {
-		labelNames = append(labelNames, labelName)
+	// Sizing hint for the names collected: at most every label of ls, or
+	// every requested name. Only repeated present names can exceed it, in
+	// which case append grows the slice.
+	n := len(ls)
+	if names != nil {
+		n = min(n, len(names))
+	}
+	switch {
+	case n <= fingerprintNamesSmallMake || n > fingerprintNamesLargeBuffer:
+		return hashLabelNames(ls, names, make([]LabelName, 0, n))
+	case n <= fingerprintNamesBuffer:
+		var buf [fingerprintNamesBuffer]LabelName
+		return hashLabelNames(ls, names, buf[:0])
+	default:
+		return labelsToFingerprintLarge(ls, names)
+	}
+}
+
+// labelsToFingerprintLarge keeps the large stack buffer in its own frame, so
+// that it is only reserved, and zeroed, when needed. It must not be inlined
+// into labelsToFingerprint, or the buffer would end up in its frame.
+//
+//go:noinline
+func labelsToFingerprintLarge(ls LabelSet, names []LabelName) Fingerprint {
+	var buf [fingerprintNamesLargeBuffer]LabelName
+	return hashLabelNames(ls, names, buf[:0])
+}
+
+// hashLabelNames collects into labelNames the names of ls, or those of names
+// present in ls, sorts them and hashes them with their values.
+func hashLabelNames(ls LabelSet, names, labelNames []LabelName) Fingerprint {
+	if names == nil {
+		for labelName := range ls {
+			labelNames = append(labelNames, labelName)
+		}
+	} else {
+		for _, labelName := range names {
+			if _, ok := ls[labelName]; ok {
+				labelNames = append(labelNames, labelName)
+			}
+		}
 	}
 	slices.Sort(labelNames)
 
 	sum := hashNew()
-	for _, labelName := range labelNames {
+	for i, labelName := range labelNames {
+		if i > 0 && labelName == labelNames[i-1] {
+			continue // Repeated name.
+		}
 		sum = hashAdd(sum, string(labelName))
 		sum = hashAddByte(sum, SeparatorByte)
 		sum = hashAdd(sum, string(ls[labelName]))
