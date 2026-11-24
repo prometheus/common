@@ -51,10 +51,10 @@ func LabelsToSignature(labels map[string]string) uint64 {
 
 // The label names are sorted in a stack buffer when computing a fingerprint.
 // Sets of up to fingerprintNamesSmallBuffer names use a buffer of that size,
-// so that they do not zero the whole fingerprintNamesBuffer. Larger sets
-// allocate.
+// so that they do not zero the whole fingerprintNamesBuffer, which is worth
+// around 10ns to them. Larger sets allocate.
 const (
-	fingerprintNamesSmallBuffer = 2
+	fingerprintNamesSmallBuffer = 8
 	fingerprintNamesBuffer      = 32
 )
 

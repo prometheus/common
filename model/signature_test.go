@@ -107,7 +107,7 @@ func TestLabelSetFingerprintForLabels(t *testing.T) {
 		{desc: "absent names", in: ls, names: []LabelName{"missing", "job", "other"}},
 		{desc: "only absent names", in: ls, names: []LabelName{"missing"}},
 		{desc: "repeated names", in: ls, names: []LabelName{"job", "job", "instance"}},
-		{desc: "repeated names past the small buffer", in: two, names: []LabelName{"job", "instance", "job"}},
+		{desc: "repeated names past the small buffer", in: two, names: repeated([]LabelName{"job", "instance"}, fingerprintNamesSmallBuffer+1)},
 		{desc: "repeated names past the stack buffer", in: ls, names: repeated([]LabelName{"job", "alertname", "instance"}, fingerprintNamesBuffer+8)},
 		{desc: "empty set", in: LabelSet{}, names: []LabelName{"job"}},
 		{desc: "small subset of a wide set", in: wide, names: []LabelName{"label_40", "label_03"}},
@@ -151,7 +151,8 @@ func TestFingerprintAllocations(t *testing.T) {
 
 	require.Zero(t, testing.AllocsPerRun(100, func() { ls.Fingerprint() }))
 	require.Zero(t, testing.AllocsPerRun(100, func() { ls.FingerprintForLabels("job", "alertname", "missing") }))
-	for _, small := range []LabelSet{sized(1), sized(2)} {
+	for _, n := range []int{1, fingerprintNamesSmallBuffer, fingerprintNamesSmallBuffer + 1} {
+		small := sized(n)
 		require.Zero(t, testing.AllocsPerRun(100, func() { small.Fingerprint() }))
 	}
 	require.Zero(t, testing.AllocsPerRun(100, func() { atBuffer.Fingerprint() }))
