@@ -85,6 +85,16 @@ func TestLabelSetFingerprintForLabels(t *testing.T) {
 	// path sorts and deduplicates too.
 	unsortedWideNames := append(slices.Clone(wideNames), "missing", "label_07", "label_42", "other")
 	slices.Reverse(unsortedWideNames)
+	// Repeated present names are appended before deduplication, so enough of
+	// them grow labelNames past the buffer chosen from the set and name counts.
+	repeated := func(names []LabelName, count int) []LabelName {
+		out := make([]LabelName, 0, count)
+		for i := range count {
+			out = append(out, names[i%len(names)])
+		}
+		return out
+	}
+	two := LabelSet{"job": "api", "instance": "host-1:9090"}
 
 	for _, scenario := range []struct {
 		desc  string
@@ -97,6 +107,8 @@ func TestLabelSetFingerprintForLabels(t *testing.T) {
 		{desc: "absent names", in: ls, names: []LabelName{"missing", "job", "other"}},
 		{desc: "only absent names", in: ls, names: []LabelName{"missing"}},
 		{desc: "repeated names", in: ls, names: []LabelName{"job", "job", "instance"}},
+		{desc: "repeated names past the small buffer", in: two, names: []LabelName{"job", "instance", "job"}},
+		{desc: "repeated names past the stack buffer", in: ls, names: repeated([]LabelName{"job", "alertname", "instance"}, fingerprintNamesBuffer+8)},
 		{desc: "empty set", in: LabelSet{}, names: []LabelName{"job"}},
 		{desc: "small subset of a wide set", in: wide, names: []LabelName{"label_40", "label_03"}},
 		{desc: "more names than the stack buffer", in: wide, names: wideNames},
@@ -145,7 +157,7 @@ func TestFingerprintAllocations(t *testing.T) {
 	require.Zero(t, testing.AllocsPerRun(100, func() { atBuffer.Fingerprint() }))
 	require.Equalf(t, 1, int(testing.AllocsPerRun(100, func() { overBuffer.Fingerprint() })), "one exact allocation past the stack buffer")
 	require.Zero(t, testing.AllocsPerRun(100, func() { overBuffer.FingerprintForLabels(mostlyAbsent[:2]...) }))
-	require.Zero(t, testing.AllocsPerRun(100, func() { ls.FingerprintForLabels(mostlyAbsent...) }))
+	require.Zero(t, testing.AllocsPerRun(100, func() { atBuffer.FingerprintForLabels(mostlyAbsent...) }))
 }
 
 func TestMetricToFastFingerprint(t *testing.T) {

@@ -49,14 +49,14 @@ func LabelsToSignature(labels map[string]string) uint64 {
 	return sum
 }
 
-// fingerprintNamesBuffer is the number of label names sorted on the stack when
-// computing a fingerprint; larger sets allocate.
-const fingerprintNamesBuffer = 32
-
-// fingerprintNamesSmallMake is the number of label names, up to which
-// the compiler keeps a variable-sized make on the stack by itself, which is
-// cheaper than zeroing the whole fingerprintNamesBuffer. This is 32 bytes.
-const fingerprintNamesSmallMake = 2
+// The label names are sorted in a stack buffer when computing a fingerprint.
+// Sets of up to fingerprintNamesSmallBuffer names use a buffer of that size,
+// so that they do not zero the whole fingerprintNamesBuffer. Larger sets
+// allocate.
+const (
+	fingerprintNamesSmallBuffer = 2
+	fingerprintNamesBuffer      = 32
+)
 
 // labelSetToFingerprint works exactly as LabelsToSignature but takes a LabelSet as
 // parameter (rather than a label map) and returns a Fingerprint.
@@ -80,9 +80,13 @@ func labelsToFingerprint(ls LabelSet, names []LabelName) Fingerprint {
 		n = min(n, len(names))
 	}
 	var labelNames []LabelName
-	if n <= fingerprintNamesSmallMake || n > fingerprintNamesBuffer {
+	switch {
+	case n > fingerprintNamesBuffer:
 		labelNames = make([]LabelName, 0, n)
-	} else {
+	case n <= fingerprintNamesSmallBuffer:
+		var buf [fingerprintNamesSmallBuffer]LabelName
+		labelNames = buf[:0]
+	default:
 		var buf [fingerprintNamesBuffer]LabelName
 		labelNames = buf[:0]
 	}
