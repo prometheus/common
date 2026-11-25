@@ -83,3 +83,63 @@ func TestFS(t *testing.T) {
 		})
 	}
 }
+
+func TestFileReadAfterEOF(t *testing.T) {
+	t.Run("single read reaches EOF and subsequent reads return 0, io.EOF", func(t *testing.T) {
+		f, err := testFS.Open("testdata/compressed")
+		require.NoError(t, err)
+		defer f.Close()
+
+		buf := make([]byte, 16)
+		n, err := f.Read(buf)
+		require.ErrorIs(t, err, io.EOF)
+		require.Equal(t, "foo\n", string(buf[:n]))
+
+		n, err = f.Read(buf)
+		require.ErrorIs(t, err, io.EOF)
+		require.Zero(t, n)
+	})
+
+	t.Run("chunked read advances offset on final EOF chunk", func(t *testing.T) {
+		f, err := testFS.Open("testdata/compressed")
+		require.NoError(t, err)
+		defer f.Close()
+
+		// Zero-length read before EOF returns (0, nil).
+		n, err := f.Read(nil)
+		require.NoError(t, err)
+		require.Zero(t, n)
+
+		buf := make([]byte, 2)
+		n, err = f.Read(buf)
+		require.NoError(t, err)
+		require.Equal(t, "fo", string(buf[:n]))
+
+		n, err = f.Read(buf)
+		require.ErrorIs(t, err, io.EOF)
+		require.Equal(t, "o\n", string(buf[:n]))
+
+		n, err = f.Read(buf)
+		require.ErrorIs(t, err, io.EOF)
+		require.Zero(t, n)
+
+		// Zero-length read after EOF returns (0, io.EOF).
+		n, err = f.Read(nil)
+		require.ErrorIs(t, err, io.EOF)
+		require.Zero(t, n)
+	})
+
+	t.Run("empty content returns 0, io.EOF immediately", func(t *testing.T) {
+		f := &File{}
+		buf := make([]byte, 4)
+		n, err := f.Read(buf)
+		require.ErrorIs(t, err, io.EOF)
+		require.Zero(t, n)
+	})
+}
+
+func TestOpenCorruptGzip(t *testing.T) {
+	f, err := testFS.Open("testdata/corrupt")
+	require.Error(t, err)
+	require.Nil(t, f)
+}

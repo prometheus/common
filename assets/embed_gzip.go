@@ -43,18 +43,20 @@ func (compressed FileSystem) Open(path string) (fs.File, error) {
 
 	f, err := compressed.embed.Open(path + gzipSuffix)
 	if err != nil {
-		return f, err
+		return nil, err
 	}
 	// Read the decompressed content into a buffer.
 	gr, err := gzip.NewReader(f)
 	if err != nil {
-		return f, err
+		f.Close()
+		return nil, err
 	}
 	defer gr.Close()
 
 	c, err := io.ReadAll(gr)
 	if err != nil {
-		return f, err
+		f.Close()
+		return nil, err
 	}
 	// Wrap everything in our custom File.
 	return &File{file: f, content: c}, nil
@@ -80,14 +82,14 @@ func (f File) Stat() (fs.FileInfo, error) {
 
 // Read implements the fs.File interface.
 func (f *File) Read(buf []byte) (int, error) {
-	if len(buf) > len(f.content)-f.offset {
-		buf = buf[0:len(f.content[f.offset:])]
+	if f.offset >= len(f.content) {
+		return 0, io.EOF
 	}
 	n := copy(buf, f.content[f.offset:])
-	if n == len(f.content)-f.offset {
+	f.offset += n
+	if f.offset >= len(f.content) {
 		return n, io.EOF
 	}
-	f.offset += n
 	return n, nil
 }
 
