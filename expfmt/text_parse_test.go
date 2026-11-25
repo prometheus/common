@@ -1338,6 +1338,31 @@ request_duration_microseconds_count 2693
 			in:      `{} 3.14`,
 			errUTF8: "text format parsing error in line 1: invalid metric name",
 		},
+		// 48: HELP line for a name that is attributed to an existing
+		// histogram because of its suffix.
+		{
+			in: `
+# HELP signal_info A histogram.
+# TYPE signal_info histogram
+signal_info_bucket{le="+Inf"} 1
+signal_info_sum 1
+signal_info_count 1
+# HELP signal_info_count Another histogram.
+`,
+			errUTF8: `text format parsing error in line 7: second HELP line for metric name "signal_info" ("signal_info_count" is treated as the "_count" series of histogram "signal_info")`,
+		},
+		// 49: TYPE line for a name that is attributed to an existing
+		// summary because of its suffix.
+		{
+			in: `
+# TYPE rpc_seconds summary
+rpc_seconds{quantile="0.5"} 1
+rpc_seconds_sum 1
+rpc_seconds_count 1
+# TYPE rpc_seconds_sum counter
+`,
+			errUTF8: `text format parsing error in line 6: second TYPE line for metric name "rpc_seconds", or TYPE reported after samples ("rpc_seconds_sum" is treated as the "_sum" series of summary "rpc_seconds")`,
+		},
 	}
 	for i, scenario := range scenarios {
 		_, err := parser.TextToMetricFamilies(strings.NewReader(scenario.in))
