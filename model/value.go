@@ -51,6 +51,9 @@ func (s *Sample) Equal(o *Sample) bool {
 	if !s.Timestamp.Equal(o.Timestamp) {
 		return false
 	}
+	if (s.Histogram == nil) != (o.Histogram == nil) {
+		return false
+	}
 	if s.Histogram != nil {
 		return s.Histogram.Equal(o.Histogram)
 	}
