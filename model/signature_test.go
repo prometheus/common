@@ -15,6 +15,7 @@ package model
 
 import (
 	"fmt"
+	"maps"
 	"runtime"
 	"slices"
 	"strconv"
@@ -84,6 +85,8 @@ func TestLabelSetFingerprintForLabels(t *testing.T) {
 	// In reverse order, with repeated and absent names, so that the heap
 	// path sorts and deduplicates too.
 	unsortedWideNames := append(slices.Clone(wideNames), "missing", "label_07", "label_42", "other")
+	sortedWideNames := slices.Clone(unsortedWideNames)
+	slices.Sort(sortedWideNames)
 	slices.Reverse(unsortedWideNames)
 	// Repeated present names are appended before deduplication, so enough of
 	// them grow labelNames past the buffer chosen from the set and name counts.
@@ -103,17 +106,22 @@ func TestLabelSetFingerprintForLabels(t *testing.T) {
 	}{
 		{desc: "no names", in: ls},
 		{desc: "all names", in: ls, names: []LabelName{"alertname", "job", "instance"}},
+		{desc: "sorted subset", in: ls, names: []LabelName{"alertname", "job"}},
 		{desc: "unsorted subset", in: ls, names: []LabelName{"job", "alertname"}},
 		{desc: "absent names", in: ls, names: []LabelName{"missing", "job", "other"}},
 		{desc: "only absent names", in: ls, names: []LabelName{"missing"}},
+		{desc: "unsorted only absent names", in: ls, names: []LabelName{"other", "missing"}},
+		{desc: "sorted repeated names", in: ls, names: []LabelName{"instance", "instance", "job"}},
 		{desc: "repeated names", in: ls, names: []LabelName{"job", "job", "instance"}},
 		{desc: "repeated names past the small buffer", in: two, names: repeated([]LabelName{"job", "instance"}, fingerprintNamesSmallBuffer+1)},
 		{desc: "repeated names past the stack buffer", in: ls, names: repeated([]LabelName{"job", "alertname", "instance"}, fingerprintNamesBuffer+8)},
 		{desc: "empty set", in: LabelSet{}, names: []LabelName{"job"}},
 		{desc: "small subset of a wide set", in: wide, names: []LabelName{"label_40", "label_03"}},
 		{desc: "more names than the stack buffer", in: wide, names: wideNames},
+		{desc: "sorted, repeated and absent names, more than the stack buffer", in: wide, names: sortedWideNames},
 		{desc: "unsorted, repeated and absent names, more than the stack buffer", in: wide, names: unsortedWideNames},
 		{desc: "empty label value", in: LabelSet{"job": "", "instance": "host-1:9090"}, names: []LabelName{"job", "missing"}},
+		{desc: "unsorted empty label value", in: LabelSet{"job": "", "instance": "host-1:9090"}, names: []LabelName{"missing", "job"}},
 	} {
 		t.Run(scenario.desc, func(t *testing.T) {
 			subset := LabelSet{}
@@ -144,19 +152,22 @@ func TestFingerprintAllocations(t *testing.T) {
 		return ls
 	}
 	atBuffer, overBuffer := sized(fingerprintNamesBuffer), sized(fingerprintNamesBuffer+1)
+	allNames := slices.Sorted(maps.Keys(overBuffer))
 	mostlyAbsent := []LabelName{"label_3", "label_1"}
 	for i := range 2 * fingerprintNamesBuffer {
 		mostlyAbsent = append(mostlyAbsent, LabelName("missing_"+strconv.Itoa(i)))
 	}
 
 	require.Zero(t, testing.AllocsPerRun(100, func() { ls.Fingerprint() }))
-	require.Zero(t, testing.AllocsPerRun(100, func() { ls.FingerprintForLabels("job", "alertname", "missing") }))
+	require.Zero(t, testing.AllocsPerRun(100, func() { ls.FingerprintForLabels("alertname", "job", "job", "missing") }))
+	require.Zero(t, testing.AllocsPerRun(100, func() { ls.FingerprintForLabels("job", "job", "alertname", "missing") }))
 	for _, n := range []int{1, fingerprintNamesSmallBuffer, fingerprintNamesSmallBuffer + 1} {
 		small := sized(n)
 		require.Zero(t, testing.AllocsPerRun(100, func() { small.Fingerprint() }))
 	}
 	require.Zero(t, testing.AllocsPerRun(100, func() { atBuffer.Fingerprint() }))
 	require.Equalf(t, 1, int(testing.AllocsPerRun(100, func() { overBuffer.Fingerprint() })), "one exact allocation past the stack buffer")
+	require.Zero(t, testing.AllocsPerRun(100, func() { overBuffer.FingerprintForLabels(allNames...) }))
 	require.Zero(t, testing.AllocsPerRun(100, func() { overBuffer.FingerprintForLabels(mostlyAbsent[:2]...) }))
 	require.Zero(t, testing.AllocsPerRun(100, func() { atBuffer.FingerprintForLabels(mostlyAbsent...) }))
 }
@@ -340,10 +351,39 @@ func BenchmarkMetricToFingerprintTwenty(b *testing.B) {
 }
 
 func BenchmarkLabelSetFingerprintForLabels(b *testing.B) {
-	ls := LabelSet{"first-label": "first-label-value", "second-label": "second-label-value", "third-label": "third-label-value"}
-	b.ReportAllocs()
-	for b.Loop() {
-		ls.FingerprintForLabels("third-label", "first-label")
+	ls := LabelSet{}
+	for i := range 12 {
+		ls[LabelName(fmt.Sprintf("label_%02d", i))] = LabelValue("value_" + strconv.Itoa(i))
+	}
+	for _, n := range []int{1, 3, 8} {
+		sorted := make([]LabelName, 0, n)
+		for i := range n {
+			sorted = append(sorted, LabelName(fmt.Sprintf("label_%02d", i)))
+		}
+		unsorted := slices.Clone(sorted)
+		slices.Reverse(unsorted)
+		lateUnsorted := append(slices.Clone(sorted[1:]), sorted[0])
+		b.Run(fmt.Sprintf("%d names sorted", n), func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				ls.FingerprintForLabels(sorted...)
+			}
+		})
+		if n == 1 {
+			continue
+		}
+		b.Run(fmt.Sprintf("%d names unsorted", n), func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				ls.FingerprintForLabels(unsorted...)
+			}
+		})
+		b.Run(fmt.Sprintf("%d names unsorted late", n), func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				ls.FingerprintForLabels(lateUnsorted...)
+			}
+		})
 	}
 }
 

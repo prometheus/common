@@ -61,13 +61,36 @@ const (
 // labelSetToFingerprint works exactly as LabelsToSignature but takes a LabelSet as
 // parameter (rather than a label map) and returns a Fingerprint.
 func labelSetToFingerprint(ls LabelSet) Fingerprint {
-	return labelsToFingerprint(ls, nil)
+	return unsortedLabelsToFingerprint(ls, nil)
 }
 
 // labelsToFingerprint returns the fingerprint of the LabelSet made of the
-// labels of ls with the given names, which may repeat, be unsorted or be
-// absent from ls, or of all its labels when names is nil.
+// labels of ls with the given names, hashing them straight from ls when they
+// are sorted. Repeated and absent names are skipped.
 func labelsToFingerprint(ls LabelSet, names []LabelName) Fingerprint {
+	if len(ls) == 0 {
+		return Fingerprint(emptyLabelSignature)
+	}
+	sum := hashNew()
+	for i, labelName := range names {
+		if i > 0 && labelName <= names[i-1] {
+			if labelName == names[i-1] {
+				continue // Repeated name.
+			}
+			return unsortedLabelsToFingerprint(ls, names)
+		}
+		if labelValue, ok := ls[labelName]; ok {
+			sum = hashLabel(sum, labelName, labelValue)
+		}
+	}
+	return Fingerprint(sum)
+}
+
+// unsortedLabelsToFingerprint returns the fingerprint of the LabelSet made of
+// the labels of ls with the given unsorted names, or of all its labels when
+// names is nil, collecting the present ones in a stack buffer and sorting them
+// first.
+func unsortedLabelsToFingerprint(ls LabelSet, names []LabelName) Fingerprint {
 	if len(ls) == 0 {
 		return Fingerprint(emptyLabelSignature)
 	}
@@ -108,12 +131,16 @@ func labelsToFingerprint(ls LabelSet, names []LabelName) Fingerprint {
 		if i > 0 && labelName == labelNames[i-1] {
 			continue // Repeated name.
 		}
-		sum = hashAdd(sum, string(labelName))
-		sum = hashAddByte(sum, SeparatorByte)
-		sum = hashAdd(sum, string(ls[labelName]))
-		sum = hashAddByte(sum, SeparatorByte)
+		sum = hashLabel(sum, labelName, ls[labelName])
 	}
 	return Fingerprint(sum)
+}
+
+func hashLabel(sum uint64, name LabelName, value LabelValue) uint64 {
+	sum = hashAdd(sum, string(name))
+	sum = hashAddByte(sum, SeparatorByte)
+	sum = hashAdd(sum, string(value))
+	return hashAddByte(sum, SeparatorByte)
 }
 
 // labelSetToFastFingerprint works similar to labelSetToFingerprint but uses a
