@@ -110,6 +110,7 @@ func TestLabelSetFingerprintForLabels(t *testing.T) {
 		{desc: "unsorted subset", in: ls, names: []LabelName{"job", "alertname"}},
 		{desc: "absent names", in: ls, names: []LabelName{"missing", "job", "other"}},
 		{desc: "only absent names", in: ls, names: []LabelName{"missing"}},
+		{desc: "unsorted only absent names", in: ls, names: []LabelName{"other", "missing"}},
 		{desc: "sorted repeated names", in: ls, names: []LabelName{"instance", "instance", "job"}},
 		{desc: "repeated names", in: ls, names: []LabelName{"job", "job", "instance"}},
 		{desc: "repeated names past the small buffer", in: two, names: repeated([]LabelName{"job", "instance"}, fingerprintNamesSmallBuffer+1)},
@@ -120,6 +121,7 @@ func TestLabelSetFingerprintForLabels(t *testing.T) {
 		{desc: "sorted, repeated and absent names, more than the stack buffer", in: wide, names: sortedWideNames},
 		{desc: "unsorted, repeated and absent names, more than the stack buffer", in: wide, names: unsortedWideNames},
 		{desc: "empty label value", in: LabelSet{"job": "", "instance": "host-1:9090"}, names: []LabelName{"job", "missing"}},
+		{desc: "unsorted empty label value", in: LabelSet{"job": "", "instance": "host-1:9090"}, names: []LabelName{"missing", "job"}},
 	} {
 		t.Run(scenario.desc, func(t *testing.T) {
 			subset := LabelSet{}
@@ -360,6 +362,7 @@ func BenchmarkLabelSetFingerprintForLabels(b *testing.B) {
 		}
 		unsorted := slices.Clone(sorted)
 		slices.Reverse(unsorted)
+		lateUnsorted := append(slices.Clone(sorted[1:]), sorted[0])
 		b.Run(fmt.Sprintf("%d names sorted", n), func(b *testing.B) {
 			b.ReportAllocs()
 			for b.Loop() {
@@ -373,6 +376,12 @@ func BenchmarkLabelSetFingerprintForLabels(b *testing.B) {
 			b.ReportAllocs()
 			for b.Loop() {
 				ls.FingerprintForLabels(unsorted...)
+			}
+		})
+		b.Run(fmt.Sprintf("%d names unsorted late", n), func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				ls.FingerprintForLabels(lateUnsorted...)
 			}
 		})
 	}
