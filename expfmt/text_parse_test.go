@@ -15,6 +15,7 @@ package expfmt
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"strings"
 	"testing"
@@ -1338,6 +1339,12 @@ request_duration_microseconds_count 2693
 			in:      `{} 3.14`,
 			errUTF8: "text format parsing error in line 1: invalid metric name",
 		},
+		// 48: Check duplicate label that is neither the first label nor
+		// next to its duplicate.
+		{
+			in:      `metric{first="bla",label="bla",other="bla",label="bla"} 3.14`,
+			errUTF8: "text format parsing error in line 1: duplicate label names for metric",
+		},
 	}
 	for i, scenario := range scenarios {
 		_, err := parser.TextToMetricFamilies(strings.NewReader(scenario.in))
@@ -1374,6 +1381,25 @@ request_duration_microseconds_count 2693
 
 func TestTextParseError(t *testing.T) {
 	testTextParseError(t)
+}
+
+func BenchmarkTextParseManyLabels(b *testing.B) {
+	for _, n := range []int{1, 16, 40} {
+		var in strings.Builder
+		in.WriteString("metric{")
+		for i := range n {
+			fmt.Fprintf(&in, `label_%d="value",`, i)
+		}
+		in.WriteString("} 1\n")
+		b.Run(fmt.Sprintf("labels=%d", n), func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				if _, err := parser.TextToMetricFamilies(strings.NewReader(in.String())); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
 }
 
 func TestTextParseMissingMetricName(t *testing.T) {
