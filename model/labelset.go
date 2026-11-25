@@ -132,8 +132,11 @@ func (ls LabelSet) Fingerprint() Fingerprint {
 // labels of ls with the given names, without building it. Names absent from
 // ls are ignored, so the result equals the Fingerprint of that subset. The
 // names may be unsorted or repeated and, unlike with SignatureForLabels, are
-// not modified, so a shared slice can be passed concurrently. Sorted names
-// are hashed in place, without sorting them in a buffer first.
+// not modified, so a shared slice can be passed concurrently. Passing a sorted
+// slice achieves the best performance and is allocation free, and the fast path.
+// An unsorted slice pays a slight extra performance penalty to optimize the sorted
+// case and is supported onlly as a fallback to avoid a wrong result. It is recommended
+// to sort the slice first, to achieve the best performance.
 func (ls LabelSet) FingerprintForLabels(names ...LabelName) Fingerprint {
 	return labelsToFingerprint(ls, names)
 }
