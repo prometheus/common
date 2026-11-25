@@ -157,6 +157,53 @@ func TestEqualSamples(t *testing.T) {
 	}
 }
 
+func TestSampleUnmarshalJSONReuse(t *testing.T) {
+	for _, vector := range []bool{false, true} {
+		name := "sample"
+		var target any = &Sample{}
+		if vector {
+			name = "vector"
+			target = &Vector{}
+		}
+		t.Run(name, func(t *testing.T) {
+			for _, sample := range []Sample{
+				{Metric: Metric{"job": "test"}, Timestamp: 1000, Histogram: &SampleHistogram{Count: 1, Sum: 2}},
+				{Metric: Metric{"job": "test"}, Timestamp: 2000, Value: 3},
+				{Metric: Metric{"job": "test"}, Timestamp: 3000, Histogram: &SampleHistogram{Count: 4, Sum: 5}},
+				{Metric: Metric{"job": "test"}, Timestamp: 4000, Value: 6},
+			} {
+				var value any = sample
+				if vector {
+					value = Vector{&sample}
+				}
+				data, err := json.Marshal(value)
+				require.NoError(t, err)
+				require.NoError(t, json.Unmarshal(data, target))
+				got, err := json.Marshal(target)
+				require.NoError(t, err)
+				require.JSONEq(t, string(data), string(got))
+			}
+			before, err := json.Marshal(target)
+			require.NoError(t, err)
+			data := `{}`
+			if vector {
+				data = `[{}]`
+			}
+			require.NoError(t, json.Unmarshal([]byte(data), target))
+			after, err := json.Marshal(target)
+			require.NoError(t, err)
+			require.JSONEq(t, string(before), string(after))
+		})
+	}
+}
+
+func TestSampleUnmarshalJSONNullHistogram(t *testing.T) {
+	for _, data := range []string{`{"histogram":null}`, `{"histogram":[1,null]}`} {
+		var sample Sample
+		require.Error(t, json.Unmarshal([]byte(data), &sample))
+	}
+}
+
 func TestScalarJSON(t *testing.T) {
 	input := []struct {
 		plain string
