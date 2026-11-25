@@ -17,6 +17,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -34,6 +35,11 @@ func TestReservedHeaders(t *testing.T) {
 		if k != l {
 			t.Errorf("ReservedHeaders keys should be lowercase: got %q, expected %q", k, http.CanonicalHeaderKey(k))
 		}
+		t.Run(k, func(t *testing.T) {
+			var cfg HTTPClientConfig
+			err := json.Unmarshal(fmt.Appendf(nil, `{"http_headers":{%q:{"values":["value"]}}}`, k), &cfg)
+			require.EqualError(t, err, fmt.Sprintf("setting header %q is not allowed", k))
+		})
 	}
 }
 

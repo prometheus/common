@@ -59,6 +59,11 @@ func (h Headers) MarshalJSON() ([]byte, error) {
 	return json.Marshal(h.Headers)
 }
 
+// UnmarshalJSON implements json.Unmarshaler.
+func (h *Headers) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, &h.Headers)
+}
+
 // SetDirectory make headers file relative to the configuration file.
 func (h *Headers) SetDirectory(dir string) {
 	if h == nil {
