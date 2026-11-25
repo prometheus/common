@@ -54,11 +54,12 @@ func (e ParseError) Error() string {
 // TextParser is invalid.
 type TextParser struct {
 	metricFamiliesByName map[string]*dto.MetricFamily
-	buf                  *bufio.Reader // Where the parsed input is read through.
-	err                  error         // Most recent error.
-	lineCount            int           // Tracks the line count for error messages.
-	currentByte          byte          // The most recent byte read.
-	currentToken         bytes.Buffer  // Re-used each time a token has to be gathered from multiple bytes.
+	metricFamilies       []*dto.MetricFamily // Preserves input order for validation errors.
+	buf                  *bufio.Reader       // Where the parsed input is read through.
+	err                  error               // Most recent error.
+	lineCount            int                 // Tracks the line count for error messages.
+	currentByte          byte                // The most recent byte read.
+	currentToken         bytes.Buffer        // Re-used each time a token has to be gathered from multiple bytes.
 	currentMF            *dto.MetricFamily
 	currentMetric        *dto.Metric
 	currentLabelPair     *dto.LabelPair
@@ -134,6 +135,14 @@ func (p *TextParser) TextToMetricFamilies(in io.Reader) (map[string]*dto.MetricF
 	for _, histogramMetric := range p.histograms {
 		normalizeHistogram(histogramMetric.GetHistogram())
 	}
+	if p.err == nil {
+		for _, mf := range p.metricFamilies {
+			if err := checkDuplicateBucketsAndQuantiles(mf); err != nil {
+				p.err = err
+				break
+			}
+		}
+	}
 	return p.metricFamiliesByName, p.err
 }
 
@@ -171,6 +180,7 @@ func normalizeHistogram(histogram *dto.Histogram) {
 
 func (p *TextParser) reset(in io.Reader) {
 	p.metricFamiliesByName = map[string]*dto.MetricFamily{}
+	p.metricFamilies = nil
 	p.currentLabelPairs = nil
 	if p.buf == nil {
 		p.buf = bufio.NewReader(in)
@@ -941,6 +951,7 @@ func (p *TextParser) setOrCreateCurrentMF() {
 	}
 	p.currentMF = &dto.MetricFamily{Name: proto.String(name)}
 	p.metricFamiliesByName[name] = p.currentMF
+	p.metricFamilies = append(p.metricFamilies, p.currentMF)
 }
 
 func isValidLabelNameStart(b byte) bool {
