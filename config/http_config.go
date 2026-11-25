@@ -879,6 +879,7 @@ func (rt *authorizationCredentialsRoundTripper) RoundTrip(req *http.Request) (*h
 		var err error
 		authCredentials, err = rt.authCredentials.Fetch(req.Context())
 		if err != nil {
+			closeRequestBody(req)
 			return nil, fmt.Errorf("unable to read authorization credentials: %w", err)
 		}
 	}
@@ -917,6 +918,7 @@ func (rt *basicAuthRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 		var err error
 		username, err = rt.username.Fetch(req.Context())
 		if err != nil {
+			closeRequestBody(req)
 			return nil, fmt.Errorf("unable to read basic auth username: %w", err)
 		}
 	}
@@ -924,6 +926,7 @@ func (rt *basicAuthRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 		var err error
 		password, err = rt.password.Fetch(req.Context())
 		if err != nil {
+			closeRequestBody(req)
 			return nil, fmt.Errorf("unable to read basic auth password: %w", err)
 		}
 	}
@@ -1087,6 +1090,7 @@ func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 	// This should not happen when config goes through the normal Prometheus
 	// validation path, but guard against a nil credential to avoid a panic.
 	if rt.oauthCredential == nil {
+		closeRequestBody(req)
 		return nil, errors.New("oauth2 client secret is required")
 	}
 
@@ -1099,12 +1103,14 @@ func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 	if !rt.oauthCredential.Immutable() || needsInit {
 		newSecret, err := rt.oauthCredential.Fetch(req.Context())
 		if err != nil {
+			closeRequestBody(req)
 			return nil, fmt.Errorf("unable to read oauth2 client secret: %w", err)
 		}
 		if newSecret != secret || needsInit {
 			// Secret changed or it's a first run. Rebuilt oauth2 setup.
 			client, source, err := rt.newOauth2TokenSource(req, newSecret)
 			if err != nil {
+				closeRequestBody(req)
 				return nil, err
 			}
 
@@ -1231,6 +1237,13 @@ func isDomainOrSubdomain(sub, parent string) bool {
 		return false
 	}
 	return sub[len(sub)-len(parent)-1] == '.'
+}
+
+// closeRequestBody is used when a RoundTripper returns before delegating the request.
+func closeRequestBody(req *http.Request) {
+	if req.Body != nil {
+		_ = req.Body.Close()
+	}
 }
 
 // cloneRequest returns a clone of the provided *http.Request.
@@ -1579,6 +1592,7 @@ func (t *tlsRoundTripper) getTLSDataWithHash(ctx context.Context) ([]byte, []byt
 func (t *tlsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	caData, caHash, certHash, keyHash, err := t.getTLSDataWithHash(req.Context())
 	if err != nil {
+		closeRequestBody(req)
 		return nil, err
 	}
 
@@ -1598,10 +1612,12 @@ func (t *tlsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	// using GetClientCertificate.
 	tlsConfig := t.tlsConfig.Clone()
 	if t.settings.CA != nil && !updateRootCA(tlsConfig, caData) {
+		closeRequestBody(req)
 		return nil, fmt.Errorf("unable to use specified CA cert %s", t.settings.CA.Description())
 	}
 	rt, err = t.newRT(tlsConfig)
 	if err != nil {
+		closeRequestBody(req)
 		return nil, err
 	}
 	t.CloseIdleConnections()
