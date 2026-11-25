@@ -718,6 +718,7 @@ some_measure_total{labelname="val2",basename="basevalue"} 0.23 1.23456789e+06
 		},
 		// 17: Gauge histogram.
 		{
+			options: []EncoderOption{WithCreatedLines()},
 			in: &dto.MetricFamily{
 				Name: proto.String("name"),
 				Help: proto.String("doc string"),
@@ -725,8 +726,9 @@ some_measure_total{labelname="val2",basename="basevalue"} 0.23 1.23456789e+06
 				Metric: []*dto.Metric{
 					{
 						Histogram: &dto.Histogram{
-							SampleCount: proto.Uint64(2693),
-							SampleSum:   proto.Float64(1756047.3),
+							SampleCount:      proto.Uint64(2693),
+							SampleSum:        proto.Float64(1756047.3),
+							CreatedTimestamp: openMetricsTimestamp,
 							Bucket: []*dto.Bucket{
 								{
 									UpperBound:      proto.Float64(100),
@@ -756,8 +758,8 @@ name_bucket{le="120.0"} 412
 name_bucket{le="144.0"} 592
 name_bucket{le="172.8"} 1524
 name_bucket{le="+Inf"} 2693
-name_sum 1.7560473e+06
-name_count 2693
+name_gsum 1.7560473e+06
+name_gcount 2693
 `,
 		},
 		// 18: Colons are valid in legacy metric names but not in legacy label names.

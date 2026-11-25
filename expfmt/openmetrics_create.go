@@ -309,6 +309,10 @@ func MetricFamilyToOpenMetrics(out io.Writer, in *dto.MetricFamily, options ...E
 					"expected histogram in metric %s %s", compliantName, metric,
 				)
 			}
+			sumSuffix, countSuffix := "_sum", "_count"
+			if metricType == dto.MetricType_GAUGE_HISTOGRAM {
+				sumSuffix, countSuffix = "_gsum", "_gcount"
+			}
 			infSeen := false
 			for _, b := range metric.Histogram.Bucket {
 				if b.GetCumulativeCountFloat() > 0 {
@@ -347,7 +351,7 @@ func MetricFamilyToOpenMetrics(out io.Writer, in *dto.MetricFamily, options ...E
 				}
 			}
 			n, err = writeOpenMetricsSample(
-				w, compliantName, "_sum", metric, "", 0,
+				w, compliantName, sumSuffix, metric, "", 0,
 				metric.Histogram.GetSampleSum(), 0, false,
 				nil,
 			)
@@ -362,11 +366,11 @@ func MetricFamilyToOpenMetrics(out io.Writer, in *dto.MetricFamily, options ...E
 				)
 			}
 			n, err = writeOpenMetricsSample(
-				w, compliantName, "_count", metric, "", 0,
+				w, compliantName, countSuffix, metric, "", 0,
 				0, metric.Histogram.GetSampleCount(), true,
 				nil,
 			)
-			if toOM.withCreatedLines && metric.Histogram.CreatedTimestamp != nil {
+			if metricType == dto.MetricType_HISTOGRAM && toOM.withCreatedLines && metric.Histogram.CreatedTimestamp != nil {
 				createdTsBytesWritten, err = writeOpenMetricsCreated(w, compliantName, "", metric, "", 0, metric.Histogram.GetCreatedTimestamp())
 				n += createdTsBytesWritten
 			}
