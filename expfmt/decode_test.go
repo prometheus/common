@@ -24,6 +24,7 @@ import (
 	"os"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -592,6 +593,73 @@ func TestExtractSamples(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("unexpected samples extracted, got: %v, want: %v", got, want)
+	}
+}
+
+func TestExtractSamplesTimestamps(t *testing.T) {
+	for _, metricType := range []dto.MetricType{
+		dto.MetricType_COUNTER,
+		dto.MetricType_GAUGE,
+		dto.MetricType_UNTYPED,
+		dto.MetricType_SUMMARY,
+		dto.MetricType_HISTOGRAM,
+		dto.MetricType_GAUGE_HISTOGRAM,
+	} {
+		t.Run(metricType.String(), func(t *testing.T) {
+			metric := &dto.Metric{}
+			wantSamples := 1
+			switch metricType {
+			case dto.MetricType_COUNTER:
+				metric.Counter = &dto.Counter{Value: proto.Float64(1)}
+			case dto.MetricType_GAUGE:
+				metric.Gauge = &dto.Gauge{Value: proto.Float64(1)}
+			case dto.MetricType_UNTYPED:
+				metric.Untyped = &dto.Untyped{Value: proto.Float64(1)}
+			case dto.MetricType_SUMMARY:
+				metric.Summary = &dto.Summary{
+					SampleCount: proto.Uint64(1),
+					SampleSum:   proto.Float64(1),
+					Quantile:    []*dto.Quantile{{Quantile: proto.Float64(0.5), Value: proto.Float64(1)}},
+				}
+				wantSamples = 3
+			case dto.MetricType_HISTOGRAM, dto.MetricType_GAUGE_HISTOGRAM:
+				metric.Histogram = &dto.Histogram{
+					SampleCount: proto.Uint64(1),
+					SampleSum:   proto.Float64(1),
+					Bucket:      []*dto.Bucket{{UpperBound: proto.Float64(1), CumulativeCount: proto.Uint64(1)}},
+				}
+				wantSamples = 4
+			}
+			family := &dto.MetricFamily{
+				Name:   proto.String("sample"),
+				Type:   metricType.Enum(),
+				Metric: []*dto.Metric{metric},
+			}
+			for _, timestamp := range []*int64{
+				nil,
+				proto.Int64(0),
+				proto.Int64(-1),
+				proto.Int64(1700000000123),
+				proto.Int64(math.MaxInt64/1000000 + 1),
+				proto.Int64(math.MinInt64/1000000 - 1),
+				proto.Int64(math.MaxInt64),
+				proto.Int64(math.MinInt64),
+			} {
+				metric.TimestampMs = timestamp
+				wantTimestamp := model.Time(42)
+				if timestamp != nil {
+					wantTimestamp = model.Time(*timestamp)
+				}
+				t.Run(strconv.FormatInt(int64(wantTimestamp), 10), func(t *testing.T) {
+					samples, err := ExtractSamples(&DecodeOptions{Timestamp: 42}, family)
+					require.NoError(t, err)
+					require.Len(t, samples, wantSamples)
+					for _, sample := range samples {
+						require.Equalf(t, wantTimestamp, sample.Timestamp, "metric %s", sample.Metric)
+					}
+				})
+			}
+		})
 	}
 }
 
