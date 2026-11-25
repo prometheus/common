@@ -51,7 +51,8 @@ func FloatToTime(v float64) (*time.Time, error) {
 		return nil, errNaNOrInf
 	}
 	timestamp := v * 1e9
-	if timestamp > math.MaxInt64 || timestamp < math.MinInt64 {
+	// math.MaxInt64 rounds up to 2^63 in float64, so >= 2^63 overflows int64.
+	if timestamp >= math.Exp2(63) || timestamp < math.MinInt64 {
 		return nil, fmt.Errorf("%v cannot be represented as a nanoseconds timestamp since it overflows int64", v)
 	}
 	t := model.TimeFromUnixNano(int64(timestamp)).Time().UTC()
