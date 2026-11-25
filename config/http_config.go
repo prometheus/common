@@ -1110,7 +1110,8 @@ func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 
 			rt.mtx.Lock()
 			rt.lastSecret = newSecret
-			rt.lastRT.Source = source
+			// Keep the transport used by in-flight requests immutable.
+			rt.lastRT = &oauth2.Transport{Source: source, Base: rt.lastRT.Base}
 			if rt.client != nil {
 				rt.client.CloseIdleConnections()
 			}
@@ -1126,10 +1127,13 @@ func (rt *oauth2RoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 }
 
 func (rt *oauth2RoundTripper) CloseIdleConnections() {
-	if rt.client != nil {
-		rt.client.CloseIdleConnections()
+	rt.mtx.RLock()
+	client, base := rt.client, rt.lastRT.Base
+	rt.mtx.RUnlock()
+	if client != nil {
+		client.CloseIdleConnections()
 	}
-	if ci, ok := rt.lastRT.Base.(closeIdler); ok {
+	if ci, ok := base.(closeIdler); ok {
 		ci.CloseIdleConnections()
 	}
 }
