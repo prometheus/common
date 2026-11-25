@@ -133,6 +133,68 @@ func (tv *TLSVersion) String() string {
 	return fmt.Sprintf("%d", *tv)
 }
 
+// TLSCipherSuite is a TLS 1.0–1.2 cipher suite, configured by its IANA name,
+// e.g. TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256.
+type TLSCipherSuite uint16
+
+// lookupTLSCipherSuite returns the cipher suite with the given name. Suites
+// that Go considers insecure are accepted too, so that targets which only
+// support them, such as appliances limited to RSA key exchange, can still be
+// reached when they are listed explicitly.
+func lookupTLSCipherSuite(name string) (TLSCipherSuite, error) {
+	for _, suites := range [][]*tls.CipherSuite{tls.CipherSuites(), tls.InsecureCipherSuites()} {
+		for _, cs := range suites {
+			if cs.Name == name {
+				return TLSCipherSuite(cs.ID), nil
+			}
+		}
+	}
+	return 0, fmt.Errorf("unknown TLS cipher suite: %s", name)
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface for TLSCipherSuite.
+func (c *TLSCipherSuite) UnmarshalYAML(unmarshal func(any) error) error {
+	var s string
+	if err := unmarshal(&s); err != nil {
+		return err
+	}
+	cs, err := lookupTLSCipherSuite(s)
+	if err != nil {
+		return err
+	}
+	*c = cs
+	return nil
+}
+
+// MarshalYAML implements the yaml.Marshaler interface for TLSCipherSuite.
+func (c TLSCipherSuite) MarshalYAML() (any, error) {
+	return tls.CipherSuiteName(uint16(c)), nil
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface for TLSCipherSuite.
+func (c *TLSCipherSuite) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	cs, err := lookupTLSCipherSuite(s)
+	if err != nil {
+		return err
+	}
+	*c = cs
+	return nil
+}
+
+// MarshalJSON implements the json.Marshaler interface for TLSCipherSuite.
+func (c TLSCipherSuite) MarshalJSON() ([]byte, error) {
+	return json.Marshal(tls.CipherSuiteName(uint16(c)))
+}
+
+// String implements the fmt.Stringer interface for TLSCipherSuite.
+func (c TLSCipherSuite) String() string {
+	return tls.CipherSuiteName(uint16(c))
+}
+
 // BasicAuth contains basic HTTP authentication credentials.
 type BasicAuth struct {
 	Username     string `yaml:"username,omitempty" json:"username,omitempty"`
@@ -1286,6 +1348,13 @@ func NewTLSConfigWithContext(ctx context.Context, cfg *TLSConfig, optFuncs ...TL
 		}
 	}
 
+	if len(cfg.CipherSuites) > 0 {
+		tlsConfig.CipherSuites = make([]uint16, len(cfg.CipherSuites))
+		for i, cs := range cfg.CipherSuites {
+			tlsConfig.CipherSuites[i] = uint16(cs)
+		}
+	}
+
 	// If a CA cert is provided then let's read it in so we can validate the
 	// scrape target's certificate properly.
 	caSecret, err := toSecret(opts.secretManager, Secret(cfg.CA), cfg.CAFile, cfg.CARef)
@@ -1355,6 +1424,9 @@ type TLSConfig struct {
 	MinVersion TLSVersion `yaml:"min_version,omitempty" json:"min_version,omitempty"`
 	// Maximum TLS version.
 	MaxVersion TLSVersion `yaml:"max_version,omitempty" json:"max_version,omitempty"`
+	// TLS 1.0–1.2 cipher suites to offer. If empty, Go's default list is used.
+	// TLS 1.3 cipher suites are not configurable.
+	CipherSuites []TLSCipherSuite `yaml:"cipher_suites,omitempty" json:"cipher_suites,omitempty"`
 }
 
 // SetDirectory joins any relative file paths with dir.
