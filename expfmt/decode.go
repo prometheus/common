@@ -39,7 +39,9 @@ type DecodeOptions struct {
 }
 
 // ResponseFormat extracts the correct format from a HTTP response header.
-// If no matching format can be found FormatUnknown is returned.
+// If no matching format can be found FormatUnknown is returned. An escaping
+// parameter in the Content-Type is kept in the returned Format for protobuf,
+// text 1.0.0 and OpenMetrics 1.0.0 and later.
 func ResponseFormat(h http.Header) Format {
 	ct := h.Get(hdrContentType)
 
@@ -58,14 +60,11 @@ func ResponseFormat(h http.Header) Format {
 		if e, ok := params["encoding"]; ok && e != "delimited" {
 			return FmtUnknown
 		}
-		return FmtProtoDelim
+		return withEscapingParam(FmtProtoDelim, params)
 
 	case textType:
 		if params["version"] == TextVersion_1_0_0 {
-			if _, ok := params[model.EscapingKey]; ok {
-				return FmtText_1_0_0.WithEscapingScheme(Format(ct).ToEscapingScheme())
-			}
-			return FmtText_1_0_0
+			return withEscapingParam(FmtText_1_0_0, params)
 		}
 		if v, ok := params["version"]; ok && v != TextVersion {
 			return FmtUnknown
@@ -77,17 +76,32 @@ func ResponseFormat(h http.Header) Format {
 		case "", OpenMetricsVersion_0_0_1:
 			return FmtOpenMetrics_0_0_1
 		case OpenMetricsVersion_1_0_0:
-			return FmtOpenMetrics_1_0_0
+			return withEscapingParam(FmtOpenMetrics_1_0_0, params)
 		case OpenMetricsVersion_2_0_0_rc:
-			return FmtOpenMetrics_2_0_0_rc
+			return withEscapingParam(FmtOpenMetrics_2_0_0_rc, params)
 		case OpenMetricsVersion_2_0_0:
-			return FmtOpenMetrics_2_0_0
+			return withEscapingParam(FmtOpenMetrics_2_0_0, params)
 		default:
 			return FmtUnknown
 		}
 	}
 
 	return FmtUnknown
+}
+
+// withEscapingParam adds the escaping scheme from the Content-Type parameters
+// to f, so that NewDecoder validates names the way the response was encoded.
+// Without an escaping parameter, f is returned unchanged.
+func withEscapingParam(f Format, params map[string]string) Format {
+	value, ok := params[model.EscapingKey]
+	if !ok {
+		return f
+	}
+	scheme, err := model.ToEscapingScheme(value)
+	if err != nil {
+		scheme = model.NameEscapingScheme
+	}
+	return f.WithEscapingScheme(scheme)
 }
 
 // NewDecoder returns a new decoder based on the given input format. Metric
