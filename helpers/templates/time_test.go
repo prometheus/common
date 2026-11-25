@@ -120,4 +120,33 @@ func TestHumanizeTimestamp(t *testing.T) {
 func TestHumanizeTimestampError(t *testing.T) {
 	_, err := HumanizeTimestamp(int64(math.MaxInt64))
 	require.Error(t, err)
+
+	// math.Exp2(63)/1e9 multiplies to float64(math.MaxInt64) == 2^63, which
+	// overflows int64 and must return an error rather than wrapping to 1677.
+	_, err = HumanizeTimestamp(math.Exp2(63) / 1e9)
+	require.Error(t, err)
+}
+
+func TestFloatToTimeInt64Boundary(t *testing.T) {
+	maxOverflow := math.Exp2(63) / 1e9
+	tm, err := FloatToTime(maxOverflow)
+	require.Error(t, err)
+	require.Nil(t, tm)
+
+	maxValid := math.Nextafter(maxOverflow, 0)
+	tm, err = FloatToTime(maxValid)
+	require.NoError(t, err)
+	require.NotNil(t, tm)
+	require.Equal(t, 2262, tm.Year())
+
+	minValid := -math.Exp2(63) / 1e9
+	tm, err = FloatToTime(minValid)
+	require.NoError(t, err)
+	require.NotNil(t, tm)
+	require.Equal(t, 1677, tm.Year())
+
+	minOverflow := math.Nextafter(minValid, math.Inf(-1))
+	tm, err = FloatToTime(minOverflow)
+	require.Error(t, err)
+	require.Nil(t, tm)
 }
