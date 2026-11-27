@@ -52,3 +52,19 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
       - run: make test
+
+  test-nojsonv2:
+    name: Test (GOEXPERIMENT=nojsonv2)
+    runs-on: ubuntu-latest
+    env:
+      # Go 1.27 enables the json/v2 experiment by default; make sure the
+      # module still builds and passes its tests when it is turned off.
+      GOEXPERIMENT: nojsonv2
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: 1.27.x
+      - run: make test
